@@ -1,0 +1,211 @@
+---
+title: "Design a Movie Ticket Booking System (BookMyShow)"
+slug: "design-movie-ticket-booking"
+category: "lld"
+tags: ["oop", "concurrency", "design-patterns", "booking"]
+difficulty: "senior"
+readingTime: 14
+publishedAt: "2026-04-13"
+author: "Aman Kumar Keshu"
+excerpt: "BookMyShow is a classic LLD with a concurrency twist — two users trying to book the same seat simultaneously. The design must handle seat locking, booking expiry, and payment atomically."
+isPremium: true
+---
+
+Movie Ticket Booking is asked at Atlassian, Flipkart, and Amazon. The OOP part is straightforward — the real complexity is the **concurrent seat reservation** problem.
+
+## 1. Clarify requirements
+
+- Search movies by city, theatre, date, language?
+- Seat selection: assigned or open seating?
+- Multiple seat categories (Gold, Silver, Platinum)?
+- Seat hold / timeout before payment?
+- Payment integration?
+- Cancellation and refunds?
+
+Agreed scope:
+
+> Search by movie + city + date. Assigned seating with categories. 10-minute seat hold during payment. Cancellation allowed up to 1 hour before showtime.
+
+## 2. Core entities
+
+```
+Movie
+ ├─ id, title, genre, language, duration
+
+Theatre
+ ├─ id, name, city
+ └─ List<Screen>
+
+Screen
+ ├─ id, name
+ └─ List<Seat>
+
+Seat
+ ├─ row, col
+ ├─ category: SeatCategory  (SILVER | GOLD | PLATINUM)
+ └─ seatNumber: String
+
+Show
+ ├─ id
+ ├─ movie: Movie
+ ├─ screen: Screen
+ ├─ startTime: LocalDateTime
+ └─ seatMap: Map<String, ShowSeat>
+
+ShowSeat
+ ├─ seat: Seat
+ ├─ status: SeatStatus     (AVAILABLE | HELD | BOOKED)
+ ├─ price: BigDecimal
+ └─ heldByUser: String (nullable)
+
+Booking
+ ├─ id
+ ├─ user: User
+ ├─ show: Show
+ ├─ seats: List<ShowSeat>
+ ├─ status: BookingStatus  (PENDING | CONFIRMED | CANCELLED)
+ └─ totalAmount: BigDecimal
+```
+
+## 3. The concurrency problem — seat locking
+
+Two users select the same seat at the same time. You must guarantee only one gets it.
+
+```java
+public class ShowSeat {
+  private SeatStatus status = SeatStatus.AVAILABLE;
+  private String heldByUser;
+  private Instant heldUntil;
+
+  public synchronized boolean hold(String userId, Duration holdDuration) {
+    if (status != SeatStatus.AVAILABLE) {
+      // Release expired holds
+      if (status == SeatStatus.HELD && Instant.now().isAfter(heldUntil)) {
+        release();
+      } else {
+        return false;
+      }
+    }
+    status = SeatStatus.HELD;
+    heldByUser = userId;
+    heldUntil = Instant.now().plus(holdDuration);
+    return true;
+  }
+
+  public synchronized boolean confirm(String userId) {
+    if (status != SeatStatus.HELD || !heldByUser.equals(userId)) return false;
+    status = SeatStatus.BOOKED;
+    return true;
+  }
+
+  public synchronized void release() {
+    status = SeatStatus.AVAILABLE;
+    heldByUser = null;
+    heldUntil = null;
+  }
+}
+```
+
+The `synchronized` block ensures only one thread can hold a seat at a time.
+
+For distributed systems: replace `synchronized` with a Redis `SETNX` on `seat:{showId}:{seatId}` with TTL = hold duration.
+
+## 4. Booking service
+
+```java
+public class BookingService {
+  private final ShowRepository showRepo;
+  private final BookingRepository bookingRepo;
+  private final PaymentService paymentService;
+  private static final Duration HOLD_DURATION = Duration.ofMinutes(10);
+
+  public Booking initiate(User user, String showId, List<String> seatNumbers) {
+    Show show = showRepo.findById(showId).orElseThrow();
+
+    List<ShowSeat> seats = seatNumbers.stream()
+        .map(n -> show.getSeat(n).orElseThrow(() -> new SeatNotFoundException(n)))
+        .toList();
+
+    // Hold all seats atomically — if any fails, release all
+    List<ShowSeat> held = new ArrayList<>();
+    for (ShowSeat seat : seats) {
+      if (!seat.hold(user.getId(), HOLD_DURATION)) {
+        held.forEach(ShowSeat::release);
+        throw new SeatNotAvailableException(seat.getSeat().getSeatNumber());
+      }
+      held.add(seat);
+    }
+
+    BigDecimal total = seats.stream().map(ShowSeat::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+    Booking booking = new Booking(UUID.randomUUID().toString(), user, show, seats,
+        BookingStatus.PENDING, total);
+    bookingRepo.save(booking);
+    return booking;
+  }
+
+  public Booking confirm(String bookingId, PaymentDetails payment) {
+    Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+    if (booking.getStatus() != BookingStatus.PENDING) throw new InvalidBookingStateException();
+
+    PaymentResult result = paymentService.charge(payment, booking.getTotalAmount());
+    if (!result.isSuccess()) throw new PaymentFailedException(result.getReason());
+
+    booking.getSeats().forEach(s -> s.confirm(booking.getUser().getId()));
+    booking.setStatus(BookingStatus.CONFIRMED);
+    bookingRepo.save(booking);
+    return booking;
+  }
+}
+```
+
+## 5. Cancellation policy
+
+```java
+public class CancellationService {
+  public void cancel(String bookingId, User user) {
+    Booking booking = bookingRepo.findById(bookingId).orElseThrow();
+    Show show = booking.getShow();
+
+    if (LocalDateTime.now().isAfter(show.getStartTime().minusHours(1)))
+      throw new CancellationNotAllowedException("Less than 1 hour to showtime");
+
+    booking.getSeats().forEach(ShowSeat::release);
+    booking.setStatus(BookingStatus.CANCELLED);
+    bookingRepo.save(booking);
+    paymentService.refund(booking.getPaymentId(), booking.getTotalAmount());
+  }
+}
+```
+
+## 6. Search
+
+```java
+public class SearchService {
+  public List<Show> search(String movieTitle, String city, LocalDate date) {
+    return showRepo.findByMovieTitleAndCityAndDate(movieTitle, city, date)
+        .stream()
+        .filter(s -> s.hasAvailableSeats())
+        .sorted(Comparator.comparing(Show::getStartTime))
+        .toList();
+  }
+}
+```
+
+## 7. SOLID
+
+- **SRP:** `BookingService` handles booking flow; `CancellationService` handles cancellation; `SearchService` handles discovery.
+- **OCP:** New cancellation policy = new `CancellationPolicy` strategy. No service change.
+- **DIP:** Services depend on `PaymentService` interface, not a specific gateway.
+
+## 8. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Seat map UI | Expose `show.getSeatMap()` as a 2D grid with status per seat. |
+| Group bookings | Transactional hold on a set of contiguous seats. |
+| Loyalty points | Observer on `BookingConfirmed` event updates loyalty balance. |
+| Dynamic pricing | `PricingStrategy` that increases price as occupancy rises. |
+
+## 9. The 30-second summary
+
+> The hard part is holding seats atomically — `synchronized hold()` per `ShowSeat` prevents double-booking. If any seat in a batch fails to hold, release all already-held seats (all-or-nothing). Payment confirmation converts holds to bookings. For scale: replace `synchronized` with Redis TTL locks.

@@ -1,0 +1,185 @@
+---
+title: "Design a Rate Limiter"
+slug: "design-rate-limiter"
+category: "lld"
+tags: ["oop", "algorithms", "concurrency", "design-patterns"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-04-23"
+author: "Aman Kumar Keshu"
+excerpt: "Rate Limiter is both an LLD and system design question. The LLD asks you to implement multiple algorithms (Token Bucket, Sliding Window) behind a clean interface and make them thread-safe."
+isPremium: true
+---
+
+Rate Limiter is asked at every FAANG company. The interviewer expects you to know at least two algorithms, implement one cleanly, and design the class hierarchy to swap between them.
+
+## 1. Clarify requirements
+
+- Per-user, per-IP, or per-API-key limiting?
+- Algorithm preference: Token Bucket, Fixed Window, Sliding Window, Leaky Bucket?
+- Hard limit (reject) or soft limit (queue)?
+- Distributed (multiple instances) or single-process?
+- Different limits per endpoint?
+
+Agreed scope:
+
+> Per-user limiting. Token Bucket (smooth bursts) and Sliding Window Counter (strict). Both implementations behind a common interface. Thread-safe. Single-process.
+
+## 2. Core interface
+
+```java
+public interface RateLimiter {
+  boolean allowRequest(String userId);
+  RateLimitStatus status(String userId);
+}
+
+public record RateLimitStatus(int remaining, long resetAfterMs) {}
+```
+
+## 3. Token Bucket
+
+```java
+public class TokenBucketRateLimiter implements RateLimiter {
+  private final int maxTokens;
+  private final double refillRatePerMs;  // tokens per millisecond
+  private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+  public TokenBucketRateLimiter(int maxTokens, int refillRatePerSecond) {
+    this.maxTokens = maxTokens;
+    this.refillRatePerMs = refillRatePerSecond / 1000.0;
+  }
+
+  @Override
+  public synchronized boolean allowRequest(String userId) {
+    Bucket bucket = buckets.computeIfAbsent(userId, k -> new Bucket(maxTokens, System.currentTimeMillis()));
+    return bucket.tryConsume();
+  }
+
+  private class Bucket {
+    double tokens;
+    long lastRefillTime;
+
+    Bucket(int initialTokens, long now) { tokens = initialTokens; lastRefillTime = now; }
+
+    synchronized boolean tryConsume() {
+      long now = System.currentTimeMillis();
+      double elapsed = now - lastRefillTime;
+      tokens = Math.min(maxTokens, tokens + elapsed * refillRatePerMs);
+      lastRefillTime = now;
+
+      if (tokens >= 1) { tokens--; return true; }
+      return false;
+    }
+  }
+}
+```
+
+Token Bucket allows bursts up to `maxTokens` and smooths out traffic at `refillRate`. Good for APIs where occasional bursts are acceptable.
+
+## 4. Sliding Window Counter
+
+```java
+public class SlidingWindowRateLimiter implements RateLimiter {
+  private final int maxRequests;
+  private final long windowMs;
+  private final ConcurrentHashMap<String, Deque<Long>> windows = new ConcurrentHashMap<>();
+
+  public SlidingWindowRateLimiter(int maxRequests, long windowMs) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+  }
+
+  @Override
+  public boolean allowRequest(String userId) {
+    long now = System.currentTimeMillis();
+    long windowStart = now - windowMs;
+
+    Deque<Long> timestamps = windows.computeIfAbsent(userId, k -> new ArrayDeque<>());
+
+    synchronized (timestamps) {
+      // Evict timestamps outside the window
+      while (!timestamps.isEmpty() && timestamps.peekFirst() <= windowStart) {
+        timestamps.pollFirst();
+      }
+
+      if (timestamps.size() >= maxRequests) return false;
+
+      timestamps.addLast(now);
+      return true;
+    }
+  }
+
+  @Override
+  public RateLimitStatus status(String userId) {
+    long now = System.currentTimeMillis();
+    Deque<Long> timestamps = windows.getOrDefault(userId, new ArrayDeque<>());
+    synchronized (timestamps) {
+      int remaining = Math.max(0, maxRequests - timestamps.size());
+      long oldestTs = timestamps.isEmpty() ? now : timestamps.peekFirst();
+      long resetAfter = timestamps.isEmpty() ? 0 : (oldestTs + windowMs) - now;
+      return new RateLimitStatus(remaining, Math.max(0, resetAfter));
+    }
+  }
+}
+```
+
+Sliding Window is strict — no burst allowance. Each request timestamp is tracked individually. Memory cost: O(maxRequests) per user.
+
+## 5. Factory / configuration
+
+```java
+public class RateLimiterFactory {
+  public static RateLimiter create(RateLimiterConfig config) {
+    return switch (config.getAlgorithm()) {
+      case TOKEN_BUCKET -> new TokenBucketRateLimiter(config.getBurstCapacity(), config.getRefillRate());
+      case SLIDING_WINDOW -> new SlidingWindowRateLimiter(config.getMaxRequests(), config.getWindowMs());
+      case FIXED_WINDOW -> new FixedWindowRateLimiter(config.getMaxRequests(), config.getWindowMs());
+    };
+  }
+}
+```
+
+## 6. Per-endpoint limits
+
+```java
+public class EndpointRateLimiter {
+  private final Map<String, RateLimiter> endpointLimiters;
+  private final RateLimiter globalLimiter;
+
+  public boolean allowRequest(String userId, String endpoint) {
+    // Check global first, then per-endpoint
+    if (!globalLimiter.allowRequest(userId)) return false;
+    RateLimiter endpointLimiter = endpointLimiters.get(endpoint);
+    return endpointLimiter == null || endpointLimiter.allowRequest(userId);
+  }
+}
+```
+
+## 7. Algorithms comparison
+
+| Algorithm | Burst handling | Memory | Precision | Best for |
+|---|---|---|---|---|
+| Token Bucket | ✅ Allows bursts | O(1) per user | Approximate | APIs, downloads |
+| Fixed Window | ❌ Edge spikes | O(1) per user | Low | Simple counters |
+| Sliding Window | ❌ No burst | O(n) per user | High | Strict SLAs |
+| Leaky Bucket | ❌ Queues excess | O(1) per user | High | Smooth output rate |
+
+## 8. Distributed rate limiting
+
+Single-process: `synchronized` or `ReentrantLock` per bucket.
+
+Distributed: use Redis atomic operations:
+- Token Bucket: `INCR` + TTL on a counter key
+- Sliding Window: `ZADD` timestamp → `ZREMRANGEBYSCORE` old entries → `ZCARD`
+
+Lua scripts in Redis ensure atomic check-and-increment without race conditions.
+
+## 9. SOLID
+
+- **OCP:** New algorithm = new class implementing `RateLimiter`. Factory routes to it.
+- **DIP:** Callers depend on `RateLimiter` interface, not concrete implementations.
+- **SRP:** Each algorithm class owns its own counting logic.
+
+## 10. The 30-second summary
+
+> Define `RateLimiter` interface with `allowRequest`. Implement Token Bucket (smooth bursts) and Sliding Window (strict). Token Bucket: refill tokens proportional to elapsed time, consume one per request. Sliding Window: track per-request timestamps, evict expired ones, count remaining. For distributed: Redis + Lua scripts for atomic operations.

@@ -1,0 +1,474 @@
+---
+title: "Design a Distributed Rate Limiter (token bucket, sliding window, and the Redis tricks)"
+slug: "design-rate-limiter"
+category: "system-design"
+tags: ["rate-limiting", "redis", "algorithms", "api-gateway"]
+difficulty: "senior"
+readingTime: 20
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Token bucket vs sliding window vs leaky bucket \u2014 with the actual Redis Lua scripts, the distributed-coordination problem, and the trade-offs interviewers actually probe."
+---
+
+"Design a rate limiter" is one of the most-asked system design questions because it's deceptively layered: there's an algorithm question (which counter?), a systems question (where do you store the state?), and a distributed-systems question (how do you make it consistent across regions?). Strong candidates handle all three.
+
+This is the post I wish I'd had before my first Atlassian loop, where rate limiting came up *twice*.
+
+## 1. Clarify before you draw
+
+Don't reach for "Redis + token bucket." Ask:
+
+- **Scope:** per-user? per-IP? per-API-key? per-endpoint? combinations?
+- **Behavior on limit hit:** reject with 429, queue and delay, or shed load?
+- **Burstable?** allow short bursts above the steady rate?
+- **Granularity:** 100 req/sec, 1000 req/min, or both?
+- **Where does it run:** API gateway (centralized) or per-service?
+- **Latency budget:** how many ms can the limiter add to a request? (Usually &lt;5 ms.)
+
+For this post we commit to:
+
+> Per-(user, endpoint) limits. Burstable. Reject with 429 + Retry-After. Runs at the API gateway. &lt;2 ms p99 added latency. ~100K req/sec global.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. `is_allowed(user, endpoint) → (allowed, retry_after)`
+2. Configurable rules: `(endpoint, scope, limit, window)`.
+3. Headers in response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.
+
+**Non-functional:**
+1. **Low latency** — single-digit ms.
+2. **Highly available** — limiter outage must not break the whole API. Fail-open vs fail-closed is a deliberate choice.
+3. **Accurate enough** — small over/under-counts at boundaries are OK.
+4. **Horizontally scalable** — handle 100K+ req/sec.
+
+## 3. The four algorithms — pick the right one
+
+### A. Fixed window counter
+
+Bucket time into windows (e.g. each minute). Increment a counter per `(user, window)`.
+
+```
+current_window = floor(now / 60)
+key = "rate:user:42:" + current_window
+count = INCR key
+EXPIRE key 60
+if count > LIMIT: deny
+```
+
+- **Pros:** trivial. O(1) memory per user.
+- **Cons:** *boundary problem* — a user can do `LIMIT` requests at 0:59 and another `LIMIT` at 1:00 → 2× the intended rate over a 2-second window.
+- **Verdict:** use for **soft** limits (per-day quotas), never for **burst protection**.
+
+### B. Sliding window log
+
+Store the timestamp of every request. On each new request, drop timestamps outside the window, count the rest.
+
+```
+ZADD requests:user:42 now now
+ZREMRANGEBYSCORE requests:user:42 0 (now - 60)
+count = ZCARD requests:user:42
+if count > LIMIT: deny
+```
+
+- **Pros:** perfectly accurate.
+- **Cons:** O(N) memory per user (N = limit size). Bad for high limits or many users.
+- **Verdict:** only use when you must be *exactly* accurate (e.g. legal/billing limits).
+
+### C. Sliding window counter (the practical sweet spot)
+
+Approximate the true sliding window using two adjacent fixed windows:
+
+```
+current_window = floor(now / 60)
+prev_window    = current_window - 1
+elapsed_in_current = (now mod 60) / 60     # fraction 0..1
+estimated_count = prev_count * (1 - elapsed_in_current) + current_count
+```
+
+- **Pros:** O(1) memory; smooths out the boundary problem; ~99% accurate.
+- **Cons:** slight under/over-count, but bounded.
+- **Verdict:** **the right default for most APIs.**
+
+### D. Token bucket (the right answer for burstable APIs)
+
+A bucket holds at most `B` tokens. Tokens refill at rate `r` per second. Each request consumes 1 token. Empty bucket → request denied (or queued).
+
+```
+state per user: { tokens: float, last_refill: timestamp }
+
+on request:
+  now = current_time()
+  refill = (now - last_refill) * r
+  tokens = min(B, tokens + refill)
+  last_refill = now
+  if tokens >= 1:
+    tokens -= 1
+    return ALLOW
+  else:
+    return DENY, retry_after = (1 - tokens) / r
+```
+
+- **Pros:** handles bursts naturally (up to bucket size); steady-state rate enforced; simple state.
+- **Cons:** per-key state must be updated atomically.
+- **Verdict:** **the algorithm I'd default to** for user-facing APIs. Bursty traffic feels natural.
+
+### E. Leaky bucket (rare in practice)
+
+Requests enter a fixed-size queue; processed at constant rate. Overflow → reject.
+
+- Equivalent to token bucket if your goal is rate smoothing rather than burst capacity.
+- Mostly used in network QoS, not API rate limiting.
+
+## 4. The single-node version
+
+For a single API gateway, all four algorithms are easy. Use a per-process map with a per-key lock:
+
+```python
+from time import time
+
+class TokenBucket:
+    def __init__(self, capacity, refill_rate):
+        self.capacity = capacity
+        self.refill_rate = refill_rate
+        self.tokens = capacity
+        self.last_refill = time()
+
+    def allow(self):
+        now = time()
+        self.tokens = min(self.capacity, self.tokens + (now - self.last_refill) * self.refill_rate)
+        self.last_refill = now
+        if self.tokens >= 1:
+            self.tokens -= 1
+            return True
+        return False
+```
+
+This is a 20-line interview-friendly answer. But it doesn't survive multiple gateway nodes — they each track their own state and effectively multiply the user's limit by N.
+
+## 5. The distributed problem
+
+Your gateway runs on 50 nodes. A single user round-robins across them. Each node thinks the user has used 1/50 of the limit. **The real limit is 50× what you configured.** Three options:
+
+### Option 1: Sticky routing
+
+Hash the user to a fixed gateway. That node is the source of truth.
+
+- **Pros:** trivial, no shared state.
+- **Cons:** hot-key problem (one popular user kills one node); node loss disrupts limits during failover.
+- **Verdict:** use only if your traffic is naturally well-balanced.
+
+### Option 2: Centralized state in Redis (the standard answer)
+
+Every gateway calls Redis on every request to check/update the user's state.
+
+- **Pros:** correct, simple to reason about.
+- **Cons:** Redis is on the hot path; +1 RTT per request; Redis must scale.
+- **Verdict:** **the right default**. Redis at 150K ops/sec/node × 5 nodes handles 750K req/sec — comfortable for most APIs.
+
+### Option 3: Local approximate counters + async sync
+
+Each gateway maintains a local counter, periodically syncs to Redis.
+
+- **Pros:** zero hot-path latency; survives Redis outages.
+- **Cons:** drifts above the limit during the sync interval.
+- **Verdict:** for ultra-low-latency APIs (&lt;1 ms budget) where ~5–10% over-count is acceptable.
+
+### Concurrency limiters vs rate limiters — they're different
+
+Almost every senior+ candidate confuses the two. Get this right:
+
+| Limiter type | Limits... | Example | Algorithm |
+|---|---|---|---|
+| **Rate limiter** | Requests *per unit time* | "100 req/min per user" | Token bucket / sliding window |
+| **Concurrency limiter** | *In-flight* requests at any moment | "10 simultaneous downloads per user" | Semaphore / leaky bucket queue |
+
+Why the distinction matters:
+
+- A rate limiter doesn't protect a downstream from a **slow request** that ties up resources. 100 req/min is fine until each one takes 30 s to complete.
+- A concurrency limiter doesn't protect against rapid bursts of cheap requests.
+- **Real systems use both**: rate limit at the edge (cheap requests can flood you), concurrency limit per downstream (expensive requests can saturate you).
+
+Implementation note: a concurrency limiter is essentially a semaphore — `INCR` on entry, `DECR` on exit, reject if count > N. Use Redis `SETNX` with a TTL (so crashed clients don't permanently hold a slot) or a service-mesh primitive (Envoy's `concurrency_limit` filter).
+
+### The "request coupon" pattern for distributed limits
+
+For high-throughput APIs where every request hitting Redis is too expensive, gateways can **pre-buy** request coupons in batches:
+
+```
+1. Gateway A asks Redis: "Reserve 100 requests for user U."
+2. Redis atomically: tokens -= 100; returns OK if tokens >= 100.
+3. Gateway A serves the next 100 requests locally with no Redis call.
+4. Refill the local coupon pool when half-empty.
+```
+
+This trades a small amount of accuracy (the coupon is non-transferable; if Gateway A doesn't use all 100, those tokens are temporarily unavailable elsewhere) for a 100× reduction in Redis calls. Used internally at AWS, Cloudflare, and most large CDNs.
+
+## 6. Token bucket in Redis (the actual code)
+
+You **must** make the bucket update atomic. Two requests reading-modifying-writing concurrently will corrupt the state. Solution: a single Lua script (Redis runs Lua atomically).
+
+```lua
+-- KEYS[1]   = "rate:" .. user_id .. ":" .. endpoint
+-- ARGV[1]   = capacity
+-- ARGV[2]   = refill_rate (tokens per second)
+-- ARGV[3]   = now (seconds, float)
+-- ARGV[4]   = requested tokens (usually 1)
+
+local capacity = tonumber(ARGV[1])
+local refill   = tonumber(ARGV[2])
+local now      = tonumber(ARGV[3])
+local cost     = tonumber(ARGV[4])
+
+local data = redis.call('HMGET', KEYS[1], 'tokens', 'last')
+local tokens = tonumber(data[1]) or capacity
+local last   = tonumber(data[2]) or now
+
+local elapsed = math.max(0, now - last)
+tokens = math.min(capacity, tokens + elapsed * refill)
+
+local allowed = 0
+if tokens >= cost then
+  tokens = tokens - cost
+  allowed = 1
+end
+
+redis.call('HMSET', KEYS[1], 'tokens', tokens, 'last', now)
+redis.call('EXPIRE', KEYS[1], math.ceil(capacity / refill) * 2)
+
+return { allowed, tokens, capacity }
+```
+
+Two things to call out:
+
+- **Atomicity** comes from Lua's single-threaded execution in Redis. No locks needed.
+- **TTL** auto-expires inactive users — keeps memory bounded.
+
+This script runs in ~50–100 µs in Redis. Total p99 from the gateway, including network round-trip in-DC, is usually under 1 ms.
+
+<Callout type="tip" title="Why Lua, not WATCH/MULTI">
+Optimistic transactions with WATCH/MULTI work but degrade badly under contention (each conflict is a retry). Lua scripts are atomic by construction and have constant performance under load. Always prefer Lua for rate-limit hot paths.
+</Callout>
+
+## 7. Sliding window in Redis
+
+If you want sliding window counter (Section 3C):
+
+```lua
+local current_key = KEYS[1]
+local prev_key    = KEYS[2]
+local now         = tonumber(ARGV[1])
+local window      = tonumber(ARGV[2])
+local limit       = tonumber(ARGV[3])
+
+local elapsed_fraction = (now % window) / window
+local current = tonumber(redis.call('GET', current_key) or '0')
+local prev    = tonumber(redis.call('GET', prev_key) or '0')
+
+local estimated = prev * (1 - elapsed_fraction) + current
+if estimated >= limit then
+  return { 0, math.ceil(estimated) }
+end
+
+redis.call('INCR', current_key)
+redis.call('EXPIRE', current_key, window * 2)
+return { 1, math.ceil(estimated) + 1 }
+```
+
+Slightly less natural for bursts than token bucket, but much easier to explain to product managers.
+
+## 8. Multi-region: the hardest part
+
+When you have gateways in 5 regions and one user can hit any region, what does "100 req/min" mean *globally*?
+
+### Option A: Per-region limits, no cross-region coordination
+
+Each region enforces locally. The user's effective global limit is `5 × per_region_limit`.
+
+- **Pros:** zero cross-region latency.
+- **Cons:** hard to advertise a clean "global" limit.
+- **Verdict:** the pragmatic default. Most APIs do this.
+
+### Option B: Eventual cross-region sync
+
+Each region maintains a local counter; periodically aggregates to a central counter. A region's limit shrinks if the global aggregate is approaching the cap.
+
+- **Pros:** approximates global limits.
+- **Cons:** delayed by the sync interval; complex.
+- **Verdict:** worth it for billing-sensitive APIs (e.g. a paid API with a hard daily cap).
+
+### Option C: Strong consistency via geo-replicated Redis
+
+Cross-region reads/writes for every request.
+
+- **Pros:** perfectly accurate global limits.
+- **Cons:** +50–200 ms per request. Almost always wrong choice.
+- **Verdict:** never do this for user-facing rate limits.
+
+## 9. Fail-open vs fail-closed
+
+Redis is down. What now?
+
+| Choice | Semantics | When to use |
+|---|---|---|
+| **Fail-open** | Allow all requests | Public APIs where availability > limit accuracy. Most cases. |
+| **Fail-closed** | Reject all requests | Internal APIs where exceeding limits causes downstream cascade |
+
+State this explicitly in the interview. Real systems usually fail open with aggressive monitoring.
+
+## 10. Rule storage and dynamic config
+
+Hard-coded rules force a deployment for every change. Real systems store rules in:
+
+- **Config service** (etcd / Consul / DynamoDB) with a 30-second cache on each gateway.
+- **Per-customer overrides** for paid tiers.
+- **Endpoint-level granularity** (some endpoints are 1000 req/min, others 10).
+
+Rules schema:
+
+```json
+{
+  "scope":     ["user", "endpoint"],
+  "endpoint":  "POST /api/v1/transactions",
+  "tier":      "free",
+  "limit":     100,
+  "window":    "1m",
+  "algorithm": "token_bucket",
+  "burst":     20
+}
+```
+
+Reload happens on TTL expiry — no restart needed.
+
+## 11. Response semantics
+
+Rejecting with 429 isn't enough. Be a good API citizen:
+
+```http
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit:     100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset:     1717891234     ← Unix timestamp when the window resets
+Retry-After:           30             ← seconds until next allowed request
+Content-Type: application/json
+
+{ "error": "rate_limited",
+  "message": "100 requests per minute exceeded.",
+  "retry_after_seconds": 30 }
+```
+
+Clients can implement exponential backoff using these headers. Without them, clients hammer-and-pray.
+
+## 12. Spike arrest, smoothing, and graceful drains
+
+A rate limiter isn't only "deny the 101st request." Real production systems use rate limiting as a **traffic shaping** primitive. Three patterns worth knowing:
+
+### Spike arrest (a.k.a. burst protection)
+
+You publish a "10 req/sec" limit and expect users to stay near it. A misbehaving client suddenly fires 100 req in 200 ms — well under the per-second average, but it'll punch a hole in your downstream. Fix:
+
+- **Layered limits:** "10 req/sec **and** 20 req/100ms **and** 1000 req/hour." A client must satisfy all three. Implement as multiple token buckets with different `(B, r)` pairs.
+- **Apigee and AWS API Gateway both call this exactly "spike arrest"** — bonus point for using the term.
+
+### Traffic smoothing
+
+When a rate-limited request would be denied, instead of returning 429 you can **delay** it (queue with timeout):
+
+```
+if not allowed:
+   estimated_wait = (1 - tokens) / refill_rate
+   if estimated_wait < client_max_wait:
+       sleep(estimated_wait)
+       allow
+   else:
+       return 429
+```
+
+Trade-off: smoother downstream load, but you tie up a connection on every smoothed request. Only viable for non-interactive workloads (batch jobs, async workers) — never for user-facing APIs.
+
+### Graceful drain
+
+When you're rolling out a new deploy or shedding load during an incident, you don't want to slam the door — you want to **squeeze**: existing users see degraded service, new traffic stops entirely, in-flight requests complete.
+
+Implement as a **dynamic limit knob**:
+
+```
+during normal: limit = published_limit            (e.g. 100 req/min)
+during drain : limit = published_limit * factor   (factor decays from 1.0 to 0)
+during stop  : limit = 0
+```
+
+The factor is read from a config service every few seconds. Operators turn the knob during incidents; the limiter does the right thing without redeploys.
+
+### Adaptive (load-aware) rate limiting
+
+The state-of-the-art: instead of a static limit, the limiter watches downstream health (CPU, DB connections, p99 latency) and dynamically tightens or relaxes:
+
+```
+if downstream.p99 > SLO:
+    limit *= 0.95           # AIMD: multiplicative decrease
+elif downstream.p99 < SLO * 0.7 and limit < ceiling:
+    limit += 1              # additive increase
+```
+
+This is the same AIMD (additive-increase / multiplicative-decrease) algorithm TCP uses for congestion control. Netflix's "concurrency-limits" library and Envoy's adaptive concurrency filter implement variants. **Mention AIMD by name** in the interview — it's a precise, recognizable answer.
+
+### Per-tenant fairness and the noisy-neighbor problem
+
+If your multi-tenant platform has one user generating 10K req/sec, the queue/CPU contention can break service for everyone else, even if no individual limit is breached. Three mitigations:
+
+1. **Weighted fair queuing** at the gateway — round-robin between tenants when load is high, regardless of their individual limits.
+2. **Per-tenant connection pools** to downstream services — one tenant exhausting their pool doesn't starve others.
+3. **Cost-based limits** — large or expensive requests "cost" more tokens than small/cheap ones. Stripe's API uses this; the response header tells you how many cost units a request consumed.
+
+## 13. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why token bucket over fixed window?" | Burst handling + boundary correctness |
+| "Why Lua in Redis?" | Atomicity without WATCH/MULTI retry overhead |
+| "What if Redis dies?" | Fail-open with circuit breaker; never block traffic on rate limiter |
+| "How do you handle a malicious client?" | Layer it: gateway-level + per-IP + WAF + CDN |
+| "How would you allow a single user to burst 1000 then settle to 10/sec?" | Token bucket with `B=1000, r=10` |
+| "Multi-region?" | Per-region local + optional eventual aggregation; almost never strong global |
+| "How do you debug 'why was I limited?'" | Per-request audit log: limit applied, current count, retry-after; add to traces |
+
+## 14. A subtle pitfall: clock skew
+
+Sliding-window logs use timestamps. If your gateways' clocks drift, two adjacent requests may end up out of order in the sorted set, giving wrong counts. Mitigations:
+
+- **NTP everywhere**, with monitoring.
+- Compute `now` on the **Redis side** in the Lua script (`redis.call('TIME')`), not on the client.
+
+The second one alone eliminates ~95% of clock-related rate-limit bugs. Mention it.
+
+## 15. Where rate limiting lives in the stack
+
+```
+   Client
+     │
+     ▼
+┌────────────────┐
+│  CDN/WAF       │ ← layer 1: per-IP, DDoS shaping
+├────────────────┤
+│  API Gateway   │ ← layer 2: per-API-key, per-endpoint, per-user (this post)
+├────────────────┤
+│  Service mesh  │ ← layer 3: per-service circuit breakers (often not "rate" per se)
+├────────────────┤
+│  Application   │ ← layer 4: per-feature business rules (e.g. "1 password reset per hour")
+└────────────────┘
+```
+
+Mentioning the layered model is a senior+ signal. Saying "we'd add it at the API gateway" is a junior signal — the right answer is *almost always layered*.
+
+## 16. The 30-second summary
+
+> A distributed rate limiter is **token bucket per (user, endpoint) stored in Redis, updated via an atomic Lua script, evaluated at the API gateway**. Handle bursts with bucket capacity; handle bursts-of-burst with layered limits at CDN + gateway + app. Fail open, ship rate-limit headers in every response, and accept that multi-region "global" limits are usually per-region in disguise.
+
+That's the strong-hire answer. Bonus points if you draw the gateway → Redis → response-headers diagram and quote the Lua script's 50-100 µs runtime — that level of specificity is what staff-level interviewers reward.
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — Redis sits at the core of both
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — also uses Redis or Kafka for coordination
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — heavily rate-limited at the post and follow paths
+</Callout>

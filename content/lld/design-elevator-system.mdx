@@ -1,0 +1,198 @@
+---
+title: "Design an Elevator System"
+slug: "design-elevator-system"
+category: "lld"
+tags: ["oop", "state-machine", "scheduling", "concurrency"]
+difficulty: "senior"
+readingTime: 13
+publishedAt: "2026-04-03"
+author: "Aman Kumar Keshu"
+excerpt: "Elevator is the scheduling question disguised as an OOP question. The classes are easy — the hard part is the dispatch algorithm. Here's how to design both and talk about them confidently."
+isPremium: false
+---
+
+Elevator System is a classic that shows up at Google, Amazon, and Uber. Most candidates nail the entity model in 5 minutes and then freeze when asked "how do you decide which elevator to send?". This post covers both.
+
+## 1. Clarify requirements
+
+- How many elevators? How many floors?
+- External request: up/down button on a floor. Internal request: floor button inside cabin.
+- Direction preference: serve requests in the direction of travel (SCAN algorithm) or pure FCFS?
+- Multiple elevators: dispatch one or all?
+- Emergency / maintenance mode?
+- Capacity (weight / person limit)?
+
+Agreed scope:
+
+> N elevators, M floors. Passengers press up/down on floors. Inside cabin they press destination floor. Dispatch uses a nearest-elevator + direction heuristic. No weight sensors in scope.
+
+## 2. Core entities
+
+```
+ElevatorSystem
+ └─ List<Elevator>
+ └─ Dispatcher
+
+Elevator
+ ├─ id
+ ├─ currentFloor: int
+ ├─ direction: Direction (UP | DOWN | IDLE)
+ ├─ state: ElevatorState (MOVING | STOPPED | MAINTENANCE)
+ └─ requestQueue: SortedSet<Integer>   ← pending destination floors
+
+Request
+ ├─ ExternalRequest (floor, direction)  ← pressed in hallway
+ └─ InternalRequest (floor)             ← pressed inside cabin
+
+Dispatcher (interface)
+ └─ NearestElevatorDispatcher
+```
+
+## 3. The state machine
+
+Each elevator is a small state machine:
+
+```
+IDLE ──────────────────► MOVING
+ ▲                          │
+ │   (queue empty)          │ (arrived at floor)
+ │                          ▼
+ └──────────────── STOPPED (doors open)
+                            │
+                            │ (doors close)
+                            ▼
+                         MOVING (if queue non-empty)
+```
+
+```java
+public enum ElevatorState { IDLE, MOVING, STOPPED, MAINTENANCE }
+public enum Direction { UP, DOWN, IDLE }
+
+public class Elevator {
+  private int currentFloor;
+  private Direction direction = Direction.IDLE;
+  private ElevatorState state = ElevatorState.IDLE;
+  private final TreeSet<Integer> upQueue   = new TreeSet<>();
+  private final TreeSet<Integer> downQueue = new TreeSet<>(Comparator.reverseOrder());
+
+  public synchronized void addRequest(int floor) {
+    if (floor > currentFloor) upQueue.add(floor);
+    else if (floor < currentFloor) downQueue.add(floor);
+    if (state == ElevatorState.IDLE) startMoving();
+  }
+
+  private void startMoving() {
+    state = ElevatorState.MOVING;
+    direction = upQueue.isEmpty() ? Direction.DOWN : Direction.UP;
+  }
+
+  // Called every tick by a scheduler thread
+  public synchronized void step() {
+    if (state != ElevatorState.MOVING) return;
+    TreeSet<Integer> activeQueue = direction == Direction.UP ? upQueue : downQueue;
+
+    if (activeQueue.isEmpty()) {
+      // Switch direction or go IDLE
+      TreeSet<Integer> other = direction == Direction.UP ? downQueue : upQueue;
+      if (!other.isEmpty()) {
+        direction = direction == Direction.UP ? Direction.DOWN : Direction.UP;
+      } else {
+        direction = Direction.IDLE;
+        state = ElevatorState.IDLE;
+      }
+      return;
+    }
+
+    int next = activeQueue.first();
+    currentFloor += direction == Direction.UP ? 1 : -1;
+
+    if (currentFloor == next) {
+      activeQueue.remove(next);
+      state = ElevatorState.STOPPED;
+      openDoors();
+    }
+  }
+
+  private void openDoors() {
+    // simulate door open/close delay, then transition back to MOVING
+  }
+}
+```
+
+Using separate `upQueue` and `downQueue` implements the **LOOK algorithm** (a variant of SCAN) — serving all stops in one direction before reversing. This is what real elevators do.
+
+## 4. Dispatcher — choosing the right elevator
+
+```java
+public interface Dispatcher {
+  Elevator dispatch(List<Elevator> elevators, ExternalRequest request);
+}
+
+public class NearestElevatorDispatcher implements Dispatcher {
+  @Override
+  public Elevator dispatch(List<Elevator> elevators, ExternalRequest req) {
+    return elevators.stream()
+        .filter(e -> e.getState() != ElevatorState.MAINTENANCE)
+        .min(Comparator.comparingInt(e -> cost(e, req)))
+        .orElseThrow();
+  }
+
+  private int cost(Elevator e, ExternalRequest req) {
+    int floorDiff = Math.abs(e.getCurrentFloor() - req.getFloor());
+    // Prefer elevators already moving in the right direction
+    boolean sameDirection = (req.getDirection() == Direction.UP && e.getDirection() == Direction.UP && e.getCurrentFloor() <= req.getFloor())
+                         || (req.getDirection() == Direction.DOWN && e.getDirection() == Direction.DOWN && e.getCurrentFloor() >= req.getFloor());
+    return sameDirection ? floorDiff : floorDiff + 100; // penalise wrong direction
+  }
+}
+```
+
+The `+100` penalty is a simple heuristic. Mention it as a tunable weight.
+
+## 5. ElevatorSystem — thin orchestrator
+
+```java
+public class ElevatorSystem {
+  private final List<Elevator> elevators;
+  private final Dispatcher dispatcher;
+
+  public void handleExternalRequest(int floor, Direction direction) {
+    ExternalRequest req = new ExternalRequest(floor, direction);
+    Elevator chosen = dispatcher.dispatch(elevators, req);
+    chosen.addRequest(floor);
+  }
+
+  public void handleInternalRequest(int elevatorId, int floor) {
+    elevators.stream()
+        .filter(e -> e.getId() == elevatorId)
+        .findFirst()
+        .ifPresent(e -> e.addRequest(floor));
+  }
+}
+```
+
+## 6. SOLID
+
+- **SRP:** `Elevator` owns movement; `Dispatcher` owns selection; they don't know about each other.
+- **OCP:** Swap to `ZoningDispatcher` (buildings zoned to specific elevators) without touching `Elevator`.
+- **DIP:** `ElevatorSystem` depends on `Dispatcher` interface, not a concrete class.
+
+## 7. Concurrency
+
+Passengers press buttons concurrently — the `synchronized` on `Elevator.addRequest` and `step` handles single-elevator thread safety. For multiple threads (one per elevator + one dispatcher):
+
+- Use `ReentrantLock` instead of `synchronized` for finer control.
+- The dispatcher reads elevator state — use a volatile `currentFloor` or a read lock.
+
+## 8. Follow-ups
+
+| Follow-up | Design change |
+|---|---|
+| VIP floor (penthouse) | Dedicated elevator reserved; zoning dispatcher. |
+| Weight sensor | Add capacity check in `addRequest`; reject if full. |
+| Predictive dispatch | ML model predicts traffic patterns; pre-position elevators at peak floors. |
+| Multi-building | `ElevatorGroup` per building; cross-building requests not supported (by design). |
+
+## 9. The 30-second summary
+
+> Two queues per elevator (up/down) implement the LOOK algorithm naturally. The dispatcher is a pluggable strategy that scores each elevator by distance and direction alignment. The system class is 10 lines — it just routes requests. State transitions drive everything.

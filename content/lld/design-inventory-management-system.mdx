@@ -1,0 +1,217 @@
+---
+title: "Design an Inventory Management System"
+slug: "design-inventory-management-system"
+category: "lld"
+tags: ["oop", "design-patterns", "concurrency", "warehouse"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-05-03"
+author: "Aman Kumar Keshu"
+excerpt: "Inventory Management tests concurrent stock updates, reorder triggers, and multi-warehouse aggregation. The Observer pattern handles reorder alerts cleanly without coupling the inventory to the procurement system."
+isPremium: true
+---
+
+Inventory Management is asked at Flipkart, Amazon, and Walmart. It tests concurrent stock operations, reorder logic, and the ability to model warehouse-level vs. aggregate inventory.
+
+## 1. Clarify requirements
+
+- Single or multi-warehouse?
+- Real-time vs. eventual stock updates?
+- Reorder point / automatic purchase order triggers?
+- Stock reservations (soft hold)?
+- Categories / variants?
+- Audit trail?
+
+Agreed scope:
+
+> Multi-warehouse. Real-time updates. Reorder alerts via Observer. Soft reservations during checkout. SKU-level tracking. Audit log.
+
+## 2. Core entities
+
+```
+Product
+ ├─ id, name, sku
+ └─ variants: List<ProductVariant>
+
+ProductVariant
+ ├─ id (sku), attributes (size, colour)
+ └─ reorderThreshold: int
+
+Warehouse
+ ├─ id, name, location
+
+InventoryItem
+ ├─ variant: ProductVariant
+ ├─ warehouse: Warehouse
+ ├─ quantityOnHand: int
+ ├─ quantityReserved: int
+ └─ quantityAvailable(): int  ← onHand - reserved
+
+StockMovement
+ ├─ id
+ ├─ variant: ProductVariant
+ ├─ warehouse: Warehouse
+ ├─ type: MovementType (INBOUND | OUTBOUND | TRANSFER | ADJUSTMENT)
+ ├─ quantity: int
+ └─ createdAt: Instant
+
+ReorderAlert
+ ├─ variant: ProductVariant
+ └─ triggeredAt: Instant
+```
+
+## 3. InventoryItem — concurrent updates
+
+```java
+public class InventoryItem {
+  private final ProductVariant variant;
+  private final Warehouse warehouse;
+  private int quantityOnHand;
+  private int quantityReserved;
+
+  public int quantityAvailable() { return quantityOnHand - quantityReserved; }
+
+  public synchronized boolean reserve(int qty) {
+    if (quantityAvailable() < qty) return false;
+    quantityReserved += qty;
+    return true;
+  }
+
+  public synchronized void releaseReservation(int qty) {
+    quantityReserved = Math.max(0, quantityReserved - qty);
+  }
+
+  public synchronized void commit(int qty) {
+    // Converts reservation to actual deduction
+    quantityReserved = Math.max(0, quantityReserved - qty);
+    quantityOnHand  = Math.max(0, quantityOnHand  - qty);
+  }
+
+  public synchronized void receive(int qty) {
+    quantityOnHand += qty;
+  }
+}
+```
+
+## 4. Inventory service
+
+```java
+public class InventoryService {
+  private final InventoryRepository inventoryRepo;
+  private final StockMovementRepository movementRepo;
+  private final List<InventoryObserver> observers = new CopyOnWriteArrayList<>();
+
+  public void addObserver(InventoryObserver o) { observers.add(o); }
+
+  public void receive(ProductVariant variant, Warehouse warehouse, int qty, String reference) {
+    InventoryItem item = inventoryRepo.findOrCreate(variant, warehouse);
+    item.receive(qty);
+    inventoryRepo.save(item);
+    movementRepo.save(new StockMovement(variant, warehouse, MovementType.INBOUND, qty));
+  }
+
+  public boolean reserve(ProductVariant variant, Warehouse warehouse, int qty) {
+    InventoryItem item = inventoryRepo.find(variant, warehouse).orElseThrow();
+    boolean success = item.reserve(qty);
+    if (success) inventoryRepo.save(item);
+    return success;
+  }
+
+  public void commitSale(ProductVariant variant, Warehouse warehouse, int qty) {
+    InventoryItem item = inventoryRepo.find(variant, warehouse).orElseThrow();
+    item.commit(qty);
+    inventoryRepo.save(item);
+    movementRepo.save(new StockMovement(variant, warehouse, MovementType.OUTBOUND, qty));
+    checkReorderPoint(item);
+  }
+
+  private void checkReorderPoint(InventoryItem item) {
+    int available = item.quantityAvailable();
+    int threshold = item.getVariant().getReorderThreshold();
+    if (available <= threshold) {
+      ReorderAlert alert = new ReorderAlert(item.getVariant(), Instant.now());
+      observers.forEach(o -> o.onReorderNeeded(alert));
+    }
+  }
+
+  public int aggregateAvailable(ProductVariant variant) {
+    return inventoryRepo.findAllByVariant(variant)
+        .stream().mapToInt(InventoryItem::quantityAvailable).sum();
+  }
+}
+```
+
+## 5. Observer — reorder alerts
+
+```java
+public interface InventoryObserver {
+  void onReorderNeeded(ReorderAlert alert);
+}
+
+public class PurchaseOrderTrigger implements InventoryObserver {
+  @Override
+  public void onReorderNeeded(ReorderAlert alert) {
+    // Create a purchase order for the supplier
+    purchaseOrderService.createOrder(alert.getVariant(), DEFAULT_REORDER_QTY);
+    notifier.notify(procurementTeam, "Reorder triggered for SKU: " + alert.getVariant().getSku());
+  }
+}
+
+public class AlertNotifier implements InventoryObserver {
+  @Override
+  public void onReorderNeeded(ReorderAlert alert) {
+    notifier.notify(warehouseManagers, "Low stock: " + alert.getVariant().getSku());
+  }
+}
+```
+
+Register both observers:
+
+```java
+inventoryService.addObserver(new PurchaseOrderTrigger(purchaseOrderService));
+inventoryService.addObserver(new AlertNotifier(notifier));
+```
+
+## 6. Stock transfer between warehouses
+
+```java
+public class TransferService {
+  public void transfer(ProductVariant variant, Warehouse from, Warehouse to, int qty) {
+    InventoryItem source = inventoryRepo.find(variant, from).orElseThrow();
+    if (source.quantityAvailable() < qty) throw new InsufficientStockException();
+
+    // Atomic: deduct from source, credit to destination
+    source.commit(qty);  // uses reservation-less deduction for transfers
+    inventoryRepo.save(source);
+
+    InventoryItem dest = inventoryRepo.findOrCreate(variant, to);
+    dest.receive(qty);
+    inventoryRepo.save(dest);
+
+    movementRepo.save(new StockMovement(variant, from, MovementType.TRANSFER, -qty));
+    movementRepo.save(new StockMovement(variant, to,   MovementType.TRANSFER,  qty));
+  }
+}
+```
+
+## 7. Audit trail
+
+All `StockMovement` records form an immutable audit log. To reconstruct inventory at any point in time, replay movements from `t=0` to `t=T`. This is the Event Sourcing pattern applied to inventory.
+
+## 8. SOLID
+
+- **OCP:** New reorder action = new `InventoryObserver` implementation. No service changes.
+- **SRP:** `InventoryService` tracks quantities; `TransferService` handles movements; `PurchaseOrderTrigger` handles procurement.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| FIFO/LIFO batches | Track `InventoryBatch` with received date; consume oldest first. |
+| Expiry management | Batch has `expiresAt`; alert when stock is expiring in < N days. |
+| Cycle counting | Scheduled physical count task; reconcile with system qty; log discrepancies. |
+| Cross-warehouse fulfilment | Order splits across nearest warehouses with available stock. |
+
+## 10. The 30-second summary
+
+> `InventoryItem` owns its own synchronized reserve/commit methods — no external locking needed. Observer fires when stock drops below reorder threshold. `StockMovement` records form an immutable event log (Event Sourcing). Aggregate available inventory = sum across all warehouses for the variant.

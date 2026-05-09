@@ -1,0 +1,220 @@
+---
+title: "Design a Hotel Management System"
+slug: "design-hotel-management-system"
+category: "lld"
+tags: ["oop", "design-patterns", "booking", "state-machine"]
+difficulty: "senior"
+readingTime: 13
+publishedAt: "2026-04-17"
+author: "Aman Kumar Keshu"
+excerpt: "Hotel Management mixes booking, room state machines, check-in/check-out flows, and billing. The key insight is separating the Room (physical asset) from the Reservation (booking contract)."
+isPremium: true
+---
+
+Hotel Management is a rich LLD problem that combines booking, state management, billing, and housekeeping into one coherent design.
+
+## 1. Clarify requirements
+
+- Room types and amenities?
+- Reservation: online / walk-in?
+- Check-in / check-out flow?
+- Billing: per night, services added during stay?
+- Housekeeping status?
+- Cancellation policy?
+
+Agreed scope:
+
+> Multiple room types, online reservation with 2-hour check-in window, checkout triggers billing, housekeeping tracked, 24-hour cancellation for full refund.
+
+## 2. Core entities
+
+```
+Hotel
+ └─ List<Room>
+
+Room
+ ├─ roomNumber: String
+ ├─ type: RoomType         (SINGLE | DOUBLE | SUITE | DELUXE)
+ ├─ pricePerNight: BigDecimal
+ ├─ status: RoomStatus     (AVAILABLE | RESERVED | OCCUPIED | CLEANING | MAINTENANCE)
+ └─ amenities: List<Amenity>
+
+Reservation
+ ├─ id
+ ├─ guest: Guest
+ ├─ room: Room
+ ├─ checkInDate: LocalDate
+ ├─ checkOutDate: LocalDate
+ ├─ status: ReservationStatus  (PENDING | CONFIRMED | CHECKED_IN | CHECKED_OUT | CANCELLED)
+ └─ bill: Bill
+
+Guest
+ ├─ id, name, email, phone
+ └─ idProof: String
+
+Bill
+ ├─ reservation: Reservation
+ ├─ lineItems: List<BillItem>
+ └─ total(): BigDecimal
+
+BillItem
+ ├─ description: String
+ ├─ amount: BigDecimal
+ └─ addedAt: LocalDateTime
+```
+
+## 3. Room state machine
+
+```java
+public enum RoomStatus { AVAILABLE, RESERVED, OCCUPIED, CLEANING, MAINTENANCE }
+
+public class Room {
+  private RoomStatus status = RoomStatus.AVAILABLE;
+
+  public synchronized boolean reserve() {
+    if (status != RoomStatus.AVAILABLE) return false;
+    status = RoomStatus.RESERVED;
+    return true;
+  }
+
+  public synchronized void checkIn() {
+    if (status != RoomStatus.RESERVED) throw new InvalidRoomStateException(status, RoomStatus.RESERVED);
+    status = RoomStatus.OCCUPIED;
+  }
+
+  public synchronized void checkOut() {
+    if (status != RoomStatus.OCCUPIED) throw new InvalidRoomStateException(status, RoomStatus.OCCUPIED);
+    status = RoomStatus.CLEANING;
+  }
+
+  public synchronized void markClean() {
+    if (status != RoomStatus.CLEANING) throw new InvalidRoomStateException(status, RoomStatus.CLEANING);
+    status = RoomStatus.AVAILABLE;
+  }
+}
+```
+
+## 4. Reservation service
+
+```java
+public class ReservationService {
+  private final RoomRepository roomRepo;
+  private final ReservationRepository reservationRepo;
+  private final BillingService billingService;
+
+  public Reservation book(Guest guest, RoomType type, LocalDate checkIn, LocalDate checkOut) {
+    Room room = roomRepo.findAvailableByType(type, checkIn, checkOut)
+        .orElseThrow(() -> new NoRoomAvailableException(type));
+
+    if (!room.reserve()) throw new RoomNotAvailableException(room.getRoomNumber());
+
+    long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
+    Bill bill = new Bill();
+    bill.addItem("Room charge: " + nights + " nights",
+        room.getPricePerNight().multiply(BigDecimal.valueOf(nights)));
+
+    Reservation reservation = new Reservation(UUID.randomUUID().toString(), guest, room,
+        checkIn, checkOut, ReservationStatus.CONFIRMED, bill);
+    reservationRepo.save(reservation);
+    return reservation;
+  }
+
+  public void checkIn(String reservationId) {
+    Reservation res = reservationRepo.findById(reservationId).orElseThrow();
+    if (LocalDate.now().isBefore(res.getCheckInDate()))
+      throw new EarlyCheckInException();
+    res.getRoom().checkIn();
+    res.setStatus(ReservationStatus.CHECKED_IN);
+    reservationRepo.save(res);
+  }
+
+  public Bill checkOut(String reservationId) {
+    Reservation res = reservationRepo.findById(reservationId).orElseThrow();
+    res.getRoom().checkOut();
+    res.setStatus(ReservationStatus.CHECKED_OUT);
+    Bill finalBill = billingService.finalise(res);
+    reservationRepo.save(res);
+    return finalBill;
+  }
+}
+```
+
+## 5. Billing — add services during stay
+
+```java
+public class BillingService {
+  public void addService(String reservationId, String description, BigDecimal amount) {
+    Reservation res = reservationRepo.findById(reservationId).orElseThrow();
+    if (res.getStatus() != ReservationStatus.CHECKED_IN)
+      throw new InvalidReservationStateException();
+    res.getBill().addItem(description, amount);
+    reservationRepo.save(res);
+  }
+
+  public Bill finalise(Reservation res) {
+    // Tax calculation
+    BigDecimal subtotal = res.getBill().subtotal();
+    BigDecimal tax = subtotal.multiply(new BigDecimal("0.18"));  // 18% GST
+    res.getBill().addItem("GST (18%)", tax);
+    return res.getBill();
+  }
+}
+```
+
+## 6. Housekeeping
+
+```java
+public class HousekeepingService {
+  public void assignCleaning(Room room, Staff housekeeper) {
+    if (room.getStatus() != RoomStatus.CLEANING)
+      throw new RoomNotReadyForCleaningException();
+    HousekeepingTask task = new HousekeepingTask(room, housekeeper, Instant.now());
+    taskRepo.save(task);
+  }
+
+  public void markCleaned(String taskId) {
+    HousekeepingTask task = taskRepo.findById(taskId).orElseThrow();
+    task.getRoom().markClean();
+    task.setCompletedAt(Instant.now());
+    taskRepo.save(task);
+  }
+}
+```
+
+## 7. Cancellation policy
+
+```java
+public interface CancellationPolicy {
+  BigDecimal refundAmount(Reservation reservation);
+}
+
+public class FullRefundBefore24h implements CancellationPolicy {
+  @Override
+  public BigDecimal refundAmount(Reservation reservation) {
+    long hoursToCheckIn = ChronoUnit.HOURS.between(Instant.now(),
+        reservation.getCheckInDate().atStartOfDay(ZoneId.systemDefault()).toInstant());
+    return hoursToCheckIn >= 24
+        ? reservation.getBill().roomChargeSubtotal()
+        : BigDecimal.ZERO;
+  }
+}
+```
+
+## 8. SOLID
+
+- **SRP:** `ReservationService` handles booking flow; `BillingService` handles charges; `HousekeepingService` handles room readiness.
+- **OCP:** New cancellation policy = new `CancellationPolicy` class.
+- **DIP:** Services inject repositories and other services — no `new` on concrete implementations.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Multi-property chain | `Hotel` becomes a concrete entity in a `HotelChain`; search across properties. |
+| Dynamic pricing | `PricingStrategy`: weekend rates, peak season multipliers. |
+| Loyalty program | Observer on `CheckedOut` → update loyalty points. |
+| Online search | `AvailabilityService` queries rooms across date ranges; cached for performance. |
+
+## 10. The 30-second summary
+
+> Separate `Room` (physical asset with a state machine) from `Reservation` (the booking contract). `checkIn`, `checkOut`, and `markClean` are explicit state transitions on `Room`. `BillingService` accumulates line items during stay and applies tax on checkout. Everything else is bookkeeping.

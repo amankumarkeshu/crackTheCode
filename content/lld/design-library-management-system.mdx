@@ -1,0 +1,226 @@
+---
+title: "Design a Library Management System"
+slug: "design-library-management-system"
+category: "lld"
+tags: ["oop", "design-patterns", "solid", "state-machine"]
+difficulty: "senior"
+readingTime: 14
+publishedAt: "2026-04-01"
+author: "Aman Kumar Keshu"
+excerpt: "Library Management is a deceptively rich LLD problem. It forces you to model a state machine (book availability), handle multiple actors (member, librarian, system), and design flexible search. Here's the model that impresses."
+isPremium: false
+---
+
+Library Management looks simple — until you realise it hides a state machine, multiple actor types, fine calculation logic, and a non-trivial search model. This makes it a favourite at companies like Atlassian and Adobe.
+
+## 1. Clarify requirements
+
+Before drawing a single class, ask:
+
+- How many copies of a book can exist?
+- Who can borrow — any member, or only specific tiers?
+- What's the loan period? Can it be extended?
+- Late fee model: flat / per-day / tiered?
+- Reservation / waitlist when all copies are out?
+- Search by: title, author, ISBN, genre — or full-text?
+- Multiple library branches?
+
+Agreed scope for this design:
+
+> Single branch. Members can borrow up to 5 books. 14-day loan period, ₹5/day late fee. Waitlist supported. Search by title, author, and ISBN.
+
+## 2. Core entities
+
+Walk the user journey:
+
+`Member searches → finds BookItem → borrows → system issues Loan → member returns → fine calculated → (if waitlisted) next member notified`
+
+Entities:
+
+- `Book` — title, authors, ISBN, genre, publisher
+- `BookItem` — physical copy; has a barcode and `BookStatus`
+- `Member` — profile, tier, borrowed count
+- `Librarian` — can add/remove book items, manage members
+- `Loan` — links member ↔ bookItem + dates + fine
+- `Reservation` — waitlist entry
+- `Catalog` — search index over books
+- `FineStrategy` — computes late fees
+
+## 3. Class diagram
+
+```
+Book
+ ├─ isbn: String
+ ├─ title: String
+ ├─ authors: List<String>
+ ├─ genre: String
+ └─ items: List<BookItem>          ← one book, many copies
+
+BookItem
+ ├─ barcode: String
+ ├─ book: Book
+ ├─ status: BookStatus             ← AVAILABLE | BORROWED | RESERVED | LOST
+ └─ rack: RackLocation
+
+Member
+ ├─ id, name, email
+ ├─ membershipTier: Tier           ← BASIC | PREMIUM
+ └─ activeLoans: List<Loan>
+
+Loan
+ ├─ id
+ ├─ bookItem: BookItem
+ ├─ member: Member
+ ├─ issuedAt: LocalDate
+ ├─ dueDate: LocalDate
+ ├─ returnedAt: LocalDate (nullable)
+ └─ fine: BigDecimal (nullable)
+
+Reservation
+ ├─ id
+ ├─ book: Book
+ ├─ member: Member
+ └─ createdAt: Instant
+
+FineStrategy (interface)
+ └─ PerDayFineStrategy
+```
+
+## 4. The state machine
+
+`BookItem.status` is a mini state machine — model it explicitly:
+
+```java
+public enum BookStatus { AVAILABLE, BORROWED, RESERVED, LOST }
+
+public class BookItem {
+  private BookStatus status = BookStatus.AVAILABLE;
+
+  public synchronized boolean checkout() {
+    if (status != BookStatus.AVAILABLE) return false;
+    status = BookStatus.BORROWED;
+    return true;
+  }
+
+  public synchronized void returnItem() {
+    if (status != BookStatus.BORROWED) throw new IllegalStateException();
+    status = BookStatus.AVAILABLE;
+  }
+
+  public synchronized boolean reserve() {
+    if (status != BookStatus.AVAILABLE) return false;
+    status = BookStatus.RESERVED;
+    return true;
+  }
+}
+```
+
+State transitions on the board earn points — most candidates leave `status` as a naked field.
+
+## 5. Core service — LibraryService
+
+```java
+public class LibraryService {
+  private final BookRepository bookRepo;
+  private final LoanRepository loanRepo;
+  private final ReservationRepository reservationRepo;
+  private final FineStrategy fineStrategy;
+  private final NotificationService notifier;
+
+  public Loan borrowBook(Member member, String barcode) {
+    if (member.getActiveLoans().size() >= member.getTier().maxBorrows()) {
+      throw new BorrowLimitExceededException();
+    }
+    BookItem item = bookRepo.findByBarcode(barcode)
+        .orElseThrow(() -> new BookNotFoundException(barcode));
+    if (!item.checkout()) throw new BookNotAvailableException(barcode);
+
+    Loan loan = new Loan(UUID.randomUUID().toString(), item, member,
+        LocalDate.now(), LocalDate.now().plusDays(14));
+    loanRepo.save(loan);
+    return loan;
+  }
+
+  public BigDecimal returnBook(String loanId) {
+    Loan loan = loanRepo.findById(loanId)
+        .orElseThrow(() -> new LoanNotFoundException(loanId));
+    loan.markReturned(LocalDate.now());
+
+    BigDecimal fine = fineStrategy.calculate(loan);
+    loan.setFine(fine);
+    loan.getBookItem().returnItem();
+    loanRepo.save(loan);
+
+    // Notify first member on waitlist
+    reservationRepo.findFirstByBook(loan.getBookItem().getBook())
+        .ifPresent(res -> {
+          notifier.notify(res.getMember(), "Your reserved book is now available.");
+          reservationRepo.delete(res);
+        });
+
+    return fine;
+  }
+}
+```
+
+## 6. Fine strategy
+
+```java
+public interface FineStrategy {
+  BigDecimal calculate(Loan loan);
+}
+
+public class PerDayFineStrategy implements FineStrategy {
+  private final BigDecimal ratePerDay;
+
+  @Override
+  public BigDecimal calculate(Loan loan) {
+    if (loan.getReturnedAt() == null || !loan.getReturnedAt().isAfter(loan.getDueDate()))
+      return BigDecimal.ZERO;
+    long overdueDays = ChronoUnit.DAYS.between(loan.getDueDate(), loan.getReturnedAt());
+    return ratePerDay.multiply(BigDecimal.valueOf(overdueDays));
+  }
+}
+```
+
+## 7. Search / Catalog
+
+```java
+public class Catalog {
+  private final Map<String, List<Book>> byTitle   = new HashMap<>();
+  private final Map<String, List<Book>> byAuthor  = new HashMap<>();
+  private final Map<String, Book>       byIsbn    = new HashMap<>();
+
+  public void index(Book book) {
+    byTitle.computeIfAbsent(book.getTitle().toLowerCase(), k -> new ArrayList<>()).add(book);
+    for (String author : book.getAuthors())
+      byAuthor.computeIfAbsent(author.toLowerCase(), k -> new ArrayList<>()).add(book);
+    byIsbn.put(book.getIsbn(), book);
+  }
+
+  public List<Book> searchByTitle(String title) {
+    return byTitle.getOrDefault(title.toLowerCase(), List.of());
+  }
+}
+```
+
+For production: replace with Elasticsearch. But in an interview, this in-memory index is the right level of detail.
+
+## 8. SOLID
+
+- **SRP:** `LibraryService` orchestrates; `FineStrategy` owns fine logic; `Catalog` owns search.
+- **OCP:** New fine model? New `FineStrategy` class — don't touch the service.
+- **DIP:** Service depends on interfaces (`FineStrategy`, `NotificationService`), not concrete classes.
+
+## 9. Common follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Multiple branches | `Branch` entity; `BookItem` belongs to a branch; loans can be inter-branch. |
+| Renewal / extension | `Loan.extend(int days)` — validate not overdue; cap extensions at 2. |
+| E-book support | `DigitalBookItem extends BookItem`; no physical state, concurrent borrows allowed. |
+| Audit log | Domain events (`BookBorrowed`, `BookReturned`) — append-only log table. |
+
+## 10. The 30-second summary
+
+> Model `BookItem` (not `Book`) as the borrowable unit with an explicit state machine. Keep `LibraryService` thin by injecting fine strategy and notifier. The waitlist is just a sorted reservation queue — notify on return. That's all the interviewer needs to see.

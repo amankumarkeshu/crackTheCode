@@ -1,0 +1,230 @@
+---
+title: "Design an Online Shopping Cart"
+slug: "design-online-shopping-cart"
+category: "lld"
+tags: ["oop", "design-patterns", "e-commerce"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-04-27"
+author: "Aman Kumar Keshu"
+excerpt: "Shopping Cart is deceptively non-trivial. Pricing rules, coupon stacking, inventory reservation, and the cart-to-order transition all need careful design. Here's the model that holds up under follow-up questions."
+isPremium: true
+---
+
+Shopping Cart is a favourite because it hides complexity inside what feels like a simple problem. The follow-ups — coupon stacking, inventory reservation, cart expiry — are where the real design happens.
+
+## 1. Clarify requirements
+
+- Guest vs. authenticated carts?
+- Inventory reservation on add-to-cart or on checkout?
+- Coupon / discount logic?
+- Cart persistence: in-memory or DB?
+- Cart expiry (24 hours)?
+- Multiple currencies?
+
+Agreed scope:
+
+> Authenticated users. Soft inventory reservation on checkout only. Flat + percentage coupons (non-stackable). Cart persisted, expires in 24 hours. Single currency.
+
+## 2. Core entities
+
+```
+Cart
+ ├─ id
+ ├─ userId: String
+ ├─ items: Map<String, CartItem>   ← productId → CartItem
+ ├─ couponCode: String (nullable)
+ ├─ expiresAt: Instant
+ └─ status: CartStatus             (ACTIVE | CHECKED_OUT | EXPIRED)
+
+CartItem
+ ├─ product: Product
+ ├─ quantity: int
+ └─ priceAtAddTime: BigDecimal     ← snapshot of price when added
+
+Product
+ ├─ id, name, sku
+ ├─ price: BigDecimal
+ └─ stock: int
+
+Coupon
+ ├─ code: String
+ ├─ type: CouponType               (FLAT | PERCENTAGE)
+ ├─ value: BigDecimal
+ ├─ minOrderValue: BigDecimal
+ └─ expiresAt: Instant
+
+Order
+ ├─ id
+ ├─ userId: String
+ ├─ items: List<OrderItem>
+ ├─ subtotal, discount, total: BigDecimal
+ └─ status: OrderStatus
+```
+
+## 3. Cart service — add / remove / update
+
+```java
+public class CartService {
+  private final CartRepository cartRepo;
+  private final ProductRepository productRepo;
+
+  public Cart getOrCreateCart(String userId) {
+    return cartRepo.findActiveByUser(userId).orElseGet(() -> {
+      Cart cart = new Cart(UUID.randomUUID().toString(), userId,
+          Instant.now().plus(Duration.ofHours(24)));
+      cartRepo.save(cart);
+      return cart;
+    });
+  }
+
+  public void addItem(String userId, String productId, int qty) {
+    Cart cart = getOrCreateCart(userId);
+    if (cart.getStatus() != CartStatus.ACTIVE) throw new CartNotActiveException();
+
+    Product product = productRepo.findById(productId).orElseThrow();
+
+    // Snapshot price at time of adding
+    cart.getItems().merge(productId,
+        new CartItem(product, qty, product.getPrice()),
+        (existing, newItem) -> {
+          existing.setQuantity(existing.getQuantity() + qty);
+          return existing;
+        });
+    cartRepo.save(cart);
+  }
+
+  public void removeItem(String userId, String productId) {
+    Cart cart = getOrCreateCart(userId);
+    cart.getItems().remove(productId);
+    cartRepo.save(cart);
+  }
+
+  public void updateQuantity(String userId, String productId, int qty) {
+    Cart cart = getOrCreateCart(userId);
+    CartItem item = cart.getItems().get(productId);
+    if (item == null) throw new ItemNotFoundException(productId);
+    if (qty <= 0) { cart.getItems().remove(productId); }
+    else { item.setQuantity(qty); }
+    cartRepo.save(cart);
+  }
+}
+```
+
+## 4. Pricing engine — Strategy pattern
+
+```java
+public interface PricingStrategy {
+  BigDecimal calculate(Cart cart);
+}
+
+public class StandardPricingStrategy implements PricingStrategy {
+  @Override
+  public BigDecimal calculate(Cart cart) {
+    return cart.getItems().values().stream()
+        .map(i -> i.getPriceAtAddTime().multiply(BigDecimal.valueOf(i.getQuantity())))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+}
+```
+
+## 5. Coupon / discount
+
+```java
+public interface DiscountStrategy {
+  BigDecimal apply(BigDecimal subtotal, Coupon coupon);
+}
+
+public class FlatDiscountStrategy implements DiscountStrategy {
+  @Override
+  public BigDecimal apply(BigDecimal subtotal, Coupon coupon) {
+    if (subtotal.compareTo(coupon.getMinOrderValue()) < 0) return BigDecimal.ZERO;
+    return coupon.getValue().min(subtotal);  // can't discount more than subtotal
+  }
+}
+
+public class PercentageDiscountStrategy implements DiscountStrategy {
+  @Override
+  public BigDecimal apply(BigDecimal subtotal, Coupon coupon) {
+    if (subtotal.compareTo(coupon.getMinOrderValue()) < 0) return BigDecimal.ZERO;
+    return subtotal.multiply(coupon.getValue()).divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
+  }
+}
+```
+
+## 6. Checkout — cart to order
+
+```java
+public class CheckoutService {
+  private final CartService cartService;
+  private final InventoryService inventoryService;
+  private final PricingStrategy pricing;
+  private final Map<CouponType, DiscountStrategy> discountStrategies;
+  private final CouponRepository couponRepo;
+  private final OrderRepository orderRepo;
+
+  public Order checkout(String userId, String couponCode) {
+    Cart cart = cartService.getOrCreateCart(userId);
+    if (cart.getItems().isEmpty()) throw new EmptyCartException();
+
+    // Check & reserve inventory
+    for (CartItem item : cart.getItems().values()) {
+      inventoryService.reserve(item.getProduct().getId(), item.getQuantity());
+    }
+
+    BigDecimal subtotal = pricing.calculate(cart);
+    BigDecimal discount = BigDecimal.ZERO;
+
+    if (couponCode != null) {
+      Coupon coupon = couponRepo.findByCode(couponCode)
+          .filter(c -> c.getExpiresAt().isAfter(Instant.now()))
+          .orElseThrow(() -> new InvalidCouponException(couponCode));
+      DiscountStrategy ds = discountStrategies.get(coupon.getType());
+      discount = ds.apply(subtotal, coupon);
+    }
+
+    BigDecimal total = subtotal.subtract(discount);
+    Order order = new Order(UUID.randomUUID().toString(), userId,
+        cart.getItems(), subtotal, discount, total, OrderStatus.PENDING);
+    orderRepo.save(order);
+
+    cart.setStatus(CartStatus.CHECKED_OUT);
+    cartService.save(cart);
+    return order;
+  }
+}
+```
+
+## 7. Cart expiry
+
+A background job runs every hour:
+
+```java
+@Scheduled(fixedRate = 3600000)
+public void expireOldCarts() {
+  List<Cart> expired = cartRepo.findActiveCartsExpiredBefore(Instant.now());
+  expired.forEach(c -> {
+    c.setStatus(CartStatus.EXPIRED);
+    cartRepo.save(c);
+  });
+}
+```
+
+## 8. SOLID
+
+- **SRP:** `CartService` manages items; `CheckoutService` handles the cart → order transition; `PricingStrategy` owns calculation.
+- **OCP:** New discount type = new `DiscountStrategy` + register in the map. No `CheckoutService` changes.
+- **DIP:** `CheckoutService` depends on `PricingStrategy` and `DiscountStrategy` interfaces.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Guest cart | Persist cart in cookie/local storage; merge on login. |
+| Wishlist | `WishlistItem` without quantity or reservation semantics. |
+| Price drop alert | Observer on `Product.price` change; notify users with item in cart. |
+| Abandoned cart | Scheduled job detects ACTIVE carts older than N hours; triggers re-engagement notification. |
+
+## 10. The 30-second summary
+
+> Cart is a `Map<productId, CartItem>` that snapshots price at add time. Pricing and discount are injected strategies. Checkout is a three-step: validate inventory → compute total with discount → create order → mark cart checked out. Everything is a strategy or a repository; no business logic leaks into entities.

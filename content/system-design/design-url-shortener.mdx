@@ -1,0 +1,297 @@
+---
+title: "Design a URL Shortener (the staff-engineer answer)"
+slug: "design-url-shortener"
+category: "system-design"
+tags: ["caching", "data-modeling", "rate-limiting"]
+difficulty: "senior"
+readingTime: 19
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Beyond the standard hash-and-store: how to design a URL shortener at billions-per-day scale, with capacity numbers, cache strategy, and the trade-offs interviewers actually probe."
+---
+
+URL shortener is the *Hello World* of system design rounds. Done badly, it's a 5-minute conversation about base62 encoding. Done well, it's a 45-minute exploration of capacity planning, caching, hot keys, analytics pipelines and abuse prevention — exactly what a Senior+ interviewer wants.
+
+This post walks through the answer the way I'd give it in a real loop.
+
+## 1. Clarify before you draw
+
+The single biggest mistake I see candidates make is sketching a box-and-arrow diagram before they have a problem statement. Slow down for two minutes and ask:
+
+- **Read/write ratio?** Almost always read-heavy (~100:1 to 1000:1).
+- **TTL on links?** Permanent? 1 year? User-configurable?
+- **Custom aliases?** (`bit.ly/my-link` vs auto-generated)
+- **Analytics required?** Click counts? Geo? Referrer?
+- **Rate limits?** Per user? Per IP?
+- **Multi-region?** Latency target? (e.g. p99 < 50ms globally)
+
+<Callout type="tip" title="Why this matters">
+The interviewer is grading whether you build a system *for the requirements* — not whether you can recite a generic template. State the assumptions out loud and write them on the board.
+</Callout>
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. Shorten a long URL → return a short URL.
+2. Resolve a short URL → 301/302 redirect to the long URL.
+3. (Optional) Custom aliases.
+4. (Optional) Click analytics.
+
+**Non-functional:**
+1. **Highly available** for reads. Redirect downtime is a public outage.
+2. **Low latency** reads (< 50 ms p99).
+3. **Durable** — losing a URL means breaking every share that ever pointed at it.
+4. **Scalable to ~1B reads/day** (typical interview number).
+
+## 3. Back-of-envelope capacity
+
+Let's anchor on real numbers. Assume:
+
+- **100M new URLs/day** → ~1,200 writes/sec average, ~10K writes/sec peak.
+- **10B redirects/day** → ~115K reads/sec average, ~1M reads/sec peak.
+- **Storage:** 100M/day × 365 × 5 years × 500 bytes/row ≈ **90 TB** raw. Compressed and indexed, plan for **~150 TB** with replicas.
+- **Cache:** the top **20% of links serve 80% of traffic** (Pareto). Caching the top 10M hot links @ ~500 bytes ≈ **5 GB** — trivial for Redis.
+
+These numbers drive every later decision. Always carry them through.
+
+## 4. API design
+
+Keep it embarrassingly simple:
+
+```http
+POST /api/v1/shorten
+{
+  "longUrl": "https://example.com/some/very/long/path",
+  "customAlias": "my-link",   // optional
+  "ttlDays": 365              // optional
+}
+→ 201 { "shortUrl": "https://akk.in/aZ3x9q" }
+
+GET /:code
+→ 301 Location: <longUrl>
+```
+
+Idempotency: if the same `(userId, longUrl)` is shortened twice, return the same short URL. Add an idempotency key for safety.
+
+## 5. Generating the short code
+
+Three viable approaches — pick based on requirements:
+
+| Approach | Pros | Cons |
+|---|---|---|
+| **Hash (MD5/SHA) + base62 truncate** | Stateless, deterministic | Collisions; same long URL → same code (sometimes desired, sometimes not) |
+| **Auto-increment ID + base62 encode** | Zero collisions, compact | Predictable (enumeration risk); needs a sequence service |
+| **Random base62, check-and-insert** | Unpredictable, simple | Collision retries get slow as space fills |
+
+In production I'd use a **distributed sequence service** (e.g. Snowflake-style or a Redis `INCR` shard) producing a 64-bit ID, then base62-encode it to ~7 chars. Pre-fetch ranges per app server to avoid hot-pathing the sequence on every write.
+
+<Callout type="warn" title="Don't say 'just use UUID'">
+UUIDs are 22+ chars in base62 — terrible UX. Interviewers know this; address the trade-off explicitly.
+</Callout>
+
+## 6. Data model
+
+Single hot table, denormalized for read speed:
+
+```sql
+CREATE TABLE links (
+  code        VARCHAR(10) PRIMARY KEY,
+  long_url    TEXT NOT NULL,
+  user_id     BIGINT,
+  created_at  TIMESTAMPTZ NOT NULL,
+  expires_at  TIMESTAMPTZ,
+  is_disabled BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX idx_user ON links(user_id, created_at);
+```
+
+Storage choice:
+- **Postgres** is plenty up to ~10B rows with proper partitioning.
+- For interview points, mention **DynamoDB / Cassandra** as the obvious wide-column alternative — single-key lookups, predictable latency, easier multi-region writes.
+- **Don't** use a relational JOIN-heavy model. The hot path is a single primary-key lookup.
+
+## 7. Read path: the cache is the system
+
+The interview is won or lost here.
+
+```
+Browser → CDN (edge cache, optional) → API GW
+       → Redirect Service → Redis (LRU)
+                         ↘ DB on miss → write-through to Redis
+       → 301 to long URL
+```
+
+Key decisions:
+- **301 vs 302?** 301 is permanent and aggressively cached by browsers — saves you traffic but breaks click analytics. Most real shorteners use **302** to keep every click reaching origin.
+- **Cache key:** `code → long_url`. TTL of hours, not days. Evict via LRU.
+- **Hot-key protection:** if a viral link gets 100K req/sec, a single Redis node will brown out. Mitigations: client-side caching with a short TTL, request coalescing, sharding by `hash(code)`.
+- **CDN:** for true global p99, sit a CDN in front and let it cache 302s for short windows. Only viable if you accept slightly stale analytics.
+
+### CDN edge caching — the trade-off worth defending
+
+If you cache 302 responses at the CDN edge for, say, 60 seconds:
+
+- **Wins:** ~95% of redirect traffic never hits your origin → you can run on 5 nodes instead of 50. p99 drops from ~50 ms to single-digit ms globally.
+- **Losses:** clicks aggregate at the edge → your analytics layer is blind to those events unless the CDN sends you logs. Your edit/disable propagation now has a 60 s tail.
+
+The right call depends on what you're optimizing for:
+
+| Use case | Cache 302 at edge? |
+|---|---|
+| Marketing campaign tracker | No — every click is revenue data |
+| Internal company shortener | Yes — analytics is secondary |
+| Public free shortener (bit.ly model) | Tiered: short edge cache, async log shipping back |
+
+Mention this trade-off explicitly in an interview. It demonstrates you've thought past the architecture diagram.
+
+### The bot traffic multiplier (everyone forgets this)
+
+Real-world shorteners see **5–20× their human traffic in bot crawls**: link previews from WhatsApp, Slack, Twitter, iMessage, search-engine crawlers, malware scanners, link-checkers. Every shared link gets fetched dozens of times before any human clicks it.
+
+Implications:
+- Provision capacity for the bot multiplier, not human traffic.
+- Bots usually issue `HEAD` requests; serve them from cache only.
+- Don't count bot hits as "clicks" in analytics — filter by `User-Agent` or by request method.
+- If bots cause 90% of your QPS, your hot-key problem is *theirs*, not your users'.
+
+## 8. Write path
+
+Lower volume → simpler:
+
+```
+Client → API GW → Shorten Service
+   → Sequence Service (get next ID)
+   → Encode to base62
+   → Insert into DB
+   → Warm Redis (optional)
+   → 201 with short URL
+```
+
+For custom aliases, use `INSERT ... ON CONFLICT DO NOTHING` and surface a 409 if taken. For random codes, retry on rare collisions.
+
+## 9. Analytics — keep it off the hot path
+
+A fatal mistake: writing to your analytics store synchronously on every redirect. You'll quintuple your latency.
+
+**Fan out asynchronously:**
+
+```
+Redirect Service → publishes click event to Kafka
+    → Stream processor (Flink/Spark) aggregates
+    → Writes counts to OLAP store (ClickHouse / BigQuery)
+    → Dashboard queries OLAP
+```
+
+Per-link counters in Redis (`INCR code:clicks`) give "near real-time" numbers; durable analytics flow through the stream pipeline.
+
+## 10. Reliability & multi-region
+
+For 99.99% read availability:
+
+- **Multi-AZ Redis** with replicas; failover via Sentinel/ElastiCache.
+- **DB:** primary in one region, async read replicas everywhere else. Writes are rare enough that cross-region write latency is acceptable; if not, use a globally distributed store (Spanner, DynamoDB Global Tables).
+- **Stateless services** behind a load balancer; auto-scale on QPS and CPU.
+- **Health checks** on each layer; circuit-break when downstream fails.
+
+## 11. Abuse, security, rate limiting
+
+Almost every senior+ interviewer asks this. Be ready:
+
+- **Rate limit** writes per user/IP at the API gateway (token bucket).
+- **Block known-bad domains** at write time (phishing, malware lists).
+- **Soft-disable** links flagged as abuse (`is_disabled`) instead of deleting — preserves audit trail.
+- **HTTPS only**, HSTS on the redirect host.
+
+## 12. ID generation deep-dive: Snowflake, range pre-fetch, and the clock-skew trap
+
+I waved at "use a Snowflake-style ID" earlier. At staff level, you'll be asked to defend that choice for 5 minutes. Here's the full version.
+
+### The three viable architectures
+
+**A. Single auto-increment** (e.g. one Postgres `BIGSERIAL`)
+- Pros: dead simple, perfectly compact IDs.
+- Cons: single point of failure; throughput capped at one node's write rate (~10K/s); a write-amplification problem the moment you scale beyond one DB.
+- **Verdict:** fine for under 1K writes/sec. Not for our 10K peak.
+
+**B. Snowflake-style 64-bit ID** (the standard answer)
+
+```
+ 1 bit  | 41 bits          | 10 bits     | 12 bits
+ unused | timestamp (ms)   | machine ID  | sequence within ms
+        | (since epoch)    |             |
+```
+
+- Generated **locally on each app server** — no central call.
+- Roughly time-ordered → DB inserts are sequential → great for indexes.
+- Up to `2^12 = 4096` IDs per ms per machine = 4M IDs/sec/machine — ample.
+- Base62-encoded → 11 chars; or trim leading bits → 7–9 chars.
+
+This is what Twitter, Discord, Sony (Sonyflake), Instagram and dozens of others use.
+
+**C. Range pre-fetch from a central sequence** (the safety-net answer)
+
+If you don't trust local clocks, run a small "ID ranger" service that hands out **ranges of 100K IDs** to each app server on request:
+
+```
+App server 1: takes range [1..100_000]
+App server 2: takes range [100_001..200_000]
+   ...
+```
+
+- Each app server burns through its range locally (no network call per ID).
+- Fetches a new range when the current one is 80% used.
+- ID ranger only runs ~10K times per second across all app servers — easy to scale.
+- Base62-encoded.
+
+**Verdict:** Snowflake is the textbook answer; range pre-fetch is what you reach for when clock skew is a real worry (e.g. on bare metal across multiple data centers).
+
+### The clock-skew trap
+
+Snowflake's correctness depends on monotonic, roughly-synchronized clocks. Two failure modes that bite real systems:
+
+1. **NTP step backwards.** A bad NTP sync moves the clock back 30 seconds. Your next 30 seconds of generated IDs collide with already-issued IDs from minutes ago.
+   - Mitigation: track the last-used timestamp per machine; if `now < last_used`, **block** ID generation until the clock catches up.
+
+2. **Two machines with the same machine ID.** Configuration drift, container restarts, cloned VMs. Result: silent ID collision.
+   - Mitigation: have machine IDs leased from a central registry (ZooKeeper, etcd) at startup, with a heartbeat. Crash loud if the lease can't be renewed.
+
+In an interview, **state these explicitly**. The senior signal is "I know what can go wrong with this design," not "Snowflake is great, let's move on."
+
+### Custom aliases — the parallel namespace
+
+Custom aliases (`akk.in/launch`) live in the **same code space** as auto-generated codes. So `INSERT ... ON CONFLICT DO NOTHING` is the right primitive — both auto and custom go through the same uniqueness check.
+
+Two subtleties:
+- Reserve a few thousand "premium" aliases (single-letter, common words) so they can't be squatted.
+- Block aliases that look like auto-generated codes (e.g. all 7-char base62) to avoid future collisions when the auto-counter reaches that range. Or: use disjoint alphabets (auto uses base62; custom must include `-` or `_`).
+
+### Predictability and enumeration attacks
+
+Auto-increment + base62 means your IDs are sequentially predictable. An attacker can enumerate `aZ3x9q`, `aZ3x9r`, `aZ3x9s`, ... and discover **every link your service has ever shortened**, including private ones intended for "anyone with the link."
+
+Mitigations:
+- **Insert randomness** into the ID space: hash the auto-increment ID with a secret salt before base62-encoding. Looks random; still uniqueness-free.
+- **Reserve some bits for entropy** in Snowflake (use the unused bit + part of the sequence for randomness).
+- **Mark links as "private"** with longer (e.g. 12+ char) random codes that resist enumeration.
+
+This question has come up in every URL-shortener interview I've sat in. Have an answer ready.
+
+## 13. The trade-offs an interviewer will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why not just hash the long URL?" | Collision handling, lack of revocation, predictability concerns |
+| "What if a single link goes viral?" | Hot-key story: CDN, request coalescing, replica fan-out |
+| "Why not fully consistent global writes?" | Cost vs latency trade-off; eventual consistency is fine for shortening |
+| "How do you delete?" | Soft-delete + TTL on cache; hard-delete is rare and risky |
+| "How do you handle analytics scale?" | Async pipeline; never block the redirect |
+
+## 14. The 30-second summary
+
+> A URL shortener is fundamentally a **read-heavy KV store with a sequence generator in front**. The interesting parts aren't the encoding — they're the cache strategy, hot-key protection, async analytics, and abuse prevention. Get those four right and you've answered the staff-level version of the question.
+
+That's the answer I'd give. In an interview I'd whiteboard the architecture as I went, surface the trade-offs in section 12 unprompted, and leave the last 5 minutes for the interviewer's deep dive.
+
+<Callout type="tip" title="Want 90+ more like this?">
+The full [System Design Vault](/courses/system-design-vault) is in development. Join the waitlist for early access.
+</Callout>

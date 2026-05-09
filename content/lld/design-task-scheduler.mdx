@@ -1,0 +1,230 @@
+---
+title: "Design a Task Scheduler"
+slug: "design-task-scheduler"
+category: "lld"
+tags: ["oop", "concurrency", "design-patterns", "threading"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-04-25"
+author: "Aman Kumar Keshu"
+excerpt: "Task Scheduler is the threading interview question. You need a priority queue, worker thread pool, and correct shutdown semantics. This is where the interviewer separates senior from staff candidates."
+isPremium: true
+---
+
+Task Scheduler is asked at Google and Meta as a deeper concurrency question. The OOP surface is thin; the challenge is making the scheduler correct under concurrent task submission and graceful shutdown.
+
+## 1. Clarify requirements
+
+- Task types: one-time, recurring (cron-like)?
+- Priority levels?
+- Max concurrent tasks?
+- Retry on failure?
+- Task dependencies (A must run before B)?
+- Cancellation?
+- Monitoring: which tasks are running, queued, failed?
+
+Agreed scope:
+
+> One-time and recurring tasks. Priority queue. Fixed thread pool. Retry up to 3 times. Cancellation. No DAG dependencies.
+
+## 2. Core entities
+
+```
+Task (interface)
+ ├─ id: String
+ ├─ priority: int
+ ├─ execute(): void
+ └─ RecurringTask (adds: cronExpression, nextRunTime)
+
+ScheduledTask
+ ├─ task: Task
+ ├─ scheduledAt: Instant
+ ├─ status: TaskStatus   (PENDING | RUNNING | DONE | FAILED | CANCELLED)
+ └─ attempts: int
+
+TaskScheduler
+ ├─ taskQueue: PriorityBlockingQueue<ScheduledTask>
+ ├─ threadPool: ExecutorService
+ └─ schedulerThread: Thread   ← dispatches tasks when their time arrives
+
+TaskResult
+ ├─ taskId: String
+ ├─ success: boolean
+ └─ error: Throwable (nullable)
+```
+
+## 3. Task interface
+
+```java
+@FunctionalInterface
+public interface Task {
+  void execute() throws Exception;
+}
+
+public class ScheduledTask implements Comparable<ScheduledTask> {
+  private final String id;
+  private final Task task;
+  private final Instant scheduledAt;
+  private final int priority;
+  private volatile TaskStatus status = TaskStatus.PENDING;
+  private int attempts = 0;
+  private static final int MAX_RETRIES = 3;
+
+  @Override
+  public int compareTo(ScheduledTask other) {
+    // Earlier time first; then higher priority
+    int timeCmp = this.scheduledAt.compareTo(other.scheduledAt);
+    return timeCmp != 0 ? timeCmp : Integer.compare(other.priority, this.priority);
+  }
+}
+```
+
+## 4. TaskScheduler — the core
+
+```java
+public class TaskScheduler {
+  private final PriorityBlockingQueue<ScheduledTask> queue = new PriorityBlockingQueue<>();
+  private final ExecutorService threadPool;
+  private final ScheduledExecutorService dispatcherService = Executors.newSingleThreadScheduledExecutor();
+  private volatile boolean running = true;
+
+  public TaskScheduler(int poolSize) {
+    this.threadPool = Executors.newFixedThreadPool(poolSize);
+    startDispatcher();
+  }
+
+  public String submit(Task task, Instant runAt, int priority) {
+    ScheduledTask st = new ScheduledTask(UUID.randomUUID().toString(), task, runAt, priority);
+    queue.offer(st);
+    return st.getId();
+  }
+
+  public String submitNow(Task task, int priority) {
+    return submit(task, Instant.now(), priority);
+  }
+
+  public String submitRecurring(RecurringTask task) {
+    return submit(task, task.getNextRunTime(), task.getPriority());
+  }
+
+  private void startDispatcher() {
+    dispatcherService.scheduleAtFixedRate(() -> {
+      Instant now = Instant.now();
+      while (!queue.isEmpty()) {
+        ScheduledTask head = queue.peek();
+        if (head == null || head.getScheduledAt().isAfter(now)) break;
+        ScheduledTask st = queue.poll();
+        if (st != null && st.getStatus() == TaskStatus.PENDING) {
+          st.setStatus(TaskStatus.RUNNING);
+          threadPool.submit(() -> executeWithRetry(st));
+        }
+      }
+    }, 0, 100, TimeUnit.MILLISECONDS);  // poll every 100ms
+  }
+
+  private void executeWithRetry(ScheduledTask st) {
+    while (st.getAttempts() < ScheduledTask.MAX_RETRIES) {
+      st.incrementAttempts();
+      try {
+        st.getTask().execute();
+        st.setStatus(TaskStatus.DONE);
+        if (st.getTask() instanceof RecurringTask rt) {
+          // Re-schedule next occurrence
+          submit(rt, rt.getNextRunTime(), rt.getPriority());
+        }
+        return;
+      } catch (Exception e) {
+        log.warn("Task {} failed attempt {}/{}", st.getId(), st.getAttempts(), ScheduledTask.MAX_RETRIES, e);
+        if (st.getAttempts() < ScheduledTask.MAX_RETRIES) {
+          sleep(1000L * st.getAttempts()); // exponential backoff
+        }
+      }
+    }
+    st.setStatus(TaskStatus.FAILED);
+    log.error("Task {} permanently failed after {} attempts", st.getId(), ScheduledTask.MAX_RETRIES);
+  }
+
+  public boolean cancel(String taskId) {
+    return queue.removeIf(st -> {
+      if (st.getId().equals(taskId) && st.getStatus() == TaskStatus.PENDING) {
+        st.setStatus(TaskStatus.CANCELLED);
+        return true;
+      }
+      return false;
+    });
+  }
+
+  public void shutdown() {
+    running = false;
+    dispatcherService.shutdown();
+    threadPool.shutdown();
+    try { threadPool.awaitTermination(30, TimeUnit.SECONDS); }
+    catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+  }
+}
+```
+
+## 5. Recurring tasks
+
+```java
+public class RecurringTask implements Task {
+  private final Task delegate;
+  private final Duration interval;
+  private Instant nextRunTime;
+
+  public RecurringTask(Task delegate, Duration interval) {
+    this.delegate = delegate;
+    this.interval = interval;
+    this.nextRunTime = Instant.now().plus(interval);
+  }
+
+  @Override
+  public void execute() throws Exception { delegate.execute(); }
+
+  public Instant getNextRunTime() {
+    Instant next = nextRunTime;
+    nextRunTime = Instant.now().plus(interval); // advance
+    return next;
+  }
+}
+```
+
+## 6. Monitoring
+
+```java
+public class SchedulerMonitor {
+  private final TaskScheduler scheduler;
+
+  public SchedulerStats stats() {
+    Map<TaskStatus, Long> counts = scheduler.getAllTasks().stream()
+        .collect(Collectors.groupingBy(ScheduledTask::getStatus, Collectors.counting()));
+    return new SchedulerStats(
+        counts.getOrDefault(TaskStatus.PENDING, 0L),
+        counts.getOrDefault(TaskStatus.RUNNING, 0L),
+        counts.getOrDefault(TaskStatus.FAILED, 0L)
+    );
+  }
+}
+```
+
+## 7. Thread safety notes
+
+| Concern | Solution |
+|---|---|
+| Queue access | `PriorityBlockingQueue` is thread-safe |
+| Task status updates | `volatile` status field (single writer — executor thread) |
+| Cancellation | `queue.removeIf` is atomic in `PriorityBlockingQueue` |
+| Shutdown race | `dispatcherService.shutdown()` before `threadPool.shutdown()` |
+
+## 8. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| DAG dependencies | Track `prerequisites` per task; only enqueue when all predecessors are `DONE`. |
+| Distributed scheduling | Leader election (ZooKeeper); only leader dispatches; workers pull from shared queue. |
+| Cron expressions | Parse cron string to compute `nextRunTime`; use a library like Quartz. |
+| Dead letter queue | After MAX_RETRIES failures, move task to a `deadLetterQueue` for manual inspection. |
+
+## 9. The 30-second summary
+
+> `PriorityBlockingQueue<ScheduledTask>` ordered by run time then priority. A single dispatcher thread polls every 100ms and hands ready tasks to a fixed thread pool. Retry-with-backoff wraps each execution. Recurring tasks re-enqueue themselves after successful execution. Shutdown drains gracefully with `awaitTermination`.

@@ -1,0 +1,223 @@
+---
+title: "Design YouTube (upload, transcoding, delivery)"
+slug: "design-youtube"
+category: "system-design"
+tags: ["video", "cdn", "transcoding", "object-storage", "abr-streaming"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How to design YouTube end-to-end: chunked upload, async transcoding into multiple bitrates, CDN-backed adaptive streaming, and the metadata layer that ties it all together."
+---
+
+"Design YouTube" is two completely different systems pretending to be one: a **write path** (upload + transcode, slow, async, batch-shaped) and a **read path** (playback, hot, latency-critical, CDN-served). Junior candidates blur them; staff candidates separate them and design each properly.
+
+## 1. Clarify before you draw
+
+- **Upload formats?** Just MP4, or every codec under the sun?
+- **Max video length?** 15 min (TikTok), 1 hour (YouTube avg), 12 hours (long-form)?
+- **Live streaming, or VOD only?** Live is a wholly different design.
+- **Resolutions to deliver?** 144p–4K? HDR?
+- **Comments, likes, recommendations?** (Usually out of scope; cross-link.)
+- **Geographic scope?** Single region or global?
+
+For this post: VOD only, MP4 input, transcode to 144p/360p/720p/1080p/4K, global CDN delivery, ~2B users, ~500 hours of video uploaded per minute.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. Upload a video.
+2. Process it (transcode, generate thumbnails).
+3. Stream it back to viewers at adaptive bitrate.
+4. List/search videos (metadata service).
+
+**Non-functional:**
+1. **Read-heavy** — ~1000:1 read:write ratio.
+2. **Low playback latency** — first frame in &lt;2 seconds globally.
+3. **High durability** for uploaded originals (never lose user content).
+4. **Scale** — petabytes of new content per day.
+
+## 3. Capacity numbers
+
+- **500 hours/min uploaded** = **30K hours/hour** = ~720K hours/day.
+- Average raw upload at ~50 GB/hour (1080p) → **~36 PB/day raw**.
+- After transcode to 5 resolutions (varying sizes, sum ~3× original at all bitrates) → **~100 PB/day total storage**, ~**~150 EB/year**.
+- Reads: 5B videos viewed/day × avg 5 min × 5 Mbps avg = **~5 PB/sec** of video served at peak. **The CDN does ~99% of this**, origin sees a tiny fraction.
+
+These numbers force two architectural decisions: **object storage** for content, **CDN** for delivery.
+
+## 4. The high-level architecture
+
+```
+Uploader ─► Upload Service ─► Object Storage (raw)
+                              │
+                              ▼
+                        Transcoding Pipeline (Kafka + workers)
+                              │
+                              ▼
+                        Object Storage (transcoded variants + manifest)
+                              │
+                              ▼
+                              CDN  ◄── Viewer (HLS/DASH player)
+
+Metadata Service ────► Video DB (id, title, owner, processing_status, available_renditions)
+```
+
+Two storage tiers: **object storage** (S3 / GCS) for the bulk, **metadata DB** (sharded SQL or wide-column) for the searchable / queryable bits.
+
+## 5. The upload path (chunked, resumable)
+
+Naive multi-GB upload over HTTP is fragile. Real systems use chunked, resumable upload:
+
+```
+1. Client → Upload Service: InitiateUpload(filename, size)
+   ← Returns upload_id and a list of pre-signed chunk URLs (or a single resumable upload session).
+
+2. Client splits file into 5–10 MB chunks.
+3. Client PUTs each chunk directly to Object Storage (bypassing the API for the bulk transfer).
+4. Each chunk has a chunk_id; client retries failed chunks idempotently.
+5. After all chunks upload, client → Upload Service: CompleteUpload(upload_id, chunk_list).
+6. Upload Service triggers the transcode pipeline.
+```
+
+Key wins:
+- **Resumable** — phone wifi drops, only the failed chunk re-uploads.
+- **Direct-to-storage** — your API isn't a 50 GB pipe; the client talks to S3.
+- **Parallel** — chunks upload simultaneously.
+
+Industry primitives: S3 Multipart Upload, GCS Resumable Upload, Tus protocol.
+
+## 6. The transcoding pipeline
+
+A single 1-hour 4K video might take 10× real-time to transcode on one box. The pipeline:
+
+```
+Original video → split into 10-second segments
+                    │
+                    ▼
+              Kafka topic: transcode_jobs
+                    │
+            ┌───────┴────────┐
+            ▼                ▼
+       Worker 1         Worker N    (each processes one segment, all bitrates)
+            │                │
+            └───────┬────────┘
+                    ▼
+              Reassemble into renditions per bitrate
+                    │
+                    ▼
+            Generate HLS/DASH manifest
+                    │
+                    ▼
+          Object Storage (final renditions)
+                    │
+                    ▼
+       Metadata Service: mark video as "ready"
+```
+
+Why segment-level parallelism:
+- A 60-min video at 6 segments/min → 360 segments → embarrassingly parallel.
+- Worker failures only re-do one 10-second segment, not the whole video.
+- Transcoding the same content into 5 bitrates is just 5 runs on the same segment, batched per worker for cache locality.
+
+Hardware: GPUs (NVENC) or dedicated ASICs (Google's VCU) — 10–100× cheaper than CPU encoding at YouTube scale.
+
+## 7. Adaptive Bitrate (ABR) streaming
+
+The viewer's player doesn't ask for "the 720p video." It asks for **a manifest**, then individual segments at whichever bitrate fits the current bandwidth.
+
+**HLS** (Apple) and **DASH** (everyone else) are the two standards. Both work the same way:
+
+```
+GET /video/abc/master.m3u8
+  → list of variants (144p / 360p / 720p / ...) each with their own playlist URL
+
+GET /video/abc/720p/playlist.m3u8
+  → list of 10-second .ts segments
+
+GET /video/abc/720p/segment_0017.ts
+  → 10 seconds of video. Player buffers ahead.
+```
+
+Client logic: every 10 seconds, measure throughput, pick the highest-quality variant whose bitrate fits comfortably below current bandwidth, switch on next segment boundary. Segment boundaries are aligned across variants so switching is seamless.
+
+Implications for the system:
+- Every variant of every video is just a folder of small `.ts` files in object storage.
+- The CDN caches `.ts` segments aggressively; cache hit rate ~90%+ for popular content.
+- Low-bandwidth regions get 144p; gigabit fiber gets 4K — same backend, same storage.
+
+## 8. CDN strategy
+
+Without a CDN, you'd serve 5 PB/sec from origin. Untenable.
+
+**Tiered CDN:**
+
+```
+Edge (in viewer's ISP)  →  Regional cache  →  Origin (object storage)
+       ~5 ms                 ~30 ms              ~150 ms
+       hit rate ~80%         hit rate ~99%       miss rate ~1%
+```
+
+YouTube actually runs its own edge cache fleet (**Google Global Cache / GGC**) that ISPs install in their own data centers. ISPs save backbone bandwidth; YouTube saves egress costs. Mention this — it's a great "actually how it works" point.
+
+For new and viral content: **pre-warm** the edge by pushing the manifest + first few segments to top-N cities the moment a video goes live or starts trending.
+
+## 9. Metadata layer
+
+Tiny compared to video bytes, but high-throughput:
+
+```sql
+videos(id, owner_id, title, description, duration_s, status, created_at, ...)
+video_renditions(video_id, bitrate, codec, manifest_url)
+view_counts(video_id, count)        -- distributed counter; see [Distributed Counter] post
+```
+
+- **Sharded by `video_id`** (Snowflake-style ID for sortability + sharding).
+- Searchable fields denormalized into a search index (Elasticsearch or Vespa).
+- Recommendations served from a separate ML pipeline (cross-link to feed/recommendation post).
+
+## 10. View counting (the famous "view = 30 seconds watched" rule)
+
+A "view" isn't every GET on a `.ts` segment — that overcounts wildly. YouTube's heuristic: a view is recorded when a unique user watches at least 30 seconds.
+
+Pipeline:
+1. Player sends a `playback_event` to the metrics service every N seconds.
+2. Stream processor (Flink / Kafka Streams) aggregates per (user, video) over a sliding window.
+3. When a user crosses the 30s threshold for a video they haven't been counted for in the last X hours, increment the view counter.
+4. View count is a **distributed counter** — see the dedicated post.
+
+This is also where bot/spam filtering happens. Real view counting is largely a fraud-detection problem.
+
+## 11. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Upload chunk fails** | Client retries that chunk only; idempotent on chunk_id |
+| **Transcode worker dies** | Kafka offset uncommitted; another worker picks it up; idempotent on segment_id |
+| **Origin storage dies** | CDN absorbs reads from cache; new uploads queue / retry |
+| **Whole region down** | Multi-region object storage replication; CDN routes to surviving region |
+| **Manifest 404** | Player retries; fallback variant in master playlist |
+
+## 12. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why object storage, not a database?" | PB-scale, immutable blobs, CDN-friendly URLs |
+| "Why segment-based, not whole-file streaming?" | ABR + cacheability + parallel transcode |
+| "Why not transcode synchronously?" | 10× real-time work; user can't wait |
+| "Why HLS *and* DASH?" | Apple devices need HLS; rest of world uses DASH; encode once, manifest twice |
+| "How do you serve 5 PB/sec?" | CDN does ~99%; origin is tiny; pre-warm viral content |
+| "How do you dedup view counts?" | Stream processing + 30s rule + per-user dedup window + fraud detection |
+| "What if a video goes viral?" | Edge pre-warm; tiered cache absorbs; origin barely notices |
+
+## 13. The 30-second summary
+
+> YouTube is **two systems**: an async chunked-upload + transcode pipeline producing HLS/DASH segments in object storage, and a CDN-fronted read path that does ~99% of the bandwidth at the edge. Metadata lives in a separate sharded DB. View counts are a stream-processed distributed counter, not a `COUNT(*)`. The interview win is **separating write and read paths cleanly** and refusing to let either contaminate the other.
+
+That structure plus the capacity math from section 3 lands the staff-level signal.
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — backs the transcode job pipeline
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — sits in front of metadata reads
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — view-count storage
+</Callout>

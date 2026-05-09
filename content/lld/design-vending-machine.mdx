@@ -1,0 +1,178 @@
+---
+title: "Design a Vending Machine"
+slug: "design-vending-machine"
+category: "lld"
+tags: ["oop", "state-machine", "design-patterns"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-04-11"
+author: "Aman Kumar Keshu"
+excerpt: "Vending Machine is the State Pattern interview question. If you don't model it as a state machine you'll write a mess of if-else. Here's the textbook clean design."
+isPremium: true
+---
+
+Vending Machine is almost always asked as a proxy for "do you know the State pattern?". The interviewer expects you to name it and implement it — not to write giant if-else blocks.
+
+## 1. Clarify requirements
+
+- Payment methods: coins, cash, card, UPI?
+- Product selection before or after payment?
+- Change dispensing?
+- Refund if product unavailable?
+- Inventory management: restocking?
+
+Agreed scope:
+
+> Coin-only payments (₹1, ₹2, ₹5, ₹10). Select product, insert coins, confirm. Dispense product and change. Refund on cancel.
+
+## 2. State machine
+
+```
+IDLE
+ │ select product
+ ▼
+PRODUCT_SELECTED
+ │ insert coins
+ ▼
+COLLECTING_PAYMENT (loop until sufficient)
+ │ sufficient amount inserted
+ ▼
+PAYMENT_CONFIRMED
+ │ dispense product + change
+ ▼
+IDLE
+```
+
+Cancellation from any state → refund inserted coins → IDLE.
+
+## 3. State pattern implementation
+
+```java
+public interface VendingState {
+  void selectProduct(VendingMachine machine, String productCode);
+  void insertCoin(VendingMachine machine, Coin coin);
+  void confirmPayment(VendingMachine machine);
+  void cancel(VendingMachine machine);
+}
+```
+
+```java
+public class IdleState implements VendingState {
+  @Override
+  public void selectProduct(VendingMachine machine, String code) {
+    Product p = machine.getInventory().getProduct(code);
+    if (p == null || p.getQuantity() == 0) { machine.display("Out of stock"); return; }
+    machine.setSelectedProduct(p);
+    machine.setState(new ProductSelectedState());
+    machine.display("Selected: " + p.getName() + " ₹" + p.getPrice());
+  }
+
+  @Override public void insertCoin(VendingMachine m, Coin c) { m.display("Select a product first"); }
+  @Override public void confirmPayment(VendingMachine m) { m.display("No product selected"); }
+  @Override public void cancel(VendingMachine m) { m.display("Nothing to cancel"); }
+}
+
+public class CollectingPaymentState implements VendingState {
+  @Override
+  public void insertCoin(VendingMachine machine, Coin coin) {
+    machine.addInsertedAmount(coin.getValue());
+    machine.display("Inserted: ₹" + machine.getInsertedAmount()
+        + " / ₹" + machine.getSelectedProduct().getPrice());
+    if (machine.getInsertedAmount() >= machine.getSelectedProduct().getPrice()) {
+      machine.setState(new PaymentConfirmedState());
+      machine.display("Payment complete. Press confirm.");
+    }
+  }
+
+  @Override public void selectProduct(VendingMachine m, String c) { m.display("Cancel first to change product"); }
+  @Override public void confirmPayment(VendingMachine m) { m.display("Insert more coins"); }
+
+  @Override
+  public void cancel(VendingMachine machine) {
+    machine.display("Refunding ₹" + machine.getInsertedAmount());
+    machine.refundCoins();
+    machine.resetSelection();
+    machine.setState(new IdleState());
+  }
+}
+
+public class PaymentConfirmedState implements VendingState {
+  @Override
+  public void confirmPayment(VendingMachine machine) {
+    Product p = machine.getSelectedProduct();
+    machine.getInventory().dispense(p.getCode());
+    int change = machine.getInsertedAmount() - p.getPrice();
+    if (change > 0) machine.display("Change: ₹" + change);
+    machine.display("Dispensing: " + p.getName());
+    machine.resetSelection();
+    machine.setState(new IdleState());
+  }
+
+  @Override public void insertCoin(VendingMachine m, Coin c) { m.display("Already paid, press confirm"); }
+  @Override public void selectProduct(VendingMachine m, String c) { m.display("Cancel first"); }
+  @Override public void cancel(VendingMachine machine) {
+    machine.refundCoins();
+    machine.resetSelection();
+    machine.setState(new IdleState());
+  }
+}
+```
+
+## 4. VendingMachine — the context
+
+```java
+public class VendingMachine {
+  private VendingState state = new IdleState();
+  private Product selectedProduct;
+  private int insertedAmount = 0;
+  private final Inventory inventory;
+
+  public void selectProduct(String code) { state.selectProduct(this, code); }
+  public void insertCoin(Coin coin)       { state.insertCoin(this, coin); }
+  public void confirmPayment()            { state.confirmPayment(this); }
+  public void cancel()                    { state.cancel(this); }
+
+  public void setState(VendingState s) { this.state = s; }
+  // getters, setters, display, refundCoins ...
+}
+```
+
+`VendingMachine` is just a context that delegates to the current state. Adding new states doesn't touch `VendingMachine`.
+
+## 5. Inventory
+
+```java
+public class Inventory {
+  private final Map<String, Product> products = new HashMap<>();
+
+  public void addProduct(Product p, int qty) {
+    products.put(p.getCode(), p);
+    p.setQuantity(qty);
+  }
+
+  public void dispense(String code) {
+    Product p = products.get(code);
+    if (p == null || p.getQuantity() == 0) throw new OutOfStockException(code);
+    p.setQuantity(p.getQuantity() - 1);
+  }
+}
+```
+
+## 6. SOLID
+
+- **OCP:** New state (`MaintenanceState`) = new class implementing `VendingState`. No existing state changes.
+- **SRP:** Each state class handles one phase of the machine's lifecycle.
+- **DIP:** `VendingMachine` depends on `VendingState` interface.
+
+## 7. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Card payment | `PaymentStrategy` interface; `CoinPayment`, `CardPayment`. State stays same. |
+| Restock | `MaintenanceState` accessible only with admin credentials; increments inventory. |
+| Product expiry | `Product` has `expiresAt`; inventory check filters expired items. |
+| Analytics | Publish `ProductDispensed` events; downstream subscriber updates sales dashboard. |
+
+## 8. The 30-second summary
+
+> State pattern: each state is a class implementing a common interface. `VendingMachine` delegates every action to the current state. State transitions are explicit method calls. Cancellation always returns to IDLE with a refund. That's it.

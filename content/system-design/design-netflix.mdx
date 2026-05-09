@@ -1,0 +1,171 @@
+---
+title: "Design Netflix (VOD streaming, recommendations, edge CDN)"
+slug: "design-netflix"
+category: "system-design"
+tags: ["streaming", "abr", "cdn", "recommendations", "personalization"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How to design Netflix: a small catalog + massive CDN problem, ABR streaming, A/B testing infrastructure, and the personalized landing page that's actually a unique render per user per session."
+---
+
+Netflix and YouTube look similar on the surface — both stream video — but the design problems are very different. YouTube is a **billions-of-creators upload + transcode firehose**. Netflix is a **small fixed catalog + colossal CDN delivery + per-user personalization** problem. The interviewer wants to see you spot that.
+
+## 1. Clarify before you draw
+
+- **Live or VOD?** VOD only for now.
+- **Catalog size?** ~20K titles vs YouTube's billions.
+- **Subscribers?** ~250M.
+- **Devices?** TVs, mobile, web — each with different codec/bitrate support.
+- **Personalization?** Yes — recommendations + landing page + thumbnail images are all per-user.
+
+For this post: VOD, ~20K titles, 250M subscribers, multi-device, full personalization.
+
+## 2. Capacity numbers
+
+- **Peak concurrent streams:** ~100M (during big releases).
+- **Avg bitrate:** 5 Mbps → **~500 Tbps egress at peak**. That's an entire country's internet.
+- **Catalog size:** 20K titles × 5 hr avg × 5 bitrates × 60 min × 100 MB ≈ **~50 PB** total catalog.
+- **Reads vs writes:** writes are batch (a new title is added monthly); reads are constant. ~10⁹:1 ratio.
+
+The design **is** the CDN strategy.
+
+## 3. The architecture (at the highest level)
+
+```
+Studios deliver content
+       │
+       ▼
+Encoding farm (offline, weeks of work per title)
+       │
+       ▼
+Object storage origin (S3 or Netflix-internal)
+       │
+       ▼
+Open Connect Appliances (custom CDN, in ISP datacenters)
+       │
+       ▼
+Subscriber's device (HLS/DASH player)
+
+Plus:
+  Personalization Service ──► Recommendations / Landing page
+  Subscriber Service ──► Auth, billing, profiles
+  A/B Testing Platform ──► Influences every UI decision
+```
+
+## 4. Open Connect — the real differentiator
+
+Netflix doesn't use a generic CDN. They built **Open Connect**: a fleet of custom hardware appliances they ship to ISPs to install in the ISP's data center, free.
+
+- The ISP saves backbone bandwidth (Netflix is ~15% of all internet traffic; without Open Connect, the ISP would pay enormously to peer with Netflix).
+- Netflix saves egress costs and gets near-edge delivery.
+- Win-win that took a decade to build but is the single biggest reason Netflix can serve 100M concurrent streams.
+
+Each appliance:
+- Stores ~80% of the catalog locally (the popular tail).
+- Serves ABR segments via HTTP from local NVMe.
+- Pulls cold content from upstream Open Connect tier on demand.
+- Pre-warmed nightly with new releases and trending content.
+
+This is the YouTube CDN model taken to its extreme: vertical integration with the network.
+
+## 5. Encoding farm
+
+For each title, Netflix runs an offline pipeline producing dozens of variants:
+
+- **Codecs:** H.264 (legacy devices), H.265/HEVC (modern), AV1 (open, growing), VP9 (Chrome).
+- **Bitrates:** typically 7–10 per codec (240p / 480p / 720p / 1080p / 1440p / 2160p / HDR).
+- **Audio variants:** stereo + 5.1 + Atmos in multiple languages.
+- **Subtitles:** dozens of languages, baked separately.
+- **Trick-play assets:** scrub-bar thumbnail strips.
+
+Per-title encoding can take **weeks of CPU time**. They use per-shot encoding optimization (a static-shot scene gets less bitrate than action) — saves ~30% on storage at the same quality. State this if asked about encoding efficiency.
+
+## 6. ABR streaming (same as YouTube)
+
+The player chooses the bitrate per 10-second segment. Standards: HLS for Apple, DASH for everyone else. See [Design YouTube](/blog/system-design/design-youtube#7-adaptive-bitrate-abr-streaming) for the full mechanics.
+
+Netflix-specific: aggressive **buffer-aware bitrate selection** — if the buffer is healthy, push to higher quality eagerly; if it's draining, drop fast to avoid stalls. Stalls are the single most-engagement-killing event.
+
+## 7. The personalized landing page
+
+This is the part most candidates miss. The Netflix home screen isn't a single render. It's:
+
+- **Per-user row selection** — which 30 rows (Trending, Top Picks, Because You Watched X, ...) appear.
+- **Per-user title order within each row.**
+- **Per-user artwork selection** — the same movie has multiple thumbnails; ML picks which one to show *you*.
+
+Architecture:
+```
+Home page request:
+  1. Personalization Service: which 30 rows for this user, which titles per row.
+  2. Artwork Service: for each title, which thumbnail variant for this user.
+  3. Catalog Service: hydrate titles with metadata.
+  4. Render JSON, return to client.
+```
+
+This runs in &lt;500 ms p99 globally because the personalization is precomputed nightly and served from a distributed cache, with online tweaks for fresh signals (just-watched titles).
+
+## 8. Recommendations (offline + online)
+
+- **Offline (nightly):** train per-user embedding from watch history, ratings, dwell time. Run candidate generation + ranking models. Store top-N per user in a key-value store.
+- **Online:** the home page reads precomputed recs. Lightweight reranker adjusts based on session signals (e.g. "user just watched a thriller — boost thrillers").
+
+Same separation as Instagram Explore and Twitter feed ranking. Cross-link.
+
+## 9. A/B testing infrastructure (the hidden superpower)
+
+Every UI change at Netflix ships behind an A/B test. Their internal experimentation platform:
+
+- Hash user_id into experiment buckets at request time.
+- Each bucket gets a different variant (e.g. landing page row order, thumbnail style, autoplay-on-hover).
+- Engagement metrics flow through their stream-processing pipeline (Mantis, Keystone) into experiment dashboards.
+- After a fixed duration + statistical significance check, the winner ships globally.
+
+A staff-level answer mentions A/B testing as **infrastructure**, not as a one-off feature. Netflix runs hundreds of concurrent experiments at any given moment.
+
+## 10. Subscriber & billing service
+
+- Per-user account (email, password, profile pictures, household members).
+- Subscription state (plan, billing cycle, next invoice).
+- Profile-level data (watch history per profile, since one account has multiple profiles).
+- Auth at API gateway via JWT + refresh tokens.
+
+Sharded SQL (MySQL or Aurora) for transactional billing data. Good fit because per-user volume is small and the consistency requirements are strict.
+
+## 11. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Open Connect appliance down** | DNS routes to next-nearest appliance; minor latency increase |
+| **Origin storage outage** | Edge serves from cache (most popular content cached locally); fresh content unavailable |
+| **Personalization service down** | Fallback to "Trending Now" + "Recently Added" — generic, but works |
+| **A/B platform down** | All users see the control variant |
+| **Encoding farm backed up** | New titles delayed; existing catalog unaffected |
+
+Famous Netflix lesson: **chaos engineering**. They literally inject random failures (Chaos Monkey) into production to ensure the system degrades gracefully. Worth a 30-second mention.
+
+## 12. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "How is this different from YouTube?" | Tiny catalog vs billions; CDN strategy is the design |
+| "Why custom CDN (Open Connect)?" | At 15% of internet traffic, generic CDN economics break |
+| "Why pre-encode dozens of variants?" | One-time cost; serves 100M streams from the same files |
+| "How does the home page personalize?" | Precomputed nightly + online rerank; per-user artwork |
+| "How do you handle 100M concurrent streams?" | Edge fleet absorbs ~99%; origin is small |
+| "How do you A/B test at scale?" | Bucketing infra; statistical significance gates rollouts |
+| "How do you minimize stalls?" | Aggressive buffer + buffer-aware ABR + edge proximity |
+
+## 13. The 30-second summary
+
+> Netflix is fundamentally a **CDN problem with an offline encoding farm and a heavy personalization layer**. The catalog is small (~20K titles), but each title is ~10 variants × multi-language audio × subtitles, and every viewer pulls multi-Mbps. Open Connect — Netflix's custom edge CDN co-located in ISPs — is the design's load-bearing innovation. The home page is per-user computed nightly and refined online. A/B testing infrastructure powers nearly every product decision.
+
+Land the YouTube vs Netflix contrast (catalog size + custom CDN + personalization) and you've nailed the staff-level answer.
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube) — the encoding + ABR fundamentals
+- [Design Twitter News Feed (ranking layer)](/blog/system-design/design-news-feed-twitter#14-ranking-layer-from-time-ordered-candidates-to-ml-scored-feed) — same recommendation architecture
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — backs personalization reads
+</Callout>

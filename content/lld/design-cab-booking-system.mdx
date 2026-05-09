@@ -1,0 +1,245 @@
+---
+title: "Design a Cab Booking System (Uber / Ola)"
+slug: "design-cab-booking-system"
+category: "lld"
+tags: ["oop", "state-machine", "design-patterns", "matching"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-01"
+author: "Aman Kumar Keshu"
+excerpt: "Cab Booking is the matching-system LLD. The driver-rider matching algorithm, ride state machine, and fare calculation are the three areas the interviewer focuses on."
+isPremium: true
+---
+
+Cab Booking is asked at Uber, Ola, and occasionally Google. It combines state machine design, a matching algorithm, and pricing strategy.
+
+## 1. Clarify requirements
+
+- Vehicle types: economy, premium, auto?
+- Matching: nearest driver or broadcast?
+- Fare: fixed, metered, or surge?
+- Real-time location tracking?
+- Scheduled rides?
+- Shared rides?
+- Cancellation policy?
+
+Agreed scope:
+
+> Economy and premium vehicle types. Nearest-driver matching. Base + per-km + per-minute fare with surge multiplier. Status-based (not GPS) tracking. No scheduled or shared rides.
+
+## 2. Ride state machine
+
+```
+SEARCHING
+ │ driver found and accepts
+ ▼
+DRIVER_ASSIGNED
+ │ driver arrives
+ ▼
+DRIVER_ARRIVED
+ │ rider boards, trip starts
+ ▼
+IN_PROGRESS
+ │ destination reached
+ ▼
+COMPLETED
+
+From SEARCHING → CANCELLED (rider cancels or no driver found in timeout)
+From DRIVER_ASSIGNED → CANCELLED (driver cancels, or rider cancels within window)
+```
+
+## 3. Core entities
+
+```
+Rider
+ ├─ id, name, phone, rating
+
+Driver
+ ├─ id, name, phone, rating
+ ├─ vehicle: Vehicle
+ ├─ status: DriverStatus  (AVAILABLE | ON_RIDE | OFFLINE)
+ └─ location: Location
+
+Vehicle
+ ├─ licensePlate, model
+ └─ type: VehicleType     (ECONOMY | PREMIUM | AUTO)
+
+Ride
+ ├─ id
+ ├─ rider: Rider
+ ├─ driver: Driver (nullable)
+ ├─ pickup: Location
+ ├─ dropoff: Location
+ ├─ vehicleType: VehicleType
+ ├─ status: RideStatus
+ ├─ fare: BigDecimal (nullable)
+ ├─ startTime, endTime: Instant
+ └─ otp: String              ← rider confirms driver by OTP
+
+Location
+ ├─ lat: double
+ └─ lng: double
+```
+
+## 4. Matching service
+
+```java
+public interface MatchingStrategy {
+  Optional<Driver> findDriver(Location pickup, VehicleType type, List<Driver> availableDrivers);
+}
+
+public class NearestDriverStrategy implements MatchingStrategy {
+  @Override
+  public Optional<Driver> findDriver(Location pickup, VehicleType type, List<Driver> drivers) {
+    return drivers.stream()
+        .filter(d -> d.getStatus() == DriverStatus.AVAILABLE)
+        .filter(d -> d.getVehicle().getType() == type)
+        .min(Comparator.comparingDouble(d -> haversineDistance(pickup, d.getLocation())));
+  }
+
+  private double haversineDistance(Location a, Location b) {
+    // Standard Haversine formula — returns km
+    double R = 6371;
+    double dLat = Math.toRadians(b.getLat() - a.getLat());
+    double dLng = Math.toRadians(b.getLng() - a.getLng());
+    double h = Math.sin(dLat/2) * Math.sin(dLat/2)
+             + Math.cos(Math.toRadians(a.getLat())) * Math.cos(Math.toRadians(b.getLat()))
+             * Math.sin(dLng/2) * Math.sin(dLng/2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+}
+```
+
+## 5. Fare strategy
+
+```java
+public interface FareStrategy {
+  BigDecimal calculate(Ride ride);
+}
+
+public class StandardFareStrategy implements FareStrategy {
+  private final Map<VehicleType, FareConfig> configs;
+  private final SurgeService surgeService;
+
+  @Override
+  public BigDecimal calculate(Ride ride) {
+    FareConfig cfg = configs.get(ride.getVehicleType());
+    double distanceKm = haversineDistance(ride.getPickup(), ride.getDropoff());
+    long durationMins = ChronoUnit.MINUTES.between(ride.getStartTime(), ride.getEndTime());
+
+    BigDecimal base = cfg.getBaseFare();
+    BigDecimal distCharge = cfg.getPerKmRate().multiply(BigDecimal.valueOf(distanceKm));
+    BigDecimal timeCharge = cfg.getPerMinRate().multiply(BigDecimal.valueOf(durationMins));
+    BigDecimal subtotal = base.add(distCharge).add(timeCharge);
+
+    double surgeMultiplier = surgeService.getSurge(ride.getPickup());
+    return subtotal.multiply(BigDecimal.valueOf(surgeMultiplier)).setScale(2, RoundingMode.HALF_UP);
+  }
+}
+```
+
+## 6. Ride service
+
+```java
+public class RideService {
+  private final DriverRepository driverRepo;
+  private final RideRepository rideRepo;
+  private final MatchingStrategy matcher;
+  private final FareStrategy fareStrategy;
+  private final NotificationService notifier;
+
+  public Ride requestRide(Rider rider, Location pickup, Location dropoff, VehicleType type) {
+    List<Driver> availableDrivers = driverRepo.findAvailableNear(pickup);
+    Driver driver = matcher.findDriver(pickup, type, availableDrivers)
+        .orElseThrow(() -> new NoDriverAvailableException());
+
+    driver.setStatus(DriverStatus.ON_RIDE);
+    driverRepo.save(driver);
+
+    String otp = generateOtp();
+    Ride ride = new Ride(UUID.randomUUID().toString(), rider, driver, pickup, dropoff,
+        type, RideStatus.DRIVER_ASSIGNED, otp);
+    rideRepo.save(ride);
+
+    notifier.notify(rider, "Driver " + driver.getName() + " is on the way. OTP: " + otp);
+    notifier.notify(driver, "New ride request. Pickup: " + pickup);
+    return ride;
+  }
+
+  public void startRide(String rideId, String otp) {
+    Ride ride = getAndValidate(rideId, RideStatus.DRIVER_ARRIVED);
+    if (!ride.getOtp().equals(otp)) throw new InvalidOtpException();
+    ride.setStatus(RideStatus.IN_PROGRESS);
+    ride.setStartTime(Instant.now());
+    rideRepo.save(ride);
+  }
+
+  public BigDecimal completeRide(String rideId) {
+    Ride ride = getAndValidate(rideId, RideStatus.IN_PROGRESS);
+    ride.setEndTime(Instant.now());
+    ride.setStatus(RideStatus.COMPLETED);
+
+    BigDecimal fare = fareStrategy.calculate(ride);
+    ride.setFare(fare);
+
+    ride.getDriver().setStatus(DriverStatus.AVAILABLE);
+    driverRepo.save(ride.getDriver());
+    rideRepo.save(ride);
+
+    notifier.notify(ride.getRider(), "Ride complete. Fare: ₹" + fare);
+    return fare;
+  }
+
+  public void cancelRide(String rideId, String actorId) {
+    Ride ride = rideRepo.findById(rideId).orElseThrow();
+    if (ride.getStatus() == RideStatus.IN_PROGRESS) throw new CancellationNotAllowedException();
+    ride.setStatus(RideStatus.CANCELLED);
+    if (ride.getDriver() != null) {
+      ride.getDriver().setStatus(DriverStatus.AVAILABLE);
+      driverRepo.save(ride.getDriver());
+    }
+    rideRepo.save(ride);
+  }
+
+  private Ride getAndValidate(String rideId, RideStatus expected) {
+    Ride ride = rideRepo.findById(rideId).orElseThrow();
+    if (ride.getStatus() != expected)
+      throw new InvalidRideStateException(expected, ride.getStatus());
+    return ride;
+  }
+}
+```
+
+## 7. Rating
+
+```java
+public class RatingService {
+  public void rateRide(String rideId, String raterId, RatingTarget target, int score) {
+    Ride ride = rideRepo.findById(rideId).orElseThrow();
+    if (ride.getStatus() != RideStatus.COMPLETED) throw new RideNotCompletedException();
+    ratingRepo.save(new Rating(rideId, target, score, raterId));
+    if (target == RatingTarget.DRIVER) {
+      driverRepo.updateRating(ride.getDriver().getId(), score);
+    }
+  }
+}
+```
+
+## 8. SOLID
+
+- **OCP:** New vehicle type or matching algorithm = new class. Zero service changes.
+- **SRP:** `RideService` manages ride lifecycle; `MatchingService` finds drivers; `FareStrategy` calculates fare.
+- **DIP:** `RideService` depends on `MatchingStrategy` and `FareStrategy` interfaces.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Scheduled rides | Store `scheduledAt`; background job enqueues matching N minutes before. |
+| Shared rides | Route matching between concurrent requests sharing similar paths. |
+| Real-time tracking | WebSocket stream of driver `Location` updates; push to rider app. |
+| Driver earnings | Observer on `RideCompleted` → credit driver wallet. |
+
+## 10. The 30-second summary
+
+> Two injected strategies: `MatchingStrategy` (nearest driver) and `FareStrategy` (base + distance + time × surge). `RideService` enforces the state machine — each method validates the current state before transitioning. OTP confirms the driver-rider match. Driver availability is updated at assignment and release.

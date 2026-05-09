@@ -1,0 +1,222 @@
+---
+title: "Design an Airline Reservation System"
+slug: "design-airline-reservation-system"
+category: "lld"
+tags: ["oop", "state-machine", "design-patterns", "booking"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-04"
+author: "Aman Kumar Keshu"
+excerpt: "Airline Reservation is the most complex booking LLD. Seat classes, fare rules, overbooking buffers, and check-in state machines make this a Staff-level design exercise."
+isPremium: true
+---
+
+Airline Reservation is asked at Amadeus, Booking.com, and occasionally Amazon. It's the most complex booking LLD and tests your ability to handle multiple interacting state machines.
+
+## 1. Clarify requirements
+
+- One-way, round-trip, multi-city flights?
+- Seat classes: Economy, Business, First?
+- Fare rules: refundable, non-refundable, change fees?
+- Overbooking and waitlist?
+- Check-in flow and boarding pass?
+- Baggage allowance?
+
+Agreed scope:
+
+> One-way and round-trip. Economy and Business. Fare types with refund rules. Seat selection. Check-in 24 hours before departure. Baggage tracking.
+
+## 2. State machines
+
+**Booking:**
+```
+INITIATED → SEAT_SELECTED → PAYMENT_PENDING → CONFIRMED → CHECKED_IN → BOARDED
+         ↘                ↘               ↘
+          CANCELLED      CANCELLED      CANCELLED (with fee)
+```
+
+**Flight:**
+```
+SCHEDULED → BOARDING → DEPARTED → ARRIVED | CANCELLED | DIVERTED
+```
+
+## 3. Core entities
+
+```
+Airport (code, name, city)
+
+Flight
+ ├─ flightNumber: String
+ ├─ origin, destination: Airport
+ ├─ departureTime, arrivalTime: LocalDateTime
+ ├─ aircraft: Aircraft
+ └─ status: FlightStatus
+
+Aircraft
+ ├─ model: String
+ └─ seats: List<Seat>
+
+Seat
+ ├─ seatNumber: String (e.g. "12A")
+ ├─ class: SeatClass     (ECONOMY | BUSINESS)
+ └─ type: SeatType        (WINDOW | MIDDLE | AISLE)
+
+FlightSeat
+ ├─ seat: Seat
+ ├─ flight: Flight
+ └─ status: SeatStatus   (AVAILABLE | HELD | BOOKED)
+
+Passenger
+ ├─ id, name, passport, dateOfBirth
+
+Booking
+ ├─ id, pnr (6-char code)
+ ├─ passenger: Passenger
+ ├─ flightSeat: FlightSeat
+ ├─ fareType: FareType   (ECONOMY_FLEX | ECONOMY_BASIC | BUSINESS)
+ ├─ status: BookingStatus
+ └─ baggageAllowance: BaggageAllowance
+
+BoardingPass
+ ├─ booking: Booking
+ ├─ gate: String
+ ├─ boardingTime: LocalDateTime
+ └─ barcode: String
+```
+
+## 4. Search — flight availability
+
+```java
+public class FlightSearchService {
+  public List<FlightOption> search(Airport origin, Airport destination,
+                                   LocalDate date, SeatClass seatClass, int passengers) {
+    return flightRepo.findByRoute(origin, destination, date)
+        .stream()
+        .filter(f -> f.getStatus() == FlightStatus.SCHEDULED)
+        .filter(f -> flightSeatRepo.countAvailable(f, seatClass) >= passengers)
+        .map(f -> new FlightOption(f, pricingService.quote(f, seatClass, date)))
+        .sorted(Comparator.comparing(fo -> fo.getFlight().getDepartureTime()))
+        .toList();
+  }
+}
+```
+
+## 5. Booking service
+
+```java
+public class BookingService {
+  public Booking initiate(Passenger passenger, String flightId, String seatNumber, FareType fareType) {
+    Flight flight = flightRepo.findById(flightId).orElseThrow();
+    FlightSeat flightSeat = flightSeatRepo.findBySeatAndFlight(seatNumber, flightId).orElseThrow();
+
+    if (!flightSeat.hold()) throw new SeatNotAvailableException(seatNumber);
+
+    String pnr = generatePnr();
+    Booking booking = new Booking(UUID.randomUUID().toString(), pnr, passenger,
+        flightSeat, fareType, BookingStatus.PAYMENT_PENDING);
+    bookingRepo.save(booking);
+
+    // Auto-expire hold after 15 minutes if not paid
+    scheduler.schedule(() -> expireIfUnpaid(booking.getId()), 15, TimeUnit.MINUTES);
+    return booking;
+  }
+
+  public Booking confirm(String bookingId, PaymentDetails payment) {
+    Booking booking = getAndValidate(bookingId, BookingStatus.PAYMENT_PENDING);
+    paymentService.charge(payment, pricingService.price(booking));
+
+    booking.getFlightSeat().confirm();
+    booking.setStatus(BookingStatus.CONFIRMED);
+    bookingRepo.save(booking);
+
+    notifier.notify(booking.getPassenger(), "Booking confirmed. PNR: " + booking.getPnr());
+    return booking;
+  }
+
+  private void expireIfUnpaid(String bookingId) {
+    Booking booking = bookingRepo.findById(bookingId).orElse(null);
+    if (booking != null && booking.getStatus() == BookingStatus.PAYMENT_PENDING) {
+      booking.getFlightSeat().release();
+      booking.setStatus(BookingStatus.CANCELLED);
+      bookingRepo.save(booking);
+    }
+  }
+}
+```
+
+## 6. Check-in and boarding pass
+
+```java
+public class CheckInService {
+  public BoardingPass checkIn(String pnr, Passenger passenger) {
+    Booking booking = bookingRepo.findByPnr(pnr).orElseThrow();
+    Flight flight = booking.getFlightSeat().getFlight();
+
+    if (!booking.getPassenger().getId().equals(passenger.getId()))
+      throw new UnauthorizedException();
+    if (booking.getStatus() != BookingStatus.CONFIRMED)
+      throw new InvalidBookingStateException();
+
+    LocalDateTime checkInOpen = flight.getDepartureTime().minusHours(24);
+    LocalDateTime checkInClose = flight.getDepartureTime().minusMinutes(45);
+    if (LocalDateTime.now().isBefore(checkInOpen))
+      throw new CheckInNotOpenException();
+    if (LocalDateTime.now().isAfter(checkInClose))
+      throw new CheckInClosedException();
+
+    booking.setStatus(BookingStatus.CHECKED_IN);
+    bookingRepo.save(booking);
+
+    BoardingPass bp = new BoardingPass(booking, flight.getGate(),
+        flight.getDepartureTime().minusMinutes(30), generateBarcode());
+    boardingPassRepo.save(bp);
+    return bp;
+  }
+}
+```
+
+## 7. Fare rules and cancellation
+
+```java
+public interface FareRule {
+  BigDecimal cancellationFee(Booking booking);
+  boolean isChangeable();
+}
+
+public class EconomyBasicRule implements FareRule {
+  @Override
+  public BigDecimal cancellationFee(Booking booking) {
+    return booking.getTotalFare();  // non-refundable
+  }
+  @Override public boolean isChangeable() { return false; }
+}
+
+public class EconomyFlexRule implements FareRule {
+  @Override
+  public BigDecimal cancellationFee(Booking booking) {
+    long hoursBeforeDeparture = ChronoUnit.HOURS.between(Instant.now(),
+        booking.getFlightSeat().getFlight().getDepartureTime().atZone(ZoneId.systemDefault()).toInstant());
+    return hoursBeforeDeparture >= 24 ? BigDecimal.ZERO : booking.getTotalFare().multiply(new BigDecimal("0.25"));
+  }
+  @Override public boolean isChangeable() { return true; }
+}
+```
+
+## 8. SOLID
+
+- **SRP:** Search, booking, check-in are separate services.
+- **OCP:** New fare class = new `FareRule`. No `BookingService` changes.
+- **DIP:** `BookingService` depends on `FareRule` interface, injected based on `FareType`.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Connecting flights | `Itinerary` = `List<Booking>`; all legs confirmed together. |
+| Overbooking | Allow booking count > seat count by N%; manage volunteer bumps at gate. |
+| Upgrade | Upgrade request moves passenger from economy to business if seat available. |
+| Loyalty miles | Observer on `BookingConfirmed` → credit miles to frequent flyer account. |
+
+## 10. The 30-second summary
+
+> Seat hold (15-min TTL) at booking initiation; confirm on payment. Check-in validates the 24h window. Fare rules are strategies that determine cancellation fees — inject based on `FareType`. Two state machines: booking lifecycle and flight status. State validation at every transition prevents invalid operations.

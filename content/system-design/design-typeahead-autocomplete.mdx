@@ -1,0 +1,210 @@
+---
+title: "Design Search Autocomplete (Typeahead)"
+slug: "design-typeahead-autocomplete"
+category: "system-design"
+tags: ["trie", "ranking", "low-latency", "data-structures"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Sub-100ms autocomplete suggestions across billions of queries: trie design, top-K storage, distributed sharding, real-time updates and personalization \u2014 the design behind Google Search and Amazon's search box."
+---
+
+Type "yo" into Google. In 30 milliseconds you see "youtube," "yoga," "yo mama jokes." That speed is not accidental — it's a carefully designed system tuned for **prefix queries with top-K answers in single-digit milliseconds**, distributed across the world. Here's how to design it.
+
+## 1. Clarify before you draw
+
+- **Suggestion source:** historical query log, product catalog, or both?
+- **How many suggestions?** Top 5? Top 10?
+- **Personalization?** Same suggestions for everyone, or tailored?
+- **Languages?** Multi-language with stemming/transliteration?
+- **Update frequency?** Real-time as new queries come in, or daily batches?
+- **Latency budget?** 50 ms? 100 ms?
+
+For this post: top-5 suggestions from query history, ~5B searches/day, 100 ms p99 budget, daily batch refresh + real-time hot updates.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. Given a prefix, return the top-K most popular completions.
+2. Update suggestions as new queries arrive.
+3. Filter explicit/blocked terms.
+
+**Non-functional:**
+1. **Sub-100ms p99** server-side.
+2. **Read-heavy** — 100:1 vs writes.
+3. **Eventually consistent** — new trends visible within minutes, not seconds.
+4. **Highly available** — autocomplete is the front door of search.
+
+## 3. Capacity numbers
+
+- 5B searches/day × ~5 keystrokes per query w/ suggestions = **~50K req/sec to the typeahead service** (debounced).
+- Distinct queries: ~10B over 5 years; "popular" subset is ~100M.
+- Trie size: 100M queries × ~20 chars × overhead ≈ **~10–50 GB** in memory per shard.
+
+## 4. The core data structure: a trie of prefixes
+
+A **trie** stores prefixes naturally — every node is a character, every path from root spells a prefix.
+
+```
+                root
+                /   \
+               y     a ...
+               |
+               o
+              / \
+             u   g
+            /     \
+           t       a
+           |
+           u
+           |
+           b
+           |
+           e   ← node stores top-5 completions starting "yotube"
+```
+
+Naive trie: walk from root following input chars; at the deepest node matching the prefix, do a tree traversal to find top-K completions. **Tree traversal is too slow** at 100ms budget.
+
+The fix: **at each node, precompute and cache the top-K completions for that prefix**. Then a lookup is O(prefix_length) — single-digit microseconds in memory.
+
+```
+node "yo" → ["youtube", "yoga", "yoga poses", "yo mama", "yom kippur"]
+node "you" → ["youtube", "you tube", "you", "youtube music", "your phone"]
+```
+
+Memory cost: O(distinct_prefixes × K × avg_completion_size). For K=5, ~50 GB total. Easily fits in a few servers.
+
+## 5. The two-system architecture
+
+```
+         ┌──────────────────────┐
+         │   Real-time queries   │ ← every search request
+         │ (Kafka stream)        │
+         └──────────┬───────────┘
+                    │
+          ┌─────────┴────────────┐
+          ▼                      ▼
+   Hourly aggregation       Real-time counter
+   (top-N popular            (Count-Min Sketch /
+    queries per prefix)       Heavy Hitters)
+          │                      │
+          └─────────┬────────────┘
+                    ▼
+            Trie Builder Job (Spark / Flink)
+                    │
+                    ▼
+            Trie Snapshot (immutable, sharded)
+                    │
+                    ▼
+            Suggestion Service (in-memory trie)
+                    ▲
+                    │
+                User keystroke
+```
+
+**Two timescales:**
+- **Daily / hourly batch** — the bulk of suggestions, computed offline from query logs over the last 30 days.
+- **Real-time hot updates** — emerging trends ("breaking news event") merged into the trie within minutes via a streaming layer.
+
+This is the same pattern as [Top-K / Trending](/blog/system-design/design-top-k-trending). Cross-link.
+
+## 6. Sharding the trie
+
+A 50 GB trie fits on one box, but you want redundancy + horizontal capacity:
+
+**Shard by prefix range (first 1-2 chars):**
+- Shard 0: prefixes "a*"
+- Shard 1: prefixes "b*"
+- ...
+
+A query with prefix "you" deterministically routes to one shard. Each shard holds ~1/26 of the trie, replicated for HA.
+
+Alternative: **shard by hash of full prefix** for more even load, but it doesn't naturally support range queries (which trie traversal needs).
+
+For latency, also **replicate the entire trie** at every edge data center, so the request never crosses a region. 50 GB × N regions = $300/month-ish. Cheap.
+
+## 7. The suggestion path (microsecond by microsecond)
+
+```
+User keystroke "you" arrives at edge:
+  t=0 ms      Request hits edge load balancer
+  t=2 ms      Routed to suggestion server (same region)
+  t=2 ms      Lookup "you" in in-memory trie → top-5
+  t=2.1 ms   Apply per-user filter (blocked words, language)
+  t=2.5 ms   Apply personalization rerank (if enabled)
+  t=3 ms      Serialize JSON, return
+  t=10 ms     Browser renders dropdown
+```
+
+The actual server work is microseconds. Most of the latency is network.
+
+## 8. Ranking: it's not just frequency
+
+Top-K by raw frequency is naive. Better signal mix:
+
+- **Frequency** — how often the query is searched.
+- **Recency** — last week's spike beats last year's spike.
+- **Personalization** — the user's own search history, language, location.
+- **Click-through rate** — did people *click* a result for this query, or did they reformulate?
+- **Penalize spam** — long, bot-like queries get downweighted.
+
+Compute a single `score = log(freq) × decay(age) × CTR^α` and sort by that. Per-prefix top-K is then the top by `score`, not raw count.
+
+## 9. Personalization (mention but optional)
+
+Two-stage approach:
+
+1. **Global top-K** from the trie (the lion's share of relevance).
+2. **User-personalized rerank** of those K candidates — fetch the user's last 100 queries, boost candidates that look like queries they've issued before.
+
+The rerank is cheap (K is small, e.g. 20 candidates → top 5). The global trie still does the heavy lifting.
+
+## 10. Real-time hot updates
+
+When a news event spikes ("election results"), the daily batch is too slow. Augment with a streaming layer:
+
+- Stream of all queries → Flink → per-prefix Count-Min Sketch + Heavy Hitters.
+- Every minute, emit the top emerging queries per prefix.
+- Suggestion server pulls the delta and merges into its trie's per-prefix top-K cache.
+- A query is "emerging" if its growth rate over the last hour > some threshold.
+
+This is the same machinery as [Top-K trending](/blog/system-design/design-top-k-trending).
+
+## 11. Filtering and safety
+
+- **Blocklist** of explicit / hateful terms applied as a filter at trie-build time and at query time.
+- **Per-region rules** (some terms blocked in one country, allowed in another).
+- **De-duplication** — "youtube" and "you tube" might compete; canonicalize on build.
+
+## 12. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Suggestion server crashes** | Load balancer routes to replica; trie is replicated 3× per region |
+| **Trie build job fails** | Yesterday's snapshot stays live; alert. |
+| **Streaming layer falls behind** | Suggestions become slightly stale; no user-visible breakage |
+| **Whole region down** | DNS routes traffic to other regions; trie is replicated globally |
+
+## 13. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why a trie, not just a B-tree on prefix?" | O(prefix_length) lookup with precomputed top-K |
+| "How much memory does this need?" | ~50 GB; fits in RAM; replicate per region |
+| "How do you handle 1B+ queries (long tail)?" | Trie holds only ~100M popular prefixes; tail returns no suggestions |
+| "How do trends appear within minutes?" | Streaming layer + per-prefix Heavy Hitters + delta merge |
+| "How do you personalize without breaking the cache?" | Global top-N candidates, then small per-user rerank |
+| "Why precompute top-K per node instead of traversing?" | Latency budget; traversal is too slow for deep prefixes |
+| "How would you handle typos?" | Edit-distance variants pre-merged at build time; or BK-tree as a side index |
+
+## 14. The 30-second summary
+
+> Typeahead is fundamentally a **prefix-indexed in-memory data structure with per-prefix top-K precomputed**. The two-system architecture (daily batch + streaming hot updates) keeps suggestions fresh without the per-keystroke latency of online aggregation. Sharding by prefix range plus full-trie replication per region keeps p99 under 100 ms globally. Ranking is multi-signal (frequency × recency × CTR), not raw counts.
+
+Land that, plus the precomputation explanation in section 4, and you've answered the staff version of this question.
+
+<Callout type="tip" title="Related reading">
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending) — the streaming layer
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — replicated per-region cache pattern
+</Callout>

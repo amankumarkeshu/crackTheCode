@@ -1,0 +1,213 @@
+---
+title: "Design a Chess Game"
+slug: "design-chess-game"
+category: "lld"
+tags: ["oop", "design-patterns", "game-design", "inheritance"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-04-05"
+author: "Aman Kumar Keshu"
+excerpt: "Chess is a clean OOP exercise that tests polymorphism, the Command pattern for move history, and how you handle special rules like castling and en passant without cluttering the Piece hierarchy."
+isPremium: true
+---
+
+Chess is a go-to LLD question because it tests whether you can use polymorphism correctly without going overboard. The trap is writing 50 classes and forgetting to model the game loop.
+
+## 1. Clarify requirements
+
+- Two-player or AI opponent?
+- Special moves: castling, en passant, pawn promotion?
+- Check / checkmate detection?
+- Move history / undo?
+- Timer (chess clock)?
+
+Agreed scope:
+
+> Two human players. All standard moves including castling and en passant. Check/checkmate detection. Move history with undo. No timer.
+
+## 2. Core entities
+
+```
+Game
+ ├─ Board
+ ├─ Player (×2)
+ ├─ MoveHistory
+ └─ GameStatus
+
+Board
+ └─ Cell[8][8]
+
+Cell
+ ├─ row, col
+ └─ piece: Piece (nullable)
+
+Piece (abstract)
+ ├─ King, Queen, Rook, Bishop, Knight, Pawn
+ ├─ color: Color
+ └─ hasMoved: boolean   ← needed for castling / pawn double-move
+
+Move
+ ├─ from: Cell
+ ├─ to: Cell
+ ├─ piece: Piece
+ └─ capturedPiece: Piece (nullable)
+```
+
+## 3. The Piece hierarchy
+
+```java
+public abstract class Piece {
+  protected final Color color;
+  protected boolean hasMoved = false;
+
+  public abstract List<Move> validMoves(Board board);
+
+  protected boolean isEnemy(Piece other) {
+    return other != null && other.color != this.color;
+  }
+}
+
+public class Rook extends Piece {
+  @Override
+  public List<Move> validMoves(Board board) {
+    List<Move> moves = new ArrayList<>();
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+    Cell from = board.cellOf(this);
+    for (int[] d : dirs) {
+      int r = from.getRow() + d[0], c = from.getCol() + d[1];
+      while (board.inBounds(r, c)) {
+        Cell target = board.cell(r, c);
+        if (target.getPiece() == null) {
+          moves.add(new Move(from, target, this, null));
+        } else {
+          if (isEnemy(target.getPiece())) moves.add(new Move(from, target, this, target.getPiece()));
+          break;
+        }
+        r += d[0]; c += d[1];
+      }
+    }
+    return moves;
+  }
+}
+```
+
+Each piece knows its own movement rules — pure polymorphism, no switch-case on type.
+
+## 4. Move validation and check detection
+
+```java
+public class Board {
+  private final Cell[][] grid = new Cell[8][8];
+  private final Map<Piece, Cell> pieceLocation = new HashMap<>();
+
+  public boolean wouldLeaveInCheck(Move move, Color color) {
+    // Apply move speculatively
+    apply(move);
+    boolean inCheck = isInCheck(color);
+    undo(move);
+    return inCheck;
+  }
+
+  public boolean isInCheck(Color color) {
+    Cell kingCell = findKing(color);
+    return getAllPieces(color.opposite()).stream()
+        .flatMap(p -> p.validMoves(this).stream())
+        .anyMatch(m -> m.getTo().equals(kingCell));
+  }
+
+  public boolean isCheckmate(Color color) {
+    return isInCheck(color) && getAllPieces(color).stream()
+        .flatMap(p -> p.validMoves(this).stream())
+        .filter(m -> !wouldLeaveInCheck(m, color))
+        .findAny().isEmpty();
+  }
+}
+```
+
+`wouldLeaveInCheck` is the key method — it speculatively applies a move, checks if the king is still attacked, then reverts. This cleanly filters illegal moves.
+
+## 5. Move history with undo (Command pattern)
+
+```java
+public class MoveHistory {
+  private final Deque<Move> history = new ArrayDeque<>();
+
+  public void record(Move move) { history.push(move); }
+
+  public Move undo(Board board) {
+    if (history.isEmpty()) throw new NoMovesToUndoException();
+    Move last = history.pop();
+    board.unapply(last);    // restore piece to from-cell, restore captured piece
+    last.getPiece().setHasMoved(last.wasPieceFirstMove());
+    return last;
+  }
+}
+```
+
+`Move` stores whether this was the piece's first move, so undo can correctly reset `hasMoved`.
+
+## 6. Special moves
+
+**Castling:**
+```java
+public class King extends Piece {
+  @Override
+  public List<Move> validMoves(Board board) {
+    List<Move> moves = standardMoves(board);
+    if (!hasMoved) {
+      // King-side
+      Rook ksr = board.rookAt(color, Side.KING);
+      if (ksr != null && !ksr.hasMoved() && board.pathClear(this, ksr) && !board.isInCheck(color))
+        moves.add(new CastleMove(board.cellOf(this), board.kingSideCastleTarget(color), this, ksr));
+    }
+    return moves;
+  }
+}
+```
+
+**En passant:** Store the last pawn double-advance on the `Board` as `lastDoublePawn`. During pawn move generation, check if an adjacent enemy pawn matches.
+
+## 7. Game loop
+
+```java
+public class Game {
+  private final Board board;
+  private final Player[] players = new Player[2];
+  private int turn = 0;
+  private GameStatus status = GameStatus.IN_PROGRESS;
+
+  public void makeMove(Move move) {
+    Player current = players[turn % 2];
+    List<Move> legal = board.legalMovesFor(move.getPiece())
+        .stream().filter(m -> !board.wouldLeaveInCheck(m, current.getColor())).toList();
+    if (legal.stream().noneMatch(m -> m.equals(move))) throw new IllegalMoveException();
+
+    board.apply(move);
+    history.record(move);
+
+    Color opponent = current.getColor().opposite();
+    if (board.isCheckmate(opponent)) status = GameStatus.CHECKMATE;
+    else if (board.isStalemate(opponent)) status = GameStatus.STALEMATE;
+    turn++;
+  }
+}
+```
+
+## 8. SOLID
+
+- **SRP:** Each `Piece` subclass only knows its own movement rules.
+- **OCP:** Add a new piece (e.g., custom fairy chess piece) by extending `Piece` — no changes to `Board` or `Game`.
+- **LSP:** Any `Piece` works wherever a `Piece` is expected.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| AI opponent | `Player` interface with `HumanPlayer` and `AIPlayer` (Minimax / Alpha-Beta). |
+| Multiplayer online | `Game` becomes a server-managed session; moves sent as commands over WebSocket. |
+| Replay mode | `MoveHistory` is serialisable; replay by re-applying moves from index 0. |
+| Clock | `ChessClock` decrements active player's time each turn; `Flag` status on timeout. |
+
+## 10. The 30-second summary
+
+> Each `Piece` subclass owns its movement logic — pure polymorphism. `Board.wouldLeaveInCheck` speculatively applies/reverts moves to filter illegal ones. `MoveHistory` is the Command pattern, enabling clean undo. The game loop is under 30 lines.

@@ -1,0 +1,247 @@
+---
+title: "Design a Food Delivery App (Swiggy / Zomato)"
+slug: "design-food-delivery-app"
+category: "lld"
+tags: ["oop", "state-machine", "design-patterns", "real-world"]
+difficulty: "senior"
+readingTime: 14
+publishedAt: "2026-04-29"
+author: "Aman Kumar Keshu"
+excerpt: "Food Delivery has three actors — customer, restaurant, delivery partner — each with their own state machine. Designing the order lifecycle cleanly across all three actors is the interview challenge."
+isPremium: true
+---
+
+Food Delivery appears in interviews at Swiggy, Zomato, and Flipkart. The complexity is coordinating three independent actors: the customer places an order, the restaurant accepts and prepares it, and the delivery partner picks it up. Each has its own state machine.
+
+## 1. Clarify requirements
+
+- Order placement, restaurant acceptance, delivery tracking?
+- Multiple items per order?
+- Order cancellation windows?
+- Real-time location tracking of delivery partner?
+- Rating system?
+- Surge pricing?
+
+Agreed scope:
+
+> Order placement, restaurant accept/reject, preparation, dispatch, delivery tracking (status-based not GPS). Cancellation before restaurant acceptance. Rating after delivery.
+
+## 2. The order state machine
+
+```
+PLACED
+ │ restaurant accepts
+ ▼
+ACCEPTED
+ │ restaurant starts prep
+ ▼
+PREPARING
+ │ ready for pickup; delivery partner assigned
+ ▼
+READY_FOR_PICKUP
+ │ delivery partner picks up
+ ▼
+OUT_FOR_DELIVERY
+ │ delivered
+ ▼
+DELIVERED
+
+From PLACED → CANCELLED (customer cancels before acceptance)
+From ACCEPTED → CANCELLED (restaurant rejects after acceptance — edge case)
+```
+
+## 3. Core entities
+
+```
+Customer
+ ├─ id, name, addresses: List<Address>
+
+Restaurant
+ ├─ id, name, address
+ ├─ menu: List<MenuItem>
+ └─ isOpen: boolean
+
+MenuItem
+ ├─ id, name, price, category
+ └─ isAvailable: boolean
+
+Order
+ ├─ id
+ ├─ customer: Customer
+ ├─ restaurant: Restaurant
+ ├─ items: List<OrderItem>
+ ├─ deliveryAddress: Address
+ ├─ status: OrderStatus
+ ├─ deliveryPartner: DeliveryPartner (nullable)
+ ├─ placedAt: Instant
+ └─ totalAmount: BigDecimal
+
+DeliveryPartner
+ ├─ id, name, phone
+ └─ status: PartnerStatus  (AVAILABLE | ON_DELIVERY | OFFLINE)
+
+Rating
+ ├─ orderId: String
+ ├─ ratingFor: RatingTarget  (RESTAURANT | DELIVERY_PARTNER)
+ ├─ score: int  (1-5)
+ └─ comment: String
+```
+
+## 4. Order service
+
+```java
+public class OrderService {
+  private final RestaurantRepository restaurantRepo;
+  private final OrderRepository orderRepo;
+  private final DeliveryService deliveryService;
+  private final PaymentService paymentService;
+  private final NotificationService notifier;
+
+  public Order placeOrder(Customer customer, String restaurantId,
+                          List<OrderItemRequest> itemRequests, Address deliveryAddress) {
+    Restaurant restaurant = restaurantRepo.findById(restaurantId).orElseThrow();
+    if (!restaurant.isOpen()) throw new RestaurantClosedException();
+
+    List<OrderItem> items = itemRequests.stream().map(req -> {
+      MenuItem mi = restaurant.findMenuItem(req.getMenuItemId())
+          .filter(MenuItem::isAvailable)
+          .orElseThrow(() -> new MenuItemUnavailableException(req.getMenuItemId()));
+      return new OrderItem(mi, req.getQuantity(), mi.getPrice());
+    }).toList();
+
+    BigDecimal total = items.stream()
+        .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    PaymentResult payment = paymentService.authorize(customer, total);
+    if (!payment.isSuccess()) throw new PaymentAuthorizationException();
+
+    Order order = new Order(UUID.randomUUID().toString(), customer, restaurant,
+        items, deliveryAddress, OrderStatus.PLACED, Instant.now(), total);
+    orderRepo.save(order);
+    notifier.notify(customer, "Order placed! Waiting for restaurant.");
+    notifier.notify(restaurant, "New order #" + order.getId());
+    return order;
+  }
+}
+```
+
+## 5. Restaurant service — accept / reject / ready
+
+```java
+public class RestaurantService {
+  public void acceptOrder(String orderId) {
+    Order order = getAndValidateOrder(orderId, OrderStatus.PLACED);
+    order.setStatus(OrderStatus.ACCEPTED);
+    orderRepo.save(order);
+    notifier.notify(order.getCustomer(), "Restaurant accepted your order!");
+  }
+
+  public void startPreparing(String orderId) {
+    Order order = getAndValidateOrder(orderId, OrderStatus.ACCEPTED);
+    order.setStatus(OrderStatus.PREPARING);
+    orderRepo.save(order);
+  }
+
+  public void markReadyForPickup(String orderId) {
+    Order order = getAndValidateOrder(orderId, OrderStatus.PREPARING);
+    order.setStatus(OrderStatus.READY_FOR_PICKUP);
+    orderRepo.save(order);
+    // Trigger delivery partner assignment
+    deliveryService.assignPartner(order);
+  }
+
+  private Order getAndValidateOrder(String orderId, OrderStatus expected) {
+    Order order = orderRepo.findById(orderId).orElseThrow();
+    if (order.getStatus() != expected)
+      throw new InvalidOrderStateException(expected, order.getStatus());
+    return order;
+  }
+}
+```
+
+## 6. Delivery service — partner assignment
+
+```java
+public class DeliveryService {
+  private final DeliveryPartnerRepository partnerRepo;
+
+  public void assignPartner(Order order) {
+    DeliveryPartner partner = partnerRepo
+        .findNearestAvailable(order.getRestaurant().getAddress())
+        .orElseThrow(() -> new NoPartnerAvailableException());
+
+    partner.setStatus(PartnerStatus.ON_DELIVERY);
+    order.setDeliveryPartner(partner);
+    order.setStatus(OrderStatus.READY_FOR_PICKUP);
+    partnerRepo.save(partner);
+    orderRepo.save(order);
+    notifier.notify(order.getCustomer(), partner.getName() + " is picking up your order.");
+  }
+
+  public void confirmPickup(String orderId) {
+    Order order = orderRepo.findById(orderId).orElseThrow();
+    order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
+    orderRepo.save(order);
+    notifier.notify(order.getCustomer(), "Your order is on the way!");
+  }
+
+  public void confirmDelivery(String orderId) {
+    Order order = orderRepo.findById(orderId).orElseThrow();
+    order.setStatus(OrderStatus.DELIVERED);
+    order.getDeliveryPartner().setStatus(PartnerStatus.AVAILABLE);
+    orderRepo.save(order);
+    partnerRepo.save(order.getDeliveryPartner());
+    notifier.notify(order.getCustomer(), "Delivered! Rate your experience.");
+  }
+}
+```
+
+## 7. Cancellation
+
+```java
+public class CancellationService {
+  public void cancelOrder(String orderId, Customer customer) {
+    Order order = orderRepo.findById(orderId).orElseThrow();
+    if (!order.getCustomer().getId().equals(customer.getId()))
+      throw new UnauthorizedException();
+    if (order.getStatus() != OrderStatus.PLACED)
+      throw new CancellationNotAllowedException("Can only cancel before restaurant accepts");
+
+    order.setStatus(OrderStatus.CANCELLED);
+    orderRepo.save(order);
+    paymentService.refund(order);
+    notifier.notify(customer, "Order cancelled. Refund initiated.");
+  }
+}
+```
+
+## 8. Rating
+
+```java
+public class RatingService {
+  public void rate(String orderId, Customer customer, RatingTarget target, int score, String comment) {
+    Order order = orderRepo.findById(orderId).orElseThrow();
+    if (order.getStatus() != OrderStatus.DELIVERED) throw new OrderNotDeliveredException();
+
+    Rating rating = new Rating(orderId, target, score, comment, customer.getId());
+    ratingRepo.save(rating);
+
+    // Update aggregate rating
+    if (target == RatingTarget.RESTAURANT) {
+      restaurantRepo.updateRating(order.getRestaurant().getId(), score);
+    } else {
+      partnerRepo.updateRating(order.getDeliveryPartner().getId(), score);
+    }
+  }
+}
+```
+
+## 9. SOLID
+
+- **SRP:** `OrderService`, `RestaurantService`, `DeliveryService` each own one phase of the lifecycle.
+- **OCP:** New delivery partner assignment algorithm = new `PartnerAssignmentStrategy`. No service changes.
+
+## 10. The 30-second summary
+
+> Three actors, one order state machine. Customer places → Restaurant accepts → prepares → marks ready → DeliveryService assigns nearest partner → partner picks up → delivers. State validation at each transition prevents out-of-order updates. Cancellation is only allowed before restaurant acceptance.

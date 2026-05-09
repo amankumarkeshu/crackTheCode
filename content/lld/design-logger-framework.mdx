@@ -1,0 +1,234 @@
+---
+title: "Design a Logger Framework"
+slug: "design-logger-framework"
+category: "lld"
+tags: ["oop", "design-patterns", "singleton", "chain-of-responsibility"]
+difficulty: "senior"
+readingTime: 10
+publishedAt: "2026-04-21"
+author: "Aman Kumar Keshu"
+excerpt: "Logger is the Chain of Responsibility pattern question. Nail the log level filtering, pluggable appenders, and thread-safe singleton — and you've shown everything the interviewer needs."
+isPremium: false
+---
+
+Logger is a favourite at Atlassian and Adobe. It's used to test Chain of Responsibility, Singleton, and the ability to design an extensible framework without coupling callers to a specific output sink.
+
+## 1. Clarify requirements
+
+- Log levels: DEBUG, INFO, WARN, ERROR, FATAL?
+- Multiple output sinks: console, file, remote?
+- Async logging?
+- Log format / structured logging?
+- Log rotation for file sink?
+- Thread-safe?
+
+Agreed scope:
+
+> 5 standard levels. Console + file appenders. Synchronous logging. Configurable format. Thread-safe. No log rotation in scope.
+
+## 2. Core entities
+
+```
+Logger
+ ├─ name: String
+ ├─ level: LogLevel     ← minimum level to log
+ └─ appenders: List<Appender>
+
+LogLevel (enum)
+ └─ DEBUG(0) < INFO(1) < WARN(2) < ERROR(3) < FATAL(4)
+
+LogRecord
+ ├─ timestamp: Instant
+ ├─ level: LogLevel
+ ├─ loggerName: String
+ ├─ message: String
+ └─ throwable: Throwable (nullable)
+
+Appender (interface)
+ ├─ ConsoleAppender
+ └─ FileAppender
+
+Formatter (interface)
+ └─ SimpleFormatter
+ └─ JsonFormatter
+
+LoggerFactory (singleton)
+ └─ Map<String, Logger>
+```
+
+## 3. Chain of Responsibility — log level filtering
+
+```java
+public abstract class LogHandler {
+  protected final LogLevel handlerLevel;
+  protected LogHandler next;
+
+  public LogHandler(LogLevel level) { this.handlerLevel = level; }
+
+  public LogHandler setNext(LogHandler next) {
+    this.next = next;
+    return next;
+  }
+
+  public void handle(LogRecord record) {
+    if (record.getLevel().ordinal() >= handlerLevel.ordinal()) {
+      write(record);
+    }
+    if (next != null) next.handle(record);
+  }
+
+  protected abstract void write(LogRecord record);
+}
+
+public class ConsoleHandler extends LogHandler {
+  public ConsoleHandler(LogLevel level) { super(level); }
+
+  @Override
+  protected void write(LogRecord record) {
+    System.out.println(format(record));
+  }
+}
+
+public class FileHandler extends LogHandler {
+  private final String filePath;
+  private final BufferedWriter writer;
+
+  @Override
+  protected void write(LogRecord record) {
+    try { writer.write(format(record) + "\n"); writer.flush(); }
+    catch (IOException e) { System.err.println("File logging failed: " + e.getMessage()); }
+  }
+}
+```
+
+Chain setup:
+
+```java
+// DEBUG → file; ERROR → console
+LogHandler fileHandler    = new FileHandler(LogLevel.DEBUG, "/var/log/app.log");
+LogHandler consoleHandler = new ConsoleHandler(LogLevel.ERROR);
+fileHandler.setNext(consoleHandler);
+```
+
+## 4. Logger class
+
+```java
+public class Logger {
+  private final String name;
+  private volatile LogLevel level;
+  private final List<Appender> appenders;
+  private final Formatter formatter;
+
+  public void log(LogLevel level, String message, Throwable t) {
+    if (level.ordinal() < this.level.ordinal()) return;  // below threshold
+    LogRecord record = new LogRecord(Instant.now(), level, name, message, t);
+    for (Appender appender : appenders) {
+      appender.append(record, formatter);
+    }
+  }
+
+  public void debug(String msg) { log(LogLevel.DEBUG, msg, null); }
+  public void info(String msg)  { log(LogLevel.INFO,  msg, null); }
+  public void warn(String msg)  { log(LogLevel.WARN,  msg, null); }
+  public void error(String msg, Throwable t) { log(LogLevel.ERROR, msg, t); }
+}
+```
+
+## 5. Appender interface
+
+```java
+public interface Appender {
+  void append(LogRecord record, Formatter formatter);
+  void close();
+}
+
+public class ConsoleAppender implements Appender {
+  private final PrintStream out;
+  public ConsoleAppender() { this.out = System.out; }
+
+  @Override
+  public void append(LogRecord record, Formatter formatter) {
+    out.println(formatter.format(record));
+  }
+}
+
+public class FileAppender implements Appender {
+  private final BufferedWriter writer;
+
+  @Override
+  public synchronized void append(LogRecord record, Formatter formatter) {
+    try { writer.write(formatter.format(record) + "\n"); writer.flush(); }
+    catch (IOException e) { /* fail silently or fallback to console */ }
+  }
+}
+```
+
+## 6. Formatter
+
+```java
+public interface Formatter {
+  String format(LogRecord record);
+}
+
+public class SimpleFormatter implements Formatter {
+  private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+      .withZone(ZoneId.systemDefault());
+
+  @Override
+  public String format(LogRecord r) {
+    String base = DT.format(r.getTimestamp()) + " [" + r.getLevel() + "] "
+        + r.getLoggerName() + " - " + r.getMessage();
+    return r.getThrowable() != null ? base + "\n" + stackTrace(r.getThrowable()) : base;
+  }
+}
+
+public class JsonFormatter implements Formatter {
+  @Override
+  public String format(LogRecord r) {
+    return "{\"ts\":\"" + r.getTimestamp() + "\",\"level\":\"" + r.getLevel()
+        + "\",\"logger\":\"" + r.getLoggerName() + "\",\"msg\":\"" + r.getMessage() + "\"}";
+  }
+}
+```
+
+## 7. LoggerFactory — Singleton + named loggers
+
+```java
+public class LoggerFactory {
+  private static final LoggerFactory INSTANCE = new LoggerFactory();
+  private final ConcurrentHashMap<String, Logger> loggers = new ConcurrentHashMap<>();
+
+  private LoggerFactory() {}
+
+  public static LoggerFactory getInstance() { return INSTANCE; }
+
+  public Logger getLogger(String name) {
+    return loggers.computeIfAbsent(name, n ->
+        new Logger(n, LogLevel.INFO, List.of(new ConsoleAppender()), new SimpleFormatter()));
+  }
+}
+```
+
+Usage:
+
+```java
+Logger log = LoggerFactory.getInstance().getLogger(MyService.class.getName());
+log.info("Service started");
+log.error("Unexpected failure", exception);
+```
+
+## 8. Async logging (follow-up)
+
+Wrap `append` calls with a `BlockingQueue<LogRecord>`. A dedicated background thread drains the queue and writes. This decouples the application thread from I/O latency.
+
+## 9. SOLID
+
+| Principle | Where |
+|---|---|
+| OCP | New appender = new class. No changes to `Logger`. |
+| SRP | `Formatter` formats; `Appender` writes; `Logger` filters and dispatches. |
+| DIP | `Logger` depends on `Appender` and `Formatter` interfaces. |
+
+## 10. The 30-second summary
+
+> Logger = level filter + list of appenders + formatter. Chain of Responsibility handles multi-handler routing. Each `Appender` is a Strategy for where to write. `LoggerFactory` is a thread-safe Singleton that caches named loggers. Async upgrade: swap synchronous `append` for a background queue drain.

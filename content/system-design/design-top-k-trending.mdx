@@ -1,0 +1,214 @@
+---
+title: "Design Top-K / Trending (most viewed in the last hour)"
+slug: "design-top-k-trending"
+category: "system-design"
+tags: ["streaming", "count-min-sketch", "heavy-hitters", "approximate", "windowing"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How to find the top-K most popular items over a sliding time window when 'count exactly' isn't an option \u2014 Count-Min Sketch, Heavy Hitters, two-tier aggregation, and the ~1KB-per-shard memory footprint behind real trending systems."
+---
+
+"Find the top-10 trending hashtags in the last hour" is one of the most elegant system-design questions there is. The naive answer ("count everything in a hash map") falls apart at scale. The right answer combines **streaming aggregation**, **approximate algorithms**, and **two-tier hierarchy** — and it's the same pattern behind Twitter Trending, YouTube Top Charts, real-time anomaly detection, and search autocomplete.
+
+## 1. Clarify before you draw
+
+- **Cardinality?** 1M distinct items, 1B?
+- **Window?** Tumbling (last hour), sliding (rolling 1h updated every minute), or both?
+- **K?** Top 10, top 1000, top "everything above a threshold"?
+- **Accuracy?** Must be exact, or "approximate is fine"?
+- **Latency?** Update every minute or every second?
+
+For this post: 1B+ distinct items, sliding 1h window updated every minute, top 100, approximate is fine.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. Stream of events (item_id, timestamp).
+2. Return top-K items by count over a rolling window.
+3. Update freshness within ~1 minute.
+
+**Non-functional:**
+1. **Sub-100ms read latency** on top-K queries.
+2. **Approximate is fine** (off by 1–2% on counts; correct on the *top* set).
+3. **Bounded memory** — can't store every distinct item exactly.
+4. **Scalable to 1M+ events/sec** ingest.
+
+## 3. Why exact counting doesn't work
+
+Naive: `Counter[item_id] += 1` per event, every minute scan and sort.
+
+- 1B distinct items × 16 bytes = **16 GB** per node, per window, per shard.
+- Sorting 1B entries to find top-100 every minute = brutal CPU.
+- Sliding window means you also need to *decrement* old events — even more state.
+- Multiplied across shards × replicas → infeasible.
+
+We need an algorithm that uses **kilobytes**, not gigabytes.
+
+## 4. Count-Min Sketch (the right approach)
+
+A **Count-Min Sketch** is a 2D array of counters with `d` rows and `w` columns, plus `d` hash functions:
+
+```
+              cols (w = e.g. 2000)
+        ┌───────────────────────────────┐
+row 0   │ counter counter counter ...   │  hash function h0
+row 1   │ counter counter counter ...   │  hash function h1
+row 2   │ counter counter counter ...   │  hash function h2
+row 3   │ counter counter counter ...   │  hash function h3
+        └───────────────────────────────┘
+
+increment(item):
+   for i in 0..d:
+      table[i][h_i(item) % w] += 1
+
+estimate(item):
+   return min(table[i][h_i(item) % w] for i in 0..d)
+```
+
+Key properties:
+- **Fixed memory** independent of distinct-item cardinality. Typical: w=2000, d=4 → 4×2000×4B = **~32 KB**. Yes, KB.
+- **Always overestimates** (collisions add up). Never underestimates.
+- **Error bounded** by `~e/w` of total stream size with probability `1 - 1/2^d`. With w=2000, d=4: ~0.1% error with 99.9% confidence.
+
+Trade-off: you lose exact counts but gain massive memory savings.
+
+## 5. Tracking the top-K with Heavy Hitters
+
+Count-Min Sketch tells you "what's the count of item X?" but doesn't tell you "what are the top-10 items?" You can't iterate over a sketch.
+
+Maintain a separate **min-heap of size K** holding the top-K items by their (sketched) count:
+
+```
+on_event(item):
+   sketch.increment(item)
+   est = sketch.estimate(item)
+   if heap.size < K or est > heap.min().count:
+       if heap.contains(item):
+           heap.update(item, est)
+       else:
+           heap.push(item, est)
+           if heap.size > K:
+               heap.pop_min()
+```
+
+Memory: K × 16 bytes ≈ **2 KB for K=100**. Total per shard: ~30 KB sketch + 2 KB heap.
+
+Combined: **Count-Min Sketch + Heavy Hitters min-heap = the "Space-Saving" / "MisraGries" family**. This is what real-world top-K implementations use (Algebird, Druid's TopN, Redis's `topk` module).
+
+## 6. Time windows — the sliding part
+
+A 1-hour rolling window means events older than 1 hour shouldn't count. Two approaches:
+
+### A. Tumbling sub-windows (the standard answer)
+
+Divide the hour into 60 1-minute "buckets." Maintain a separate Count-Min Sketch per bucket.
+
+```
+[10:00 sketch] [10:01 sketch] [10:02 sketch] ... [10:59 sketch]
+         ^---------- last hour ----------^
+```
+
+To estimate "count of X in last hour": sum X's estimate across all 60 sketches. To advance the window: drop the oldest, add a new one.
+
+Memory: 60 × 32 KB = ~2 MB per shard. Trivial.
+
+### B. Hopping windows / decay
+
+Apply exponential decay: every event contributes `exp(-λt)` to the current sketch. Old events' contribution fades. No need to evict.
+
+Lighter on memory; more useful for "trending right now" than "exact last hour."
+
+Real systems often use both — tumbling for the "honest" count + decay for the user-facing "trending" signal.
+
+## 7. The two-tier architecture (always do this)
+
+Single-stream aggregation doesn't scale past one consumer. Two tiers:
+
+```
+Event stream (Kafka, partitioned by item_id)
+    │
+    ├──────── shard 0 worker ──── per-shard top-100
+    ├──────── shard 1 worker ──── per-shard top-100
+    │           ...
+    └──────── shard N worker ──── per-shard top-100
+                       │
+                       ▼
+              Merger / aggregator
+                       │
+                       ▼
+                Global top-100
+                       │
+                       ▼
+           Cache (Redis, served to clients)
+```
+
+Each shard maintains its own Count-Min Sketch + Heavy Hitters. A merger runs every minute:
+1. Collect each shard's top-100.
+2. Sum counts across shards for the union of items.
+3. Re-rank, take top-100, cache.
+
+Why merging top-K of each shard works: an item that's in the global top-K must be in the top-K of *at least one shard* — otherwise its count is too small to matter. (Caveat: this can miss items just outside each shard's local top-K but adding up to global top-K. Mitigate by using top-2K per shard and merging.)
+
+## 8. Hot-key partitioning trap
+
+If one mega-popular item (`#JusticeForX`) dominates the stream, its events all go to the same partition (since you partition by `item_id`). That shard becomes a hotspot.
+
+Mitigation:
+- Partition by `(item_id, random_subkey)` to spread mega-hot items across multiple shards.
+- The merger then sums across all sub-shards for that item.
+- Trades shard balance for slightly more merge complexity. Worth it when you know the distribution is skewed.
+
+## 9. Real-time pipeline (Flink / Kafka Streams)
+
+Production: this whole thing is a streaming job in Apache Flink, Kafka Streams, or Apache Beam.
+
+```
+events
+  .keyBy(item_id)
+  .window(SlidingEventTimeWindows.of(Time.hours(1), Time.minutes(1)))
+  .aggregate(new CountMinSketchAggregator())
+  .topK(100)
+  .sink(Redis or DB)
+```
+
+The framework handles:
+- Watermarking (late events).
+- Checkpoint / state recovery (sketches persisted to RocksDB / S3).
+- Exactly-once semantics on the sketch updates.
+
+Mention these — it's what makes the streaming layer operational, not theoretical.
+
+## 10. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Worker crashes** | Flink restores from last checkpoint (sketches in RocksDB) |
+| **Whole shard down** | Top-K served from last cached value; freshness drops |
+| **Merger lag** | Top-K is stale by minutes, not broken |
+| **Skewed partition (hot key)** | Sub-key partitioning + merger handles |
+
+## 11. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why not exact counts?" | Memory: 16 GB exact vs 32 KB sketch per shard |
+| "What's the error?" | ~0.1% with reasonable sketch size; never under-counts |
+| "How do you find top-K from a sketch?" | Separate min-heap of Heavy Hitters; sketch alone can't iterate |
+| "How do you handle the sliding window?" | 60 tumbling sub-window sketches; sum on query |
+| "How do you scale to 1M events/sec?" | Two-tier: per-shard local + global merger |
+| "What if one item is 90% of traffic?" | Sub-partition the item; merge across sub-partitions |
+| "Why Flink and not just a Kafka consumer?" | Built-in windowing + checkpointing + exactly-once |
+
+## 12. The 30-second summary
+
+> Top-K / trending is fundamentally a **streaming aggregation problem solved with Count-Min Sketch + Heavy Hitters min-heap**, deployed two-tier (per-shard local → global merge). Memory is bounded to KBs regardless of cardinality. Sliding windows are 60 tumbling sub-sketches. Hot keys are mitigated with sub-partitioning. The whole thing runs in Flink/Kafka Streams with checkpointed state.
+
+That's the answer that lands the senior+ signal. The Count-Min Sketch reference alone is often the difference between a "knows the textbook" answer and a "has actually built one of these" answer.
+
+<Callout type="tip" title="Related reading">
+- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete) — uses the same streaming layer
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — exact counters at scale (different problem)
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the upstream event stream
+</Callout>

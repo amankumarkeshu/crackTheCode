@@ -1,0 +1,195 @@
+---
+title: "The Sliding Window Pattern: Recognize, Template, Solve"
+slug: "sliding-window-pattern"
+category: "dsa"
+tags: ["arrays", "strings", "two-pointers"]
+difficulty: "mid"
+readingTime: 11
+publishedAt: "2026-05-04"
+author: "Aman Kumar Keshu"
+excerpt: "Stop solving sliding-window problems by feel. Learn the recognition triggers, internalize one template, and you'll solve 80% of variants in under 15 minutes."
+---
+
+There are roughly 20 patterns that cover 90% of medium-and-above LeetCode problems you'll see in an interview. **Sliding window** is one of the highest-ROI: easy to recognize, one template covers most variants, and it shows up disproportionately often in big-tech loops.
+
+This post is the version of the pattern I wish I'd been taught first.
+
+## 1. Recognition triggers
+
+You're probably looking at a sliding-window problem if **all four** of these hold:
+
+1. The input is an **array or string**.
+2. You're asked about a **contiguous subarray / substring**.
+3. The answer is a **single number** (length, count, sum, max/min) over that contiguous range.
+4. Brute-force is `O(n²)` or worse, and the problem hints at `O(n)` being possible.
+
+Common phrasings that should make you reach for sliding window immediately:
+
+- "Longest substring with at most K distinct characters."
+- "Smallest subarray with sum ≥ S."
+- "Maximum sum of a subarray of size K."
+- "Count subarrays where ..."
+- "Longest subarray containing only ..."
+
+## 2. Two flavors — know which one you have
+
+| Flavor | When to use | Template |
+|---|---|---|
+| **Fixed-size window** | Problem specifies window size K | Slide window of length K, update aggregate in O(1) |
+| **Variable-size window** | Problem asks for the *longest* / *shortest* window satisfying a condition | Expand right; while invariant breaks, shrink left |
+
+99% of interview problems are the **variable** flavor. We'll focus there.
+
+## 3. The one template that covers everything
+
+```python
+def sliding_window_template(arr):
+    left = 0
+    state = init_state()      # whatever you need: counter, set, sum, ...
+    best = 0                  # or float('inf') for "shortest" problems
+
+    for right in range(len(arr)):
+        add(arr[right], state)               # 1. expand the window
+
+        while not invariant_holds(state):    # 2. shrink until valid again
+            remove(arr[left], state)
+            left += 1
+
+        best = max(best, right - left + 1)   # 3. record the answer
+
+    return best
+```
+
+Three lines of intent: **expand → shrink while invalid → record**. Every sliding-window problem maps onto these three.
+
+## 4. Worked problem: Longest substring with at most K distinct characters
+
+**Problem:** Given a string `s` and integer `k`, return the length of the longest substring containing at most `k` distinct characters.
+
+**Map to template:**
+- `state` = a `Counter` (char → count) of the current window.
+- `add(c)` = `state[c] += 1`.
+- `remove(c)` = decrement; pop key if count hits 0.
+- `invariant_holds` = `len(state) <= k`.
+
+```python
+from collections import Counter
+
+def longest_k_distinct(s: str, k: int) -> int:
+    if k == 0: return 0
+    counts = Counter()
+    left = best = 0
+    for right, c in enumerate(s):
+        counts[c] += 1
+        while len(counts) > k:
+            counts[s[left]] -= 1
+            if counts[s[left]] == 0:
+                del counts[s[left]]
+            left += 1
+        best = max(best, right - left + 1)
+    return best
+```
+
+`O(n)` time, `O(k)` space. Walk through it on `s = "araaci"`, `k = 2` to convince yourself.
+
+## 5. Worked problem: Smallest subarray with sum ≥ S
+
+**Problem:** Given a positive-integer array and target `S`, return the length of the smallest contiguous subarray whose sum ≥ S. Return 0 if none.
+
+**Map to template:**
+- `state` = running `window_sum`.
+- `add(x)` = `window_sum += x`.
+- `remove(x)` = `window_sum -= x`.
+- `invariant_holds` = `window_sum < S` (we only shrink when sum is *enough*).
+
+The twist: this is a **shortest** problem, so we record *while still valid*, not after.
+
+```python
+def smallest_subarray_sum(arr, S):
+    left = 0
+    window_sum = 0
+    best = float('inf')
+    for right in range(len(arr)):
+        window_sum += arr[right]
+        while window_sum >= S:
+            best = min(best, right - left + 1)   # record while still valid
+            window_sum -= arr[left]
+            left += 1
+    return 0 if best == float('inf') else best
+```
+
+Notice the swap: for **longest** we record *after* the while loop; for **shortest** we record *inside* it. That's the only structural difference.
+
+## 6. Worked problem: Longest substring without repeating characters
+
+The classic. Map to template with `state = set` and invariant = "no duplicates".
+
+```python
+def longest_unique_substring(s: str) -> int:
+    seen = set()
+    left = best = 0
+    for right, c in enumerate(s):
+        while c in seen:
+            seen.remove(s[left])
+            left += 1
+        seen.add(c)
+        best = max(best, right - left + 1)
+    return best
+```
+
+You could also use a `dict` of `char → last_index` to jump `left` forward in O(1) — a nice optimization to mention in an interview.
+
+## 7. Worked problem: Permutation in string
+
+**Problem:** Given strings `s1`, `s2`, return `True` if `s2` contains a permutation of `s1`.
+
+This is the **fixed-size** flavor (window length = `len(s1)`). Use two `Counter`s and compare:
+
+```python
+from collections import Counter
+
+def check_permutation(s1: str, s2: str) -> bool:
+    if len(s1) > len(s2): return False
+    need = Counter(s1)
+    window = Counter(s2[:len(s1)])
+    if window == need: return True
+    for right in range(len(s1), len(s2)):
+        window[s2[right]] += 1
+        left_char = s2[right - len(s1)]
+        window[left_char] -= 1
+        if window[left_char] == 0:
+            del window[left_char]
+        if window == need: return True
+    return False
+```
+
+`Counter == Counter` is `O(26)` for lowercase ASCII — effectively `O(1)`. Total: `O(n)`.
+
+## 8. Common pitfalls
+
+<Callout type="warn" title="Watch the invariant direction">
+For **longest** problems, shrink while the window is *invalid*, then record *after*. For **shortest** problems, shrink while the window is *still valid*, recording *inside* the loop. Mixing these up is the #1 sliding-window bug.
+</Callout>
+
+- **Off-by-one** in `right - left + 1`. Always reason from a concrete tiny example.
+- **Negative numbers break it.** Sliding window for "subarray sum" only works on **positive** inputs. With negatives, you need prefix sums + hashmap.
+- **Multiple aggregates.** If you need sum *and* distinct count *and* max — keep them all in `state`, but make sure each is updated in `add` and `remove`.
+
+## 9. Practice progression
+
+If you do these 6 in order, you'll have the pattern wired:
+
+1. Maximum sum subarray of size K *(fixed)*
+2. Longest substring without repeating characters
+3. Longest substring with at most K distinct characters
+4. Smallest subarray with sum ≥ S
+5. Permutation in string
+6. Longest substring with same letter after K replacements
+
+After #6 you'll start *seeing* the pattern in problems before reading the constraints. That's the goal.
+
+## 10. The 30-second summary
+
+> Sliding window is **expand-right, shrink-left-while-invalid, record**. One template, two flavors (fixed vs variable), two recording placements (longest vs shortest). Memorize the three-line shape and you'll solve most variants in under 15 minutes.
+
+Next pattern post: [monotonic stacks](/blog/dsa/) — coming this week.

@@ -1,0 +1,254 @@
+---
+title: "Design a Parking Lot (the version interviewers actually want)"
+slug: "design-parking-lot"
+category: "lld"
+tags: ["oop", "design-patterns", "solid"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-05-05"
+author: "Aman Kumar Keshu"
+excerpt: "Parking Lot is the LLD round. Most candidates over-engineer it with five patterns; the bar is actually clean SOLID code with the *right* extension points. Here's the model I'd ship."
+---
+
+If you're interviewing for senior+ at a big-tech company, there's roughly a 40% chance you'll get **Parking Lot** in your low-level design round. It's table stakes — and it's also a question most candidates *over*-engineer with five gang-of-four patterns when the interviewer just wanted clean SOLID code.
+
+This post walks through the design I'd actually whiteboard.
+
+## 1. Clarify requirements first
+
+Don't draw classes yet. Ask:
+
+- What kinds of vehicles? (motorcycle, car, truck/van)
+- Multiple floors? Multiple lots?
+- Pricing model? (flat / hourly / by spot type)
+- Payment methods? (cash, card, app)
+- How are spots assigned? (closest available, random, by spot type)
+- Reservations? Monthly passes?
+- Reporting / occupancy dashboards?
+
+Pick a coherent subset. For a 45-min round I'd commit to:
+
+> Multi-floor lot, three vehicle types, three matching spot types, hourly pricing, cash + card, automatic nearest-spot assignment. No reservations.
+
+State this back to the interviewer before continuing.
+
+## 2. Identify the core entities
+
+A clean way to surface entities: imagine the user journey end-to-end.
+
+`Driver arrives → Vehicle is identified → System finds a Spot → Ticket is issued → ... time passes ... → Vehicle exits → Ticket is calculated → Payment is processed → Spot is freed.`
+
+That sentence gives you:
+
+- `Vehicle` (with `VehicleType`)
+- `ParkingSpot` (with `SpotType`)
+- `ParkingFloor`
+- `ParkingLot`
+- `Ticket`
+- `PricingStrategy`
+- `Payment` / `PaymentProcessor`
+- `EntryGate` / `ExitGate`
+
+That's it. Resist the urge to add 20 more.
+
+## 3. Class diagram
+
+```
+ParkingLot
+ ├─ List<ParkingFloor>
+ ├─ List<EntryGate>
+ ├─ List<ExitGate>
+ └─ PricingStrategy
+
+ParkingFloor
+ └─ Map<SpotType, List<ParkingSpot>>
+
+ParkingSpot
+ ├─ id
+ ├─ SpotType   (MOTORCYCLE, COMPACT, LARGE)
+ └─ isOccupied
+
+Vehicle  (abstract)
+ ├─ Motorcycle
+ ├─ Car
+ └─ Truck
+   each → VehicleType
+
+Ticket
+ ├─ id
+ ├─ Vehicle
+ ├─ ParkingSpot
+ ├─ entryTime
+ └─ exitTime  (nullable)
+
+PricingStrategy  (interface)
+ ├─ FlatHourlyPricing
+ └─ TieredBySpotPricing
+
+Payment  (abstract)
+ ├─ CashPayment
+ └─ CardPayment
+
+PaymentProcessor → processes Payment, returns PaymentStatus
+```
+
+That's the entire design. Now let's make it SOLID.
+
+## 4. Code (Java-flavored, language-agnostic)
+
+```java
+public enum VehicleType { MOTORCYCLE, CAR, TRUCK }
+public enum SpotType    { MOTORCYCLE, COMPACT, LARGE }
+
+public abstract class Vehicle {
+  private final String licensePlate;
+  private final VehicleType type;
+  // ctor + getters
+}
+
+public class ParkingSpot {
+  private final String id;
+  private final SpotType type;
+  private boolean occupied;
+  private Vehicle vehicle;
+
+  public boolean canFit(Vehicle v) {
+    return switch (v.getType()) {
+      case MOTORCYCLE -> true;                           // any spot
+      case CAR        -> type != SpotType.MOTORCYCLE;    // compact or large
+      case TRUCK      -> type == SpotType.LARGE;
+    };
+  }
+
+  public synchronized boolean assign(Vehicle v) {
+    if (occupied || !canFit(v)) return false;
+    occupied = true; vehicle = v; return true;
+  }
+  public synchronized void release() {
+    occupied = false; vehicle = null;
+  }
+}
+```
+
+The `canFit` matrix is the only "smart" piece of the spot. Nothing else here needs cleverness.
+
+### Spot assignment strategy
+
+```java
+public interface SpotAssignmentStrategy {
+  Optional<ParkingSpot> findSpot(Vehicle vehicle, ParkingLot lot);
+}
+
+public class NearestFirstStrategy implements SpotAssignmentStrategy {
+  @Override
+  public Optional<ParkingSpot> findSpot(Vehicle v, ParkingLot lot) {
+    for (ParkingFloor floor : lot.getFloors()) {           // floors ordered nearest first
+      for (SpotType type : SpotType.values()) {
+        for (ParkingSpot s : floor.spotsOfType(type)) {
+          if (s.canFit(v) && !s.isOccupied()) return Optional.of(s);
+        }
+      }
+    }
+    return Optional.empty();
+  }
+}
+```
+
+By making this a strategy you can swap in `LargestFirstStrategy`, `RandomStrategy`, etc. — without touching the lot.
+
+### Pricing strategy
+
+```java
+public interface PricingStrategy {
+  BigDecimal price(Ticket ticket);
+}
+
+public class TieredBySpotPricing implements PricingStrategy {
+  private final Map<SpotType, BigDecimal> hourlyRate;
+  public TieredBySpotPricing(Map<SpotType, BigDecimal> rates) { this.hourlyRate = rates; }
+
+  @Override
+  public BigDecimal price(Ticket t) {
+    long minutes = Duration.between(t.getEntryTime(), t.getExitTime()).toMinutes();
+    long hours   = (minutes + 59) / 60;                    // round up
+    return hourlyRate.get(t.getSpot().getType()).multiply(BigDecimal.valueOf(hours));
+  }
+}
+```
+
+### The lot itself — a thin orchestrator
+
+```java
+public class ParkingLot {
+  private final List<ParkingFloor> floors;
+  private final SpotAssignmentStrategy assignment;
+  private final PricingStrategy pricing;
+  private final Map<String, Ticket> activeTickets = new ConcurrentHashMap<>();
+
+  public Ticket parkVehicle(Vehicle v) {
+    ParkingSpot spot = assignment.findSpot(v, this)
+        .orElseThrow(() -> new LotFullException(v.getType()));
+    if (!spot.assign(v)) throw new LotFullException(v.getType());
+
+    Ticket t = new Ticket(UUID.randomUUID().toString(), v, spot, Instant.now());
+    activeTickets.put(t.getId(), t);
+    return t;
+  }
+
+  public BigDecimal exitVehicle(String ticketId, PaymentProcessor processor, Payment payment) {
+    Ticket t = activeTickets.remove(ticketId);
+    if (t == null) throw new InvalidTicketException(ticketId);
+    t.markExit(Instant.now());
+
+    BigDecimal amount = pricing.price(t);
+    processor.process(payment, amount);                     // throws on failure
+    t.getSpot().release();
+    return amount;
+  }
+}
+```
+
+Note the **dependency injection** of `SpotAssignmentStrategy`, `PricingStrategy` and `PaymentProcessor`. That's where Open/Closed lives.
+
+## 5. SOLID & patterns — name them on the board
+
+- **Single Responsibility:** `ParkingLot` orchestrates; it doesn't know how to find spots or compute price.
+- **Open/Closed:** new pricing model? New strategy class. Don't touch the lot.
+- **Liskov:** any `Vehicle` works wherever `Vehicle` is accepted.
+- **Interface Segregation:** small interfaces (`PricingStrategy`, `SpotAssignmentStrategy`) instead of one fat `LotService`.
+- **Dependency Inversion:** lot depends on **abstractions**, not on concrete `FlatHourlyPricing`.
+
+Patterns used:
+- **Strategy** (pricing, spot assignment, payment).
+- **Factory** (often added for `Payment` creation, optional).
+- **Singleton** is overrated here — only the lot itself, and only if your container doesn't already manage it.
+
+<Callout type="warn" title="Don't force patterns">
+I've seen candidates jam in **Observer**, **Visitor**, **Decorator** for parking lot. None of them earn points. The interviewer wants to see clean separation, not GoF cosplay.
+</Callout>
+
+## 6. Concurrency
+
+A real lot has multiple entry gates trying to assign spots simultaneously. The `synchronized` block on `ParkingSpot.assign(...)` is enough for a single-process design. For distributed:
+
+- Move the spot map into Redis with `SETNX` semantics, or
+- Use an optimistic lock (CAS on a version column) in the DB.
+
+Mention it briefly — the interviewer will appreciate the awareness without expecting full implementation.
+
+## 7. Common follow-ups
+
+| Follow-up | What I'd add |
+|---|---|
+| "Add electric-vehicle charging spots." | New `SpotType.EV`, extend `canFit`, optional `Chargeable` capability on `Vehicle`. |
+| "Add reservations." | `Reservation` entity referencing a future `(spot, timeRange)`; assignment strategy honors it. |
+| "Multiple lots in a city." | Wrap with a `ParkingNetwork` aggregating lots; assignment becomes lot-then-spot. |
+| "Show real-time occupancy." | Publish `SpotOccupied` / `SpotReleased` domain events; subscribers feed dashboards. |
+
+Each of these is a 2-minute extension *because* the original design respected SRP and Open/Closed.
+
+## 8. The 30-second summary
+
+> Parking Lot looks like a class-modeling exercise but it's really an exercise in **knowing what *not* to add**. Three vehicle types, three spot types, two strategy interfaces, a thin lot orchestrator, a few enums. Done. The bar isn't pattern density — it's *clean separations and obvious extension points*.
+
+That's the version that lands a strong-hire signal.

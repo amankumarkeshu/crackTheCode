@@ -1,0 +1,215 @@
+---
+title: "Design an ATM Machine"
+slug: "design-atm-machine"
+category: "lld"
+tags: ["oop", "state-machine", "design-patterns", "security"]
+difficulty: "senior"
+readingTime: 13
+publishedAt: "2026-04-09"
+author: "Aman Kumar Keshu"
+excerpt: "ATM is a state-machine problem at heart. The states (Idle → CardInserted → PINVerified → TransactionInProgress → Dispensing) are the interview. Nail the state transitions and the rest writes itself."
+isPremium: true
+---
+
+ATM is asked at fintech companies and occasionally at big-tech. The trap is skipping the state machine and jumping to cash dispensing. The interviewer is specifically watching for state management.
+
+## 1. Clarify requirements
+
+- Operations: withdraw, deposit, balance inquiry, transfer?
+- Multiple accounts per card?
+- PIN retry limit?
+- Cash denominations — does the ATM dispense exact change or nearest denomination?
+- Network: standalone or connected to a bank server?
+- Receipts?
+
+Agreed scope:
+
+> Withdrawal, balance inquiry, PIN change. 3 PIN attempts before card lockout. Cash dispensing with multiple denominations (greedy algorithm). Connected to bank server (abstracted).
+
+## 2. State machine — the centrepiece
+
+```
+IDLE
+ │ insert card
+ ▼
+CARD_INSERTED
+ │ enter PIN (up to 3 attempts)
+ ▼
+AUTHENTICATED
+ │ select transaction
+ ▼
+TRANSACTION_IN_PROGRESS
+ │ confirm
+ ▼
+DISPENSING / UPDATING
+ │ done
+ ▼
+IDLE (card ejected)
+```
+
+```java
+public enum ATMState {
+  IDLE, CARD_INSERTED, AUTHENTICATED, TRANSACTION_IN_PROGRESS, DISPENSING, OUT_OF_SERVICE
+}
+```
+
+## 3. Core entities
+
+```
+ATM
+ ├─ state: ATMState
+ ├─ cashInventory: CashInventory
+ ├─ currentCard: Card (nullable)
+ ├─ currentAccount: Account (nullable)
+ └─ bankService: BankService
+
+Card
+ ├─ cardNumber: String
+ └─ expiryDate: LocalDate
+
+Account
+ ├─ accountNumber: String
+ ├─ balance: BigDecimal
+ └─ pinHash: String
+
+CashInventory
+ └─ Map<Denomination, Integer>
+
+Transaction (abstract)
+ ├─ WithdrawalTransaction
+ ├─ BalanceInquiryTransaction
+ └─ PINChangeTransaction
+```
+
+## 4. ATM class — state transitions
+
+```java
+public class ATM {
+  private ATMState state = ATMState.IDLE;
+  private Card currentCard;
+  private Account currentAccount;
+  private int pinAttempts = 0;
+  private static final int MAX_PIN_ATTEMPTS = 3;
+
+  private final CashInventory cashInventory;
+  private final BankService bankService;
+
+  public synchronized void insertCard(Card card) {
+    assertState(ATMState.IDLE);
+    currentCard = card;
+    pinAttempts = 0;
+    state = ATMState.CARD_INSERTED;
+  }
+
+  public synchronized AuthResult enterPin(String pin) {
+    assertState(ATMState.CARD_INSERTED);
+    Account account = bankService.fetchAccount(currentCard.getCardNumber());
+    if (account == null || !account.verifyPin(pin)) {
+      pinAttempts++;
+      if (pinAttempts >= MAX_PIN_ATTEMPTS) {
+        bankService.lockCard(currentCard.getCardNumber());
+        eject(); // go back to IDLE
+        return AuthResult.LOCKED;
+      }
+      return AuthResult.WRONG_PIN;
+    }
+    currentAccount = account;
+    state = ATMState.AUTHENTICATED;
+    return AuthResult.SUCCESS;
+  }
+
+  public synchronized WithdrawalResult withdraw(BigDecimal amount) {
+    assertState(ATMState.AUTHENTICATED);
+    state = ATMState.TRANSACTION_IN_PROGRESS;
+
+    Map<Denomination, Integer> notes = cashInventory.allocate(amount);
+    if (notes == null) { state = ATMState.AUTHENTICATED; return WithdrawalResult.INSUFFICIENT_CASH; }
+
+    BankResponse resp = bankService.debit(currentAccount.getAccountNumber(), amount);
+    if (!resp.isSuccess()) { state = ATMState.AUTHENTICATED; return WithdrawalResult.BANK_DECLINED; }
+
+    state = ATMState.DISPENSING;
+    cashInventory.deduct(notes);
+    dispense(notes);
+    state = ATMState.AUTHENTICATED; // ready for next transaction
+    return WithdrawalResult.SUCCESS;
+  }
+
+  public synchronized void eject() {
+    currentCard = null;
+    currentAccount = null;
+    pinAttempts = 0;
+    state = ATMState.IDLE;
+  }
+
+  private void assertState(ATMState expected) {
+    if (state != expected) throw new InvalidATMStateException(expected, state);
+  }
+}
+```
+
+## 5. Cash dispensing — greedy algorithm
+
+```java
+public class CashInventory {
+  private final TreeMap<Denomination, Integer> inventory;  // highest denom first
+
+  public Map<Denomination, Integer> allocate(BigDecimal amount) {
+    int remaining = amount.intValue();
+    Map<Denomination, Integer> result = new LinkedHashMap<>();
+
+    for (Map.Entry<Denomination, Integer> e : inventory.descendingMap().entrySet()) {
+      int denom = e.getKey().getValue();
+      int available = e.getValue();
+      int needed = Math.min(remaining / denom, available);
+      if (needed > 0) {
+        result.put(e.getKey(), needed);
+        remaining -= needed * denom;
+      }
+    }
+    return remaining == 0 ? result : null;  // null = can't make exact amount
+  }
+
+  public void deduct(Map<Denomination, Integer> notes) {
+    notes.forEach((d, count) -> inventory.merge(d, -count, Integer::sum));
+  }
+}
+```
+
+Greedy works for standard denominations (₹2000, ₹500, ₹200, ₹100). Mention that for arbitrary denominations you'd need dynamic programming.
+
+## 6. BankService interface
+
+```java
+public interface BankService {
+  Account fetchAccount(String cardNumber);
+  BankResponse debit(String accountNumber, BigDecimal amount);
+  BankResponse credit(String accountNumber, BigDecimal amount);
+  void lockCard(String cardNumber);
+}
+```
+
+The ATM doesn't care whether the bank is a REST call, a local DB, or a stub in tests.
+
+## 7. SOLID
+
+- **SRP:** `CashInventory` handles denominations; `BankService` handles financial ops; `ATM` manages state.
+- **OCP:** New transaction type (e.g., `MiniStatementTransaction`) — extend `Transaction`, add a handler. No ATM changes.
+- **DIP:** `ATM` depends on `BankService` interface. Swap real bank for mock in tests.
+
+## 8. Concurrency
+
+A real ATM is single-user (physical hardware), so `synchronized` on the ATM methods is sufficient. For a software simulation with multiple threads, use `ReentrantLock` with try-finally to handle exceptions without leaving the ATM in a broken state.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Deposit | `DepositTransaction`; cash inventory increments instead of deducting. |
+| Transfer | Debit source, credit destination — wrap in a transaction; rollback on partial failure. |
+| Cardless (UPI) | `Authentication` becomes an interface; `UPIAuthentication` doesn't use a card. |
+| Maintenance mode | `OUT_OF_SERVICE` state; technician-only transition; alerts operations team. |
+
+## 10. The 30-second summary
+
+> ATM is a state machine. Draw the states first, then the transitions, before writing a single class. `assertState` at the top of every method makes the state machine explicit and prevents invalid sequences. Cash allocation is a greedy denominations problem. Everything else is bookkeeping.

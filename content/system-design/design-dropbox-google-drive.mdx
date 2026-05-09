@@ -1,0 +1,216 @@
+---
+title: "Design Dropbox / Google Drive (file sync & storage)"
+slug: "design-dropbox-google-drive"
+category: "system-design"
+tags: ["chunking", "sync", "object-storage", "deduplication", "conflicts"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Chunked uploads with global deduplication, the metadata vs blob split, delta sync, conflict resolution and version history \u2014 the design that makes 'change one byte, sync in a second' actually possible."
+---
+
+"Design Dropbox" looks like a storage question and is actually a **sync question**. The interesting part isn't holding 50 PB of files — that's just S3 with extra steps. The interesting part is: when a user changes one byte in a 5 GB file, why does it sync in 2 seconds and not 200?
+
+## 1. Clarify before you draw
+
+- **File sizes?** Average ~MB, max ~GB or TB?
+- **Sync model?** Continuous (Dropbox), on-demand (Google Drive web), both?
+- **Multi-device per user?** (Yes — that's the whole point.)
+- **Versioning?** Last 30 days? 1 year? Forever?
+- **Sharing / permissions?** Per-file ACLs?
+- **Offline edits?** Conflict resolution required.
+
+For this post: 500M users, ~10 TB avg per active user (mostly cold), multi-device sync, 30-day version history, sharing with per-file ACLs.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. Upload / download files.
+2. Sync changes between devices in near-real-time.
+3. Resolve conflicts when same file edited on two devices offline.
+4. Version history.
+5. Sharing with permissions.
+
+**Non-functional:**
+1. **Durability** — never lose user data. 11+ nines.
+2. **Sync latency** — change visible on other devices within seconds.
+3. **Bandwidth-efficient** — small change to large file = small sync.
+4. **Storage-efficient** — global deduplication.
+
+## 3. Capacity numbers
+
+- 500M users × 10 TB avg = **5 EB** total raw.
+- ~30% of files are duplicates across users (PDFs, software installers, common stock photos) → after global dedup, **~3.5 EB stored**.
+- ~10B sync operations/day (small edits) = **~120K ops/sec average**.
+- Metadata size: 500M users × 100K files avg × 1 KB metadata = **~50 TB metadata**.
+
+## 4. Two architectural splits
+
+The single most important design decision:
+
+```
+                ┌───────────────────────┐
+                │   Metadata Service    │  ← user, file, folder, version, ACL
+                │  (sharded SQL/Spanner)│
+                └───────────┬───────────┘
+                            │
+                            │ "the catalog"
+                            │
+                            ▼
+                ┌───────────────────────┐
+                │   Block Service       │  ← chunk_hash → blob bytes
+                │  (object storage,     │
+                │   global dedup)       │
+                └───────────────────────┘
+```
+
+A file in the user's view is a row in the metadata service that points to **a list of chunks**. Each chunk is independently stored once globally. This split enables both **dedup** and **delta sync**.
+
+## 5. Chunking strategy
+
+Don't upload whole files. Split into chunks (typically **4 MB**). Two approaches:
+
+### Fixed-size chunking
+Cut every 4 MB regardless of content. Simple, fast.
+
+- **Pro:** trivial to implement.
+- **Con:** insert one byte at the start of a file → every chunk's hash changes → re-upload everything. ❌
+
+### Content-defined chunking (Rabin / FastCDC)
+Cut at content boundaries determined by a rolling hash. Same file with one byte inserted → only the affected chunk changes; all others retain their hash and don't re-upload. ✓
+
+Almost every sync product uses content-defined chunking. Mention it by name.
+
+## 6. Deduplication
+
+Each chunk's content is hashed (SHA-256). The hash is the chunk's identity:
+
+```
+upload(chunk):
+  hash = sha256(chunk)
+  if exists(blob_store, hash):
+      return hash  # already stored, no upload needed
+  else:
+      put(blob_store, hash, chunk)
+      return hash
+```
+
+This is **global dedup** — if 1M users uploaded the same Apple Keynote installer, you store it once.
+
+Add reference counting per hash so chunks can be GC'd when no file references them anymore. (Garbage collection itself is a separate background system.)
+
+## 7. The upload path
+
+```
+1. Client computes chunks + their hashes locally.
+2. Client → Metadata API: "I have these chunks: [h1, h2, h3, ...]. Which do I need to upload?"
+3. Server checks blob store; returns the *missing* hashes.
+4. Client uploads only missing chunks to blob store (pre-signed URLs, direct).
+5. Client → Metadata API: "Commit file F as [h1, h2, h3, ...]."
+6. Server creates a new file_version row pointing at those hashes.
+```
+
+Step 3 is the magic of dedup — most uploads transfer 10–20% of the actual file because most chunks already exist somewhere.
+
+## 8. The sync protocol
+
+The hardest part. Each device needs to know "what changed since I last synced."
+
+Approach: **per-user sequence number** (a.k.a. revision number).
+
+- Every metadata change (new file, edit, delete, rename) increments the user's `cursor`.
+- Each change is logged in a `user_changes(user_id, cursor, change)` table.
+- Devices long-poll: "Tell me changes after cursor 891234."
+- Server returns events; device updates local state; bumps its cursor.
+
+```
+Device A makes edit → metadata write → cursor 891234 → 891235 → push event
+                                                                ↓
+                                           Device B (long-polling, cursor=891234)
+                                                                ↓
+                                           "Here's change 891235: file X new chunks [h7, h2, h9]"
+                                                                ↓
+                                           Device B fetches missing chunks → updates local file
+```
+
+For real-time-ish push: WebSocket or long-poll from each device. For battery-sensitive devices (mobile): periodic polling + APNs/FCM nudges when there's something new.
+
+## 9. Conflict resolution
+
+Two devices edit the same file offline. Both come online and try to upload.
+
+The right answer: **don't pretend you can merge arbitrary binary content**. Detect the conflict and surface it.
+
+```
+File F at version v17.
+  Device A edits offline → wants to commit as v18, parent=v17.
+  Device B edits offline → wants to commit as v18, parent=v17.
+
+Server detects parent collision.
+  Accept the first commit (Device A's becomes v18).
+  Reject Device B's commit; client's CommitFile API returns 409.
+  Device B saves its version as "F (Device B's conflicted copy).docx" or v18-conflict.
+  Both appear in the user's drive; user manually merges.
+```
+
+For text files, Google Docs takes a different approach: **operational transforms (OT)** or **CRDTs** at the character level — true real-time multi-user editing with no conflicts. That's a wholly separate design (Design Google Docs is its own interview question).
+
+## 10. Versioning
+
+Each commit creates a new file_version row pointing at chunks. Old versions stay (for 30 days) and reference their old chunks. GC reclaims chunks no longer referenced by any version after the retention window.
+
+Storage cost: small edits keep most chunks shared with old versions, so versioning is cheap. A 5 GB file with one chunk edited per version uses only 5 GB + 4 MB × N_versions.
+
+## 11. Sharing & permissions
+
+- ACL stored per file or per folder: `(file_id, user_id, role)` rows.
+- Inherited permissions for folder hierarchies.
+- "Anyone with the link" creates a public, hashed token URL — no ACL check, just URL secrecy.
+- Permission changes are themselves changes in the user_changes log → propagate to all relevant devices.
+
+## 12. Storage tier strategy
+
+Not all chunks deserve the same storage class:
+
+| Tier | Cost | When |
+|---|---|---|
+| **Hot** (S3 Standard) | $$$ | Last 30 days; recently accessed |
+| **Warm** (S3 IA) | $$ | 30–365 days |
+| **Cold** (S3 Glacier) | $ | &gt; 1 year, rarely accessed |
+
+Lifecycle policies move chunks down the hierarchy automatically. Restore latency increases but most users never notice.
+
+## 13. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Chunk upload fails** | Client retries that chunk only; idempotent on hash |
+| **Metadata write fails** | Client retries the commit; server is idempotent on `commit_id` |
+| **Two devices commit at same parent** | Conflict; second commit becomes a "conflicted copy" |
+| **Cursor mismatch (device fell way behind)** | Re-sync from a snapshot rather than walking N changes |
+| **Region down** | Cross-region replication of metadata + blob; reads/writes fail over |
+
+## 14. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why content-defined chunking, not fixed?" | Insert-one-byte resilience |
+| "Why dedup at the chunk level?" | Cross-user dedup; partial-file efficiency |
+| "How does sync work?" | Per-user cursor, change log, long-poll / WebSocket |
+| "How do you resolve concurrent edits?" | Parent-version CAS; conflicted copy on collision |
+| "Why metadata + blob split?" | Independent scaling, dedup, fast metadata-only ops (rename, list, ACL) |
+| "How would you build Google Docs on top?" | Different problem — OT or CRDT at character level, not chunk |
+| "How big is the metadata DB?" | ~50 TB; sharded by user_id; Spanner-class store |
+
+## 15. The 30-second summary
+
+> Dropbox is a **metadata service + content-addressed blob store**. Files are lists of 4 MB content-defined chunks. Global dedup means most "uploads" transfer 10–20% of the bytes. Sync is a per-user change log + cursor; devices long-poll for new changes and pull only the affected chunks. Conflicts are detected via parent-version CAS, never silently merged for binary files.
+
+Land that, plus the "single-byte edit syncs in seconds because of CDC + dedup" insight, and you've answered the staff version of the question.
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube) — the chunked-upload + object-storage pattern
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — backs the per-user change log
+- [Design a Notification System](/blog/system-design/design-notification-system) — for "your file was shared with you" alerts
+</Callout>

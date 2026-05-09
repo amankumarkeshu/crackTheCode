@@ -1,0 +1,199 @@
+---
+title: "Design a Distributed Counter (likes, views, comment counts)"
+slug: "design-distributed-counter"
+category: "system-design"
+tags: ["counters", "sharding", "hot-keys", "eventual-consistency", "crdt"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Why 'just UPDATE counts SET count = count + 1' breaks at scale, and how to build a counter that survives 1M increments per second on a viral tweet \u2014 sharded counters, CRDTs, and the consistency trade-offs that come with them."
+---
+
+"Build a like button" sounds like the simplest possible system design question. Then you ask: how does it work when a celebrity posts and 100,000 people like it in a second? Suddenly a single `UPDATE posts SET like_count = like_count + 1 WHERE id = ?` becomes a row-lock contention disaster, and you're talking about CRDTs and shard fan-out.
+
+This is the post for a counter that survives.
+
+## 1. Clarify before you draw
+
+- **Counter granularity?** Per-post likes, per-video views, per-tweet retweets, all of the above?
+- **Read frequency?** Read every page load, or only on detail view?
+- **Consistency?** Strict (immediately-correct count) or eventual (count converges in seconds)?
+- **Idempotent?** Don't count the same like twice from the same user.
+- **Cardinality?** 1M counters, 1B counters?
+
+For this post: per-post like counts, ~10B posts (counters), eventually consistent within 5s, idempotent on user_id, hot posts can hit 1M+ likes in minutes.
+
+## 2. Why the naive approach fails
+
+```sql
+-- Single-row counter
+UPDATE posts SET like_count = like_count + 1 WHERE post_id = ?
+```
+
+- **Row-level lock** on every write → all 100K concurrent likers serialize on one row.
+- Replication lag → counts shown to readers in another region are stale.
+- Crashes mid-update → idempotency unclear.
+- Hot post + 1M writes/sec → that DB shard melts.
+
+You need a different data structure.
+
+## 3. Capacity numbers
+
+- 10B counters × 8 bytes = ~80 GB raw counter storage. Trivially small.
+- ~5B likes/day → ~60K writes/sec average, ~1M peak (viral posts).
+- Reads: every feed view shows like counts → ~1M reads/sec (mostly cached).
+
+Writes (especially the long tail of bursty viral posts) drive every design decision.
+
+## 4. The sharded counter pattern
+
+Split each post's counter into N sub-counters. Writes go to a *random* sub-counter; reads sum across all sub-counters.
+
+```
+post_42 sub-counters:
+  post_42:0 → 23,452
+  post_42:1 → 23,801
+  post_42:2 → 24,012
+  post_42:3 → 23,990
+  ...
+  total = sum of all sub-counters
+```
+
+**Write path:**
+```python
+def increment(post_id):
+    shard = random.randint(0, N - 1)
+    redis.incr(f"{post_id}:{shard}")
+```
+
+**Read path:**
+```python
+def get_count(post_id):
+    return sum(int(redis.get(f"{post_id}:{i}") or 0) for i in range(N))
+```
+
+Wins:
+- **Write contention** drops by N×. With N=100, a 1M writes/sec hot key becomes 100 different keys at 10K writes/sec each.
+- **Atomicity** is preserved per shard (`INCR` is atomic in Redis).
+
+Trade-off:
+- **Reads are O(N)** lookups instead of O(1). Mitigate by caching the sum (section 6).
+
+## 5. Adaptive sharding
+
+100 shards for every counter is wasteful — most counters get 0 likes. Adaptive:
+
+- Default N = 1 (single counter row).
+- When writes exceed a threshold (e.g. 100/sec), the hot-key detector promotes the counter: split into 10 shards.
+- If still hot, split again to 100 shards.
+- Demotion happens slowly (don't thrash).
+
+This is the design pattern Twitter Tweets, Instagram likes, and YouTube views use under the hood. For 99.99% of posts: 1 shard. For viral content: 100+ shards.
+
+## 6. Caching the read
+
+A like-count read happens on every feed view → millions per second. Even with N=100 shards, summing 100 Redis lookups per read is 100M Redis calls/sec for the platform — too much.
+
+Cache the summed value:
+
+```
+cache key:    "count:post_42" → 95,255
+cache TTL:    5 seconds
+cache miss:   sum N shards, write to cache
+```
+
+5-second TTL means counts can be ~5s stale. Acceptable for likes; not for, say, payment balances.
+
+For ultra-hot keys (the viral post everyone's looking at), cache locally on each app server (1-second TTL). 99% of reads never leave the app server.
+
+## 7. Idempotency: don't double-count the same liker
+
+Counters increment per-action; you don't want one user double-liking by clicking twice (or via retry).
+
+Two approaches:
+
+### A. Separate "I liked this" set + count
+```
+likes(post_id, user_id) PK   ← unique constraint prevents dupes
+```
+Like → INSERT (with `ON CONFLICT DO NOTHING`). If 0 rows affected → user already liked, no count change. Else → INSERT and `INCR` the counter.
+
+Memory cost: 1 row per like. For a 1M-like post, that's 1M rows. Real systems do this — and use the table for the "users who liked this" feature too.
+
+### B. Bloom filter dedup
+A 1% false-positive rate is acceptable: ~1% of "first likes" might be incorrectly skipped, but you save the storage of the full likes table. Trade-off: lose the "who liked it" feature.
+
+Twitter uses (A); LinkedIn for "who viewed your profile" uses approximate. Pick based on whether you need to query the membership later.
+
+## 8. Multi-region
+
+A globally hot post is liked from every region. Two patterns:
+
+### A. Per-region sharded counter, async cross-region rollup
+
+Each region maintains its own sub-counters. Periodically (every minute), an aggregator pulls all regions' counts and writes a global rollup.
+
+- Pro: zero cross-region latency on the write path.
+- Con: cross-region count is eventually consistent on minute boundaries.
+
+### B. CRDT (G-Counter)
+
+A **G-Counter** (grow-only counter CRDT) is N replicas, each with its own counter. The total is the sum across all replicas. Replicas exchange updates async; merging is `max` per replica → idempotent + commutative + associative → no conflicts.
+
+```
+Region US: us=1234, eu=890, ap=455
+Region EU: us=1230, eu=895, ap=455
+Region AP: us=1234, eu=890, ap=460
+
+Each region eventually sees the max of each peer:
+   us=1234, eu=895, ap=460 → total = 2589
+```
+
+CRDTs make multi-master counters mathematically trivial. Use them in any multi-region counter design.
+
+## 9. Eventual consistency: be honest about it
+
+A like-count is **eventually consistent**:
+- Local sub-counter: updated immediately.
+- Local cache of sum: 5-second lag.
+- Cross-region: 1-minute lag.
+- Display in feed: cached at the CDN for some windows.
+
+Total user-visible staleness: up to ~1 minute on a hot post in a far region. Almost always acceptable for likes/views/comments.
+
+Be explicit about this in interviews. Promising "always-correct" counts at this scale is a wrong answer.
+
+## 10. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Redis shard down** | Lose recent counter activity for that shard; cross-region replication recovers it; the stable/durable backing is a periodic snapshot to a DB (Cassandra) |
+| **Counter promotion mid-spike** | Use an atomic version counter to coordinate; readers fall back to old shard count during transition |
+| **Likes table partition down** | Likes are queued locally; counter still increments via cache; eventually replayed |
+| **Whole region down** | Other regions keep counting; CRDT merges on recovery |
+
+## 11. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why not just `UPDATE count = count + 1`?" | Row contention at hot keys |
+| "How many shards?" | Adaptive: 1 by default, promote on hot writes |
+| "How do you read a sharded counter?" | Sum + cache; local cache for ultra-hot |
+| "How do you avoid double-counting?" | Separate likes table (with PK on user_id) or Bloom filter dedup |
+| "Strict vs eventual consistency?" | Eventual; be explicit about the staleness budget |
+| "Multi-region?" | Per-region sub-counters + async rollup, or G-Counter CRDT |
+| "How do you persist these counters durably?" | Redis is the hot store; periodic snapshots to Cassandra/Dynamo |
+
+## 12. The 30-second summary
+
+> A distributed counter is a **sharded sub-counter pattern with adaptive promotion for hot keys**, fronted by a 5-second read cache, deduplicated against a likes table or Bloom filter, and replicated across regions either via async rollup or a G-Counter CRDT. The whole thing is unapologetically eventually consistent — anyone promising strict consistency at 1M writes/sec on a single counter is wrong. Real systems pick (consistency, freshness, cost) trade-offs explicitly and tune per use case.
+
+Land that, plus the "promote to 100 shards on hot writes" insight from section 5, and you've answered the senior version.
+
+<Callout type="tip" title="Related reading">
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — like counts on tweets
+- [Design YouTube](/blog/system-design/design-youtube) — view counters
+- [Design Instagram](/blog/system-design/design-instagram) — like + view + follower counts
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending) — approximate counting (different problem)
+</Callout>

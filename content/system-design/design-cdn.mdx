@@ -1,0 +1,241 @@
+---
+title: "Design a CDN (Content Delivery Network)"
+slug: "design-cdn"
+category: "system-design"
+tags: ["cdn", "edge", "caching", "anycast", "tls"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Build a Cloudflare/Akamai/Fastly-class CDN: anycast routing, tiered edge caches, origin shielding, purge propagation in seconds, and TLS termination at the edge."
+---
+
+A CDN is the layer between your origin servers and the rest of the planet. It's how Netflix serves 100 Tbps, how news sites survive viral spikes, and why Google.com loads in under 100 ms from anywhere. If you're interviewing at Cloudflare, Fastly, Akamai, AWS CloudFront, or any company that has built or is building edge infrastructure, this is the question.
+
+## 1. Clarify before you draw
+
+- **What kind of content?** Static (images, JS, video segments — easy), dynamic HTML (medium), API responses (hard), live video (different beast — see [Design Twitch](/blog/system-design/design-twitch-live-streaming)).
+- **Push or pull model?** Origin-pull on first miss vs upload-to-edge?
+- **Geographic scope?** Global (~300 PoPs), regional (~10), single-region?
+- **TLS termination?** At edge or pass-through?
+- **Custom domains?** Multi-tenant — many customers each with their own domain on shared infra?
+- **Compute at edge?** Workers/Functions running near users (Cloudflare Workers, Lambda@Edge)?
+
+For this post: a multi-tenant global CDN serving static + dynamic content with edge TLS, origin shielding, purge API, and basic edge compute.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. End user requests `https://customer.example.com/asset.jpg` → CDN serves from nearest edge.
+2. Cache misses pull from customer origin.
+3. Customers configure cache rules (TTL, headers).
+4. Customers can **purge** specific URLs / wildcards instantly.
+5. Customers see analytics (hit ratio, bandwidth, error rate).
+6. TLS certificates managed for customer domains.
+
+**Non-functional:**
+1. **Latency:** &lt;50 ms time-to-first-byte from any populated continent.
+2. **Cache hit ratio:** &gt;90% target for most customers.
+3. **Availability:** 99.99%+ — every PoP is independent; failure is local.
+4. **Throughput:** terabits per second total egress.
+5. **Cost:** bandwidth is the single biggest cost — caching efficiency directly hits the P&L.
+
+## 3. Capacity numbers
+
+- ~300 PoPs globally, each with ~10–100 edge servers.
+- Per edge server: 100 Gbps NIC, 1 TB SSD cache, 256 GB RAM cache.
+- Total edge cache footprint: ~300 PB hot, in-RAM/SSD across the fleet.
+- Customer base: ~1M domains; multi-tenant per server.
+- Purge rate: ~10K purges/sec globally during deploys.
+- Request rate: ~10M requests/sec across the fleet at peak.
+
+## 4. Architecture: tiered edge
+
+```
+            User                      User
+              │                         │
+              ▼                         ▼
+   ┌──────────────────┐       ┌──────────────────┐
+   │   Edge PoP A     │       │   Edge PoP B     │
+   │ (e.g. Bangalore) │       │   (e.g. Tokyo)   │
+   │  ┌────────────┐  │       │  ┌────────────┐  │
+   │  │  Edge      │  │       │  │  Edge      │  │
+   │  │ servers    │  │       │  │ servers    │  │
+   │  └─────┬──────┘  │       │  └─────┬──────┘  │
+   └────────┼─────────┘       └────────┼─────────┘
+            ▼                          ▼
+        ┌──────────────────────────────────┐
+        │   Mid-tier / Shield (regional)   │
+        │  e.g. one shield per continent   │
+        └────────────────┬─────────────────┘
+                         ▼
+                   Customer Origin
+```
+
+Three tiers:
+- **Edge** — closest to user. ~300 of these. RAM + SSD cache.
+- **Mid-tier / Shield** — fewer locations. Bigger SSD/HDD cache. Absorbs cache misses from many edges.
+- **Origin** — customer's actual servers. CDN hides them from the public.
+
+## 5. How a request flows
+
+```
+1. User types https://news.example.com/headline.jpg
+2. DNS for news.example.com returns CDN's IP (CNAME or anycast)
+3. Anycast routes packet to nearest edge PoP
+4. Edge load balancer picks a healthy edge server
+5. Edge server checks cache:
+   - HIT → serve from RAM/SSD (~5 ms)
+   - MISS → forward to mid-tier shield
+6. Shield checks its cache:
+   - HIT → return to edge, edge caches + serves
+   - MISS → fetch from customer origin
+7. Customer origin returns content; shield caches; edge caches; user gets it
+```
+
+Hit ratio depends on traffic profile. Long-tail content (e-commerce, niche videos) ~70%. Hot content (CNN homepage) ~99%.
+
+## 6. Routing: how does "nearest edge" work?
+
+Two main approaches:
+
+### DNS-based (Akamai, classic Cloudflare)
+- DNS resolver is configured per-region.
+- DNS server returns different IPs based on the resolver's location.
+- Pros: works with any client.
+- Cons: DNS resolver location ≠ user location (someone in India using 8.8.8.8 might get routed to a US DNS resolver — though EDNS Client Subnet helps).
+
+### Anycast (Cloudflare, Fastly)
+- One IP advertised from every PoP via BGP.
+- Internet routing protocols deliver the packet to the nearest PoP automatically.
+- Pros: no DNS lag; fast failover (BGP withdraws routes from dead PoPs).
+- Cons: TCP connections can switch mid-flow if BGP changes (rare). Requires deep BGP/networking expertise.
+
+Anycast has won at modern CDNs. DNS-based still works fine for content where geography matters more than every-millisecond latency.
+
+## 7. Cache lookup & key design
+
+Cache key is typically `host + path + query string` — but with rules:
+- Strip irrelevant query params (e.g. analytics tags) to improve hit ratio.
+- Vary on `Accept-Encoding` (gzip vs br vs identity).
+- Vary on language/region for localized content.
+
+Edge servers run an **object store** like LRU/LFU on SSD with a hot RAM tier. Real-world: nginx/Varnish/custom (Cloudflare runs its own called "Tiered Cache").
+
+### Cache key for dynamic content
+For uncacheable content (cookies, auth headers), bypass cache and proxy to shield/origin. But you can still gain by **connection reuse** — TLS handshakes pre-warmed, HTTP/2 pooling — which knocks 50–200 ms off the request.
+
+## 8. Origin shielding (the hidden secret)
+
+Without shielding, a popular asset evicted from edge → 300 edges all stampede the origin. Origin dies.
+
+With shielding:
+- For each customer, designate **one shield PoP** (e.g. closest to origin).
+- All edge misses for this customer go to its shield, not origin.
+- Origin sees 1× the miss traffic, not 300×.
+
+This is the single biggest design move that makes a CDN scalable. It's also why CDN providers can sell "origin protection" as a feature — without shielding, your origin would be bombarded.
+
+## 9. Cache invalidation: the purge problem
+
+A customer publishes new homepage HTML. They want all 300 edges to forget the old one **now**.
+
+```
+Customer ─── HTTP API ───► Purge Service
+                                │
+                                ▼
+                       Purge Event Bus (e.g. global pub-sub)
+                                │
+                ┌───────────────┼───────────────┐
+                ▼               ▼               ▼
+           Edge PoP A      Edge PoP B      Edge PoP C
+        (deletes key)  (deletes key)  (deletes key)
+```
+
+**Latency target:** &lt;5 sec global.
+
+Implementation:
+- Purge Service writes to a globally-replicated log (Kafka MirrorMaker or similar; Cloudflare uses something like a custom Quicksilver KV store).
+- Each PoP has agents tailing the log; on a matching event, they evict the key from local cache.
+- For wildcards (`/blog/*`), most CDNs implement **cache tags**: every cached object can have N tags; purge by tag = O(1) marker bump, lazy eviction.
+
+**Cache tags** are the cleanest model — customers tag responses (`Cache-Tag: post-1234,homepage`); purging tag `homepage` invalidates everything tagged that way without scanning the cache.
+
+## 10. TLS termination
+
+For each customer domain, the CDN must serve a valid TLS certificate. Two flavors:
+
+### Customer-managed
+Customer uploads their cert + private key. Stored in the CDN's secret store, distributed to edges on demand.
+
+### CDN-managed
+For customers using the CDN's domain (e.g. `xxx.customer.example.com`), the CDN obtains certs via Let's Encrypt or its own ACME-compatible CA — automatically.
+
+For multi-tenant TLS at scale, **SNI** (Server Name Indication) is essential — one IP serves many domains, the cert is selected by the hostname in the TLS ClientHello.
+
+## 11. Edge compute (Workers, Functions, Lambda@Edge)
+
+Beyond just caching, modern CDNs run customer code at the edge:
+- **Header rewriting** (geo-based redirects, A/B test routing).
+- **Auth at edge** (JWT validation; reject invalid before hitting origin).
+- **Personalization** (assemble HTML from cached fragments + edge KV).
+- **Edge KV / Durable Objects** (small key-value store at edge for low-latency reads).
+
+Implementation: V8 isolates (Cloudflare Workers, Deno Deploy) or WASM runtimes. Each isolate is a "tenant" with low cold-start cost (~5 ms vs ~100s of ms for containers).
+
+## 12. Analytics + logging
+
+Every request emits a log line: timestamp, domain, path, status, bytes, cache hit/miss, edge PoP. At 10M req/sec global, that's **billions of log events/day**.
+
+- Logs streamed via Kafka to a central data lake.
+- Customer dashboards aggregated hourly/daily.
+- Sampling for very-high-traffic customers (1% sampled at edge, full pipeline through real-time aggregator).
+
+This is essentially the same architecture as [Distributed Counter](/blog/system-design/design-distributed-counter) and [Top-K / Trending](/blog/system-design/design-top-k-trending).
+
+## 13. Health checking & failure handling
+
+| Failure | Handling |
+|---|---|
+| **Edge server dies** | LB stops routing; sibling servers absorb |
+| **Whole PoP down** | BGP withdraws routes; users routed to next-nearest PoP automatically |
+| **Customer origin down** | CDN serves **stale** content if available (`Cache-Control: stale-if-error`); else 5xx with retry |
+| **Purge log lag** | Stale content briefly served — acceptable trade-off; SLA on purge of 5 sec, not 0 |
+| **Hot key (DDoS-like demand)** | Edge promotes to RAM cache; rate-limit per customer if abuse-pattern |
+
+The "stale-if-error" is huge. If the customer's origin goes down, the CDN can keep serving last-known-good content for hours.
+
+## 14. DDoS protection (a key CDN value-add)
+
+CDNs absorb attacks by:
+- **Anycast** — distributes attack across many PoPs.
+- **Rate limiting** at edge per (IP, domain).
+- **Layer 7 challenges** — JavaScript challenges, CAPTCHA.
+- **Anomaly detection** — sudden traffic spike on a customer triggers heuristic mitigations.
+
+A small website on its own dies under a 1 Gbps DDoS. Behind a CDN, that same 1 Gbps is split across 300 PoPs and each absorbs ~3 Mbps trivially.
+
+## 15. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "DNS-based vs anycast routing?" | DNS-based is simpler/older; anycast is faster/modern, requires BGP |
+| "How does purge work in &lt;5 sec globally?" | Replicated log + cache-tag indexes for wildcard support |
+| "Why origin shielding?" | Without it: 300 PoPs hammer origin on miss; with it: ~1 |
+| "Cache hit ratio is only 70% — what now?" | Look at long tail; explore tiered cache; key normalization (strip query params) |
+| "How does CDN protect against DDoS?" | Anycast distribution + edge rate limiting + Layer 7 challenges |
+| "What's the latency budget for an edge response?" | &lt;50 ms for cache hits |
+| "Multi-tenant TLS — how?" | SNI; per-customer cert management; ACME for auto-certs |
+
+## 16. The 30-second summary
+
+> A CDN is **anycast-routed tiered edge caches with origin shielding**. End users hit the nearest of ~300 PoPs; cache misses go to a regional shield (which absorbs the fan-in to origin); purges propagate via a globally-replicated log + cache tags. TLS terminates at edge via SNI; modern CDNs add edge compute (V8 isolates) for sub-10ms execution near users.
+
+Lead with the tiered edge + anycast. Spend time on **purge** (the hardest correctness problem) and **origin shielding** (the biggest scale insight). Mention edge compute as the modern frontier. That's the staff-level answer.
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube) — heavy CDN consumer
+- [Design Twitch / Live Streaming](/blog/system-design/design-twitch-live-streaming) — CDN with second-scale TTLs
+- [Design Netflix](/blog/system-design/design-netflix) — Open Connect, CDN inside ISP datacenters
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — the same hot-key + invalidation problems on a smaller scale
+</Callout>

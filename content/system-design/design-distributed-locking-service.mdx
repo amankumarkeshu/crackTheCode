@@ -1,0 +1,205 @@
+---
+title: "Design a Distributed Locking Service (ZooKeeper / etcd / Consul-class)"
+slug: "design-distributed-locking-service"
+category: "system-design"
+tags: ["consensus", "raft", "leader-election", "fencing", "distributed-locks"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Why 'just use Redis SETNX' is wrong, what fencing tokens are, and how a real distributed lock service works \u2014 leader election, lease semantics, and the consensus protocols that make ZooKeeper, etcd and Consul reliable."
+---
+
+Distributed locks are the system design question candidates are most likely to *think* they understand and *actually* get wrong. "Just use Redis `SETNX`" passes a phone screen and fails an onsite. The right answer involves **consensus**, **leases with fencing tokens**, and a clear understanding of the famous "Redlock is broken" debate.
+
+This is the post for the staff-level distributed locking service.
+
+## 1. Clarify before you draw
+
+- **Use case?** Mutex (only one writer), leader election (only one of N), barrier (wait for all N), config distribution?
+- **Lock duration?** Microseconds (request scope), seconds (job execution), hours (long-running task)?
+- **Failure semantics?** Acceptable to lose the lock briefly during partition?
+- **Throughput?** 10K locks/sec, 1M?
+- **Across data centers?** WAN latency tolerance?
+
+For this post: a general-purpose lock service backing leader election + mutual exclusion + scheduled-job execution. ~10K lock ops/sec, sub-second latency, single region with cross-region read replicas.
+
+## 2. Functional & non-functional requirements
+
+**Functional:**
+1. `acquire(name, ttl)` → returns lock handle if successful, error if held.
+2. `release(name)` → releases the held lock.
+3. `renew(name)` → extends the TTL.
+4. Watch for changes (lock release notifications) — useful for leader election.
+
+**Non-functional:**
+1. **Linearizable** — only one client holds a lock at any moment (real wall-clock).
+2. **Highly available** — no single point of failure.
+3. **Bounded latency** under normal conditions.
+4. **Safe under network partitions** — split-brain must be impossible.
+
+## 3. Why you can't fake this with Redis SETNX
+
+The naive approach:
+
+```python
+acquired = redis.set(lock_name, client_id, nx=True, ex=10)  # 10s TTL
+if acquired:
+    do_work()
+    redis.delete(lock_name)
+```
+
+**Failure modes:**
+
+1. **GC pause / network blip:** client A acquires lock, then pauses for 11 seconds (long GC, slow disk, container migration). TTL expires; client B acquires the same lock. Client A wakes up, **thinks it still holds the lock**, and writes to the protected resource. **Two clients now think they hold the lock simultaneously**.
+
+2. **Redis primary fails over:** with async replication, the new primary may not have the lock. Client B can acquire it while A still believes it holds it.
+
+3. **Clock skew:** TTLs depend on wall-clock; if Redis's clock drifts, TTL expires too early (or too late).
+
+These failure modes are *not* edge cases — they happen all the time at scale. The fix isn't a smarter Redis pattern; it's **fencing tokens** (section 6).
+
+## 4. The architecture: a Raft-replicated state machine
+
+A real distributed lock service is built on a **consensus algorithm** (Paxos, Raft, or Multi-Paxos):
+
+```
+Client ─► One of the lock-service nodes (leader)
+              │
+              ├─► appendLog("acquire foo by client X with token=4592")
+              │
+              └─► Raft consensus replicates to follower nodes
+                       (majority quorum required to commit)
+              │
+              ▼
+         Apply to state machine: foo → { holder: X, token: 4592, expires: T }
+              │
+              ▼
+         Reply to client with the fencing token
+```
+
+ZooKeeper uses Zab; etcd and Consul use Raft. The consensus layer ensures:
+- All nodes agree on the order of acquire/release/expire events.
+- A majority quorum is required to commit any change.
+- The current leader is unambiguous.
+- Even if a node is partitioned, it can't issue conflicting decisions.
+
+Cluster size is usually 3 or 5 (always odd, for quorum). Survives `(N-1)/2` failures. With 5 nodes: 2 can die.
+
+## 5. Lease semantics
+
+A lock isn't held forever; it's held for a **lease** (TTL). The client must renew before expiry:
+
+```
+Client A: acquire(foo, ttl=10s) → token=4592, lease until T+10
+Client A: at T+5, renew(foo)    → lease extended to T+15
+Client A: ... continues working ...
+Client A: at T+13, renew(foo)   → lease until T+23
+
+If Client A crashes (or stops sending renews):
+  Lock service waits until lease expiry (T+23 in the last example)
+  After expiry, the lock is released; another client can acquire.
+```
+
+This bounds the time a dead client holds a lock. Renewals are cheap (a single Raft round-trip).
+
+## 6. Fencing tokens (the part that actually solves the problem)
+
+Every successful `acquire` returns a **monotonically-increasing fencing token**:
+
+```
+Client A: acquire(foo) → token=4592
+... GC pause for 30 seconds ...
+Lease expires at T+10
+Client B: acquire(foo) → token=4593
+
+Both clients now make calls to the protected resource (e.g. a storage system).
+   Client A's call:  write("data1", token=4592)
+   Client B's call:  write("data2", token=4593)
+
+The protected resource tracks the highest token it has seen.
+   Sees Client A's 4592 → highest is now 4592, write succeeds.
+   Sees Client B's 4593 → highest is now 4593, write succeeds.
+   Sees Client A's "I just woke up" 4592 → token < highest, REJECT.
+```
+
+The fencing token gets passed through every operation that the lock protects. Stale clients are *detected at the resource layer* and rejected.
+
+Without fencing tokens, no distributed lock can be safe. **This is the single most important point**. Mention "fencing tokens" in the interview within the first 5 minutes.
+
+## 7. Why ZooKeeper, etcd, Consul are different from Redis
+
+| Property | Redis | ZooKeeper / etcd / Consul |
+|---|---|---|
+| Consensus | None (single primary, async replicas) | Raft / Zab / Multi-Paxos |
+| Replication | Async by default | Synchronous quorum |
+| Failover safety | Can lose recent writes | No data loss with quorum |
+| Throughput | Hundreds of thousands ops/sec | ~10K ops/sec (consensus is slower) |
+| Latency | Sub-ms | ~1–10 ms (network round-trips for quorum) |
+| Lock semantics | Best-effort | Linearizable |
+
+**Redis is faster and weaker. ZooKeeper/etcd/Consul are slower and stronger.** Pick based on whether you can tolerate the failure modes.
+
+For most "real" distributed locks (leader election, scheduled-job execution, cluster config), you want the consensus-based variant. For "soft" locks where occasional double-execution is acceptable, Redis is fine.
+
+## 8. The Redlock debate (one paragraph mention)
+
+Salvador (Redis author) proposed **Redlock**: acquire the same lock on `N >= 5` Redis instances; consider it acquired if you got it on `(N/2)+1`. Martin Kleppmann critiqued: even with Redlock, GC pauses + clock skew can cause two clients to both think they hold the lock. Fencing tokens are still required; Redlock just adds latency without fixing the underlying problem.
+
+Mention this debate in the interview as evidence you've thought beyond the textbook. Don't take a strong side; show you understand both.
+
+## 9. Common use cases
+
+### Leader election
+N candidates try to acquire `lock:cluster_leader`. The one that succeeds is leader. They renew to stay leader. If they die, lease expires, another acquires. **One leader at a time, real wall-clock time**.
+
+### Scheduled-job execution
+N workers compete for `lock:job_<id>`. The one that acquires runs the job. Cross-link: [Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler) uses this pattern.
+
+### Cluster config / membership
+Not strictly a lock, but the same primitive. Each member writes a per-node ephemeral key (auto-deleted on disconnect). Other members watch the directory; when a member's key disappears, they notice the failure.
+
+### Coordination barriers
+"Wait for all N workers to reach phase 2." Use a counter + watch: workers `INCR` and watch for the value to reach N.
+
+## 10. Operational considerations
+
+- **Small cluster** (3 or 5 nodes; never even number; never 1).
+- **Aggressive monitoring** of leader-election churn — frequent leader changes signal network instability.
+- **Dedicated machines** — don't co-locate with hot tenants; the consensus log is latency-sensitive.
+- **Snapshots** — periodic state-machine snapshot keeps the log from growing unbounded.
+- **Backups** — a corrupt cluster is one of the highest-blast-radius incidents possible. Daily snapshot backups; tested restore.
+
+## 11. Failure handling
+
+| Failure | Behavior |
+|---|---|
+| **Leader node crashes** | Followers detect via missed heartbeat; election picks new leader (~5s) |
+| **Network partition** | Minority partition can't form quorum → can't issue decisions; majority continues normally |
+| **All nodes crash** | Service unavailable; restore from snapshot + log |
+| **Disk full on a node** | Node lags; if behind too far, snapshotted from leader |
+| **Client GC pause holding lock** | Lease expires; other clients can acquire; fencing token rejects the stale client's writes |
+
+## 12. The trade-offs interviewers will probe
+
+| Question | What they want to hear |
+|---|---|
+| "Why not Redis SETNX?" | GC pause + failover + clock skew → unsafe; needs fencing |
+| "What's a fencing token?" | Monotonic ID returned with the lock; resource rejects stale tokens |
+| "How does ZooKeeper achieve linearizability?" | Zab consensus protocol; quorum writes |
+| "Why an odd number of nodes?" | Quorum math; even doesn't add safety, just cost |
+| "What about Redlock?" | Faster than ZK; still needs fencing; controversial — explain Kleppmann critique |
+| "Throughput limits?" | ~10K ops/sec is consensus's natural ceiling; design hot paths around this |
+| "Cross-region locks?" | Brutal — WAN latency × consensus rounds; usually bad idea; locality is your friend |
+
+## 13. The 30-second summary
+
+> A distributed lock service is a **Raft (or Paxos / Zab) replicated state machine that hands out leases with monotonically-increasing fencing tokens**. The lease bounds the time a dead client holds a lock; the fencing token lets the protected resource reject stale clients even if the lock service is slow to expire them. Redis-based locks are fundamentally unsafe under GC pauses + failover unless paired with fencing — and even then, you've just rebuilt half of ZooKeeper. ZooKeeper, etcd, and Consul are the production answers; pick based on ecosystem (Java vs Go) and operational comfort.
+
+Land that with the fencing-token explanation from section 6, and you've answered the staff version of one of the trickiest questions in the loop.
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler) — uses this for leader election + job leases
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — KRaft is etcd's cousin, embedded in Kafka
+- [Design a Payment System](/blog/system-design/design-payment-system) — idempotency-key locks share these patterns
+</Callout>

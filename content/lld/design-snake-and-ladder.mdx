@@ -1,0 +1,188 @@
+---
+title: "Design Snake and Ladder"
+slug: "design-snake-and-ladder"
+category: "lld"
+tags: ["oop", "design-patterns", "game-design"]
+difficulty: "mid"
+readingTime: 9
+publishedAt: "2026-04-07"
+author: "Aman Kumar Keshu"
+excerpt: "Snake and Ladder is an easy LLD that tests whether you can identify the right abstraction — the board element — and avoid hard-coding rules into the game loop. Here's the clean design."
+isPremium: false
+---
+
+Snake and Ladder is a warm-up problem that tests clean OOP thinking without system complexity. The interviewer is checking: do you hard-code snake/ladder logic into the game loop, or do you abstract it properly?
+
+## 1. Clarify requirements
+
+- Board size (typically 10×10 = 100 cells)?
+- Number of players, dice?
+- Multiple dice?
+- Special rules: landmine cells, power-up cells?
+- Win condition: exact roll required to hit 100, or any roll ≥ 100 wins?
+
+Agreed scope:
+
+> 10×10 board, 2–4 players, single die, standard snake/ladder positions, exact 100 to win (no overshot).
+
+## 2. Core entities
+
+```
+Game
+ ├─ Board
+ ├─ List<Player>
+ ├─ Dice
+ └─ turn counter
+
+Board
+ └─ Map<Integer, Cell>
+
+Cell
+ ├─ position: int
+ └─ element: BoardElement (nullable)
+
+BoardElement (interface)
+ ├─ Snake  (head → tail)
+ └─ Ladder (bottom → top)
+
+Player
+ ├─ name
+ └─ position: int
+
+Dice
+ └─ roll(): int
+```
+
+## 3. The key abstraction — BoardElement
+
+```java
+public interface BoardElement {
+  int applyTo(int position);
+  String description();
+}
+
+public class Snake implements BoardElement {
+  private final int head;
+  private final int tail;
+
+  @Override public int applyTo(int pos) { return tail; }
+  @Override public String description() { return "Snake " + head + "→" + tail; }
+}
+
+public class Ladder implements BoardElement {
+  private final int bottom;
+  private final int top;
+
+  @Override public int applyTo(int pos) { return top; }
+  @Override public String description() { return "Ladder " + bottom + "→" + top; }
+}
+```
+
+The game loop never checks `instanceof Snake` or `instanceof Ladder`. It just calls `element.applyTo(position)`.
+
+## 4. Board setup
+
+```java
+public class Board {
+  private final int size;
+  private final Map<Integer, BoardElement> elements = new HashMap<>();
+
+  public Board(int size, Map<Integer, BoardElement> elements) {
+    this.size = size;
+    this.elements.putAll(elements);
+  }
+
+  public int resolvePosition(int pos) {
+    if (pos > size) return -1;   // overshot — invalid move
+    BoardElement el = elements.get(pos);
+    return el != null ? el.applyTo(pos) : pos;
+  }
+}
+```
+
+## 5. Game loop
+
+```java
+public class Game {
+  private final Board board;
+  private final List<Player> players;
+  private final Dice dice;
+  private int turn = 0;
+
+  public void play() {
+    while (true) {
+      Player current = players.get(turn % players.size());
+      int roll = dice.roll();
+      int next = current.getPosition() + roll;
+      int resolved = board.resolvePosition(next);
+
+      if (resolved == -1) {
+        System.out.println(current.getName() + " rolled " + roll + " — overshot, stay.");
+      } else {
+        current.setPosition(resolved);
+        System.out.println(current.getName() + " → " + resolved + " [" + board.elementDescAt(next) + "]");
+      }
+
+      if (current.getPosition() == board.getSize()) {
+        System.out.println(current.getName() + " wins!");
+        return;
+      }
+      turn++;
+    }
+  }
+}
+```
+
+## 6. Dice variants
+
+```java
+public interface Dice {
+  int roll();
+}
+
+public class StandardDice implements Dice {
+  private final Random rng = new Random();
+  @Override public int roll() { return rng.nextInt(6) + 1; }
+}
+
+public class LoadedDice implements Dice {   // useful for tests
+  private final int fixedValue;
+  @Override public int roll() { return fixedValue; }
+}
+```
+
+Injecting `Dice` as an interface makes the game fully testable — pass a `LoadedDice` in tests.
+
+## 7. Extending with new elements
+
+Want to add a **Mine** (sends player back 10)?
+
+```java
+public class Mine implements BoardElement {
+  @Override public int applyTo(int pos) { return Math.max(1, pos - 10); }
+  @Override public String description() { return "Mine at " + pos; }
+}
+```
+
+Zero changes to `Game`, `Board`, or the loop. That's Open/Closed working.
+
+## 8. SOLID
+
+| Principle | Where it shows |
+|---|---|
+| SRP | `Dice` rolls; `Board` resolves positions; `Game` orchestrates turns. |
+| OCP | New board element = new class, not an `if` in the game loop. |
+| DIP | `Game` depends on `Dice` interface, not `StandardDice`. |
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Multiplayer online | `Game` runs on server; clients send "roll" events over WebSocket. |
+| Save / resume | Serialize `List<Player>` positions + `turn`; store in DB. |
+| Leaderboard | Track wins per player; persist in a `GameResult` table. |
+| Power cells | New `BoardElement` implementations — no other changes. |
+
+## 10. The 30-second summary
+
+> The single insight: `BoardElement` is an interface with one method — `applyTo`. The game loop never type-checks. You roll, add, resolve through `board.resolvePosition`, done. That clean abstraction is all the interviewer wants to see.

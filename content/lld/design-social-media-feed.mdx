@@ -1,0 +1,234 @@
+---
+title: "Design a Social Media Post & Feed"
+slug: "design-social-media-feed"
+category: "lld"
+tags: ["oop", "design-patterns", "observer", "feed"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-05-02"
+author: "Aman Kumar Keshu"
+excerpt: "Social Feed is the Observer pattern at its most practical. The design decision is push vs pull fanout — and the LLD must model posts, follows, likes, and feed generation cleanly."
+isPremium: true
+---
+
+Social Media Feed is asked at Meta, Twitter/X, and LinkedIn. The LLD focuses on the object model; the follow-up pushes into fanout strategy (push vs pull).
+
+## 1. Clarify requirements
+
+- Post types: text, image, video?
+- Follow / follower relationship?
+- Likes, comments?
+- Feed: chronological or ranked?
+- Public vs. private posts?
+- Pagination?
+
+Agreed scope:
+
+> Text and image posts. Follow/unfollow. Likes and comments. Chronological feed of followed users. Public posts only. Cursor-based pagination.
+
+## 2. Core entities
+
+```
+User
+ ├─ id, username, displayName, bio
+ └─ profileImage: String
+
+Post
+ ├─ id
+ ├─ author: User
+ ├─ content: String
+ ├─ mediaUrls: List<String>
+ ├─ createdAt: Instant
+ ├─ likeCount: int
+ └─ commentCount: int
+
+Like
+ ├─ userId: String
+ ├─ postId: String
+ └─ createdAt: Instant
+
+Comment
+ ├─ id
+ ├─ postId: String
+ ├─ author: User
+ ├─ text: String
+ └─ createdAt: Instant
+
+Follow
+ ├─ followerId: String
+ └─ followeeId: String
+
+FeedItem
+ ├─ post: Post
+ └─ rank: Instant   ← for chronological sort
+```
+
+## 3. Post service
+
+```java
+public class PostService {
+  private final PostRepository postRepo;
+  private final FeedService feedService;
+
+  public Post createPost(User author, String content, List<String> mediaUrls) {
+    Post post = new Post(UUID.randomUUID().toString(), author, content, mediaUrls, Instant.now());
+    postRepo.save(post);
+    feedService.fanout(post);   // push to followers' feeds
+    return post;
+  }
+
+  public void deletePost(String postId, User requestingUser) {
+    Post post = postRepo.findById(postId).orElseThrow();
+    if (!post.getAuthor().getId().equals(requestingUser.getId()))
+      throw new UnauthorizedException();
+    postRepo.delete(postId);
+    feedService.removeFromFeeds(postId);
+  }
+}
+```
+
+## 4. Follow service
+
+```java
+public class FollowService {
+  private final FollowRepository followRepo;
+
+  public void follow(String followerId, String followeeId) {
+    if (followerId.equals(followeeId)) throw new SelfFollowException();
+    if (followRepo.exists(followerId, followeeId)) return;  // idempotent
+    followRepo.save(new Follow(followerId, followeeId));
+  }
+
+  public void unfollow(String followerId, String followeeId) {
+    followRepo.delete(followerId, followeeId);
+  }
+
+  public List<String> getFollowerIds(String userId) {
+    return followRepo.findFollowerIds(userId);
+  }
+}
+```
+
+## 5. Feed service — push fanout model
+
+```java
+public class FeedService {
+  private final FollowService followService;
+  private final FeedRepository feedRepo;   // feed: userId → List<FeedItem>
+  private static final int MAX_FANOUT = 1000;  // don't fan out to celebrities
+
+  public void fanout(Post post) {
+    List<String> followerIds = followService.getFollowerIds(post.getAuthor().getId());
+    if (followerIds.size() > MAX_FANOUT) {
+      // Pull model for celebrities — skip fanout
+      return;
+    }
+    followerIds.forEach(followerId ->
+        feedRepo.prepend(followerId, new FeedItem(post, post.getCreatedAt())));
+  }
+
+  public List<FeedItem> getFeed(String userId, String cursor, int limit) {
+    return feedRepo.find(userId, cursor, limit);
+  }
+
+  public void removeFromFeeds(String postId) {
+    feedRepo.removePostFromAllFeeds(postId);
+  }
+}
+```
+
+The `MAX_FANOUT` threshold prevents celebrity users (millions of followers) from blocking the write path. Their posts are fetched on-demand (pull model) and merged at read time.
+
+## 6. Like service
+
+```java
+public class LikeService {
+  private final LikeRepository likeRepo;
+  private final PostRepository postRepo;
+  private final NotificationService notifier;
+
+  public void like(User user, String postId) {
+    if (likeRepo.exists(user.getId(), postId)) return;  // idempotent
+    likeRepo.save(new Like(user.getId(), postId, Instant.now()));
+    postRepo.incrementLikeCount(postId);
+    Post post = postRepo.findById(postId).orElseThrow();
+    if (!post.getAuthor().getId().equals(user.getId())) {
+      notifier.notify(post.getAuthor(), user.getUsername() + " liked your post.");
+    }
+  }
+
+  public void unlike(User user, String postId) {
+    if (!likeRepo.exists(user.getId(), postId)) return;
+    likeRepo.delete(user.getId(), postId);
+    postRepo.decrementLikeCount(postId);
+  }
+}
+```
+
+## 7. Comment service
+
+```java
+public class CommentService {
+  private final CommentRepository commentRepo;
+  private final PostRepository postRepo;
+
+  public Comment addComment(User author, String postId, String text) {
+    postRepo.findById(postId).orElseThrow();  // validate post exists
+    Comment comment = new Comment(UUID.randomUUID().toString(), postId, author, text, Instant.now());
+    commentRepo.save(comment);
+    postRepo.incrementCommentCount(postId);
+    return comment;
+  }
+
+  public List<Comment> getComments(String postId, String cursor, int limit) {
+    return commentRepo.findByPost(postId, cursor, limit);
+  }
+}
+```
+
+## 8. Feed generation — hybrid model
+
+| Model | When to use |
+|---|---|
+| Push (fanout on write) | Most users with normal follower counts (<1000) |
+| Pull (fanout on read) | Celebrity accounts; fetch posts at read time |
+| Hybrid | Push for normal users; pull + merge for celebrities in the feed |
+
+```java
+public List<FeedItem> getHybridFeed(String userId, String cursor, int limit) {
+  // Pushed items for normal accounts
+  List<FeedItem> pushed = feedRepo.find(userId, cursor, limit * 2);
+
+  // Pull from celebrity followees
+  List<String> followeeIds = followService.getFolloweeIds(userId);
+  List<Post> celebPosts = followeeIds.stream()
+      .filter(id -> followService.getFollowerIds(id).size() > MAX_FANOUT)
+      .flatMap(id -> postRepo.findRecent(id, limit).stream())
+      .toList();
+
+  // Merge and sort by time
+  return Stream.concat(pushed.stream(), celebPosts.stream().map(p -> new FeedItem(p, p.getCreatedAt())))
+      .sorted(Comparator.comparing(FeedItem::getRank).reversed())
+      .limit(limit)
+      .toList();
+}
+```
+
+## 9. SOLID
+
+- **SRP:** Each service owns exactly one domain concern.
+- **OCP:** Ranked feed = new `FeedRankingStrategy`. Zero changes to `FeedService`.
+- **DIP:** `PostService` depends on `FeedService` interface; can swap push-only for hybrid.
+
+## 10. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Ranked feed | `FeedRankingStrategy` that scores items by recency × engagement. |
+| Stories / ephemeral content | `Story` with `expiresAt`; auto-deleted by background job. |
+| Hashtags | Extract `#tags` from post content on create; index in `HashtagIndex`. |
+| Block / mute | Filter blocked users from feed at read time. |
+
+## 11. The 30-second summary
+
+> Push fanout writes new posts to all follower feeds at post creation time. For celebrity accounts (>1000 followers), skip push — pull and merge at read time. Likes and comments are idempotent operations that increment denormalized counters on `Post`. Feed pagination uses a cursor (timestamp) for consistent ordering.

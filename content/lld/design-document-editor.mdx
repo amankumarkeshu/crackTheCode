@@ -1,0 +1,248 @@
+---
+title: "Design a Collaborative Document Editor (Google Docs–lite)"
+slug: "design-document-editor"
+category: "lld"
+tags: ["oop", "design-patterns", "command", "concurrency", "crdt"]
+difficulty: "principal"
+readingTime: 15
+publishedAt: "2026-05-05"
+author: "Aman Kumar Keshu"
+excerpt: "Document Editor is a Principal-level LLD. Undo/redo with the Command pattern, version history, access control, and the basics of operational transformation — this is the question that separates L5 from L6."
+isPremium: true
+---
+
+Document Editor is the most complex LLD asked in interviews — typically at Principal/L6 loops at Google and Atlassian. The key areas: Command pattern for undo/redo, access control, version snapshots, and a mention of operational transformation for real collaboration.
+
+## 1. Clarify requirements
+
+- Single user or collaborative (multi-user real-time)?
+- Undo / redo history?
+- Version snapshots?
+- Access control: owner, editor, viewer?
+- Document types: text-only or rich text (bold, lists)?
+- Comments and suggestions?
+
+Agreed scope:
+
+> Rich text document. Single-user editing with full undo/redo. Version snapshots. Access control (owner, editor, viewer). Comments. Collaborative editing discussed conceptually.
+
+## 2. Core entities
+
+```
+Document
+ ├─ id, title
+ ├─ content: List<Block>     ← rich text as a list of blocks
+ ├─ owner: User
+ ├─ collaborators: Map<User, Permission>
+ ├─ createdAt, updatedAt: Instant
+ └─ versions: List<DocumentVersion>
+
+Block (abstract)
+ ├─ TextBlock (text, formatting: bold/italic/underline)
+ ├─ HeadingBlock (text, level: H1/H2/H3)
+ ├─ ListBlock (items: List<String>, ordered: boolean)
+ └─ ImageBlock (url, caption)
+
+DocumentVersion
+ ├─ versionNumber: int
+ ├─ snapshot: List<Block>    ← deep copy of content at save point
+ ├─ savedBy: User
+ └─ savedAt: Instant
+
+Comment
+ ├─ id
+ ├─ documentId: String
+ ├─ author: User
+ ├─ text: String
+ ├─ resolvedBy: User (nullable)
+ └─ createdAt: Instant
+
+Permission (enum)
+ └─ OWNER | EDITOR | VIEWER
+```
+
+## 3. Command pattern — undo / redo
+
+Every edit is a `Command` object. The editor maintains two stacks: `undoStack` and `redoStack`.
+
+```java
+public interface EditCommand {
+  void execute(Document document);
+  void undo(Document document);
+  String describe();
+}
+
+public class InsertBlockCommand implements EditCommand {
+  private final int index;
+  private final Block block;
+
+  @Override
+  public void execute(Document doc) { doc.getContent().add(index, block); }
+  @Override
+  public void undo(Document doc)    { doc.getContent().remove(index); }
+  @Override
+  public String describe() { return "Insert " + block.getClass().getSimpleName() + " at " + index; }
+}
+
+public class DeleteBlockCommand implements EditCommand {
+  private final int index;
+  private Block deletedBlock;   // captured on execute for undo
+
+  @Override
+  public void execute(Document doc) {
+    deletedBlock = doc.getContent().remove(index);
+  }
+  @Override
+  public void undo(Document doc) { doc.getContent().add(index, deletedBlock); }
+  @Override public String describe() { return "Delete block at " + index; }
+}
+
+public class UpdateTextCommand implements EditCommand {
+  private final int index;
+  private final String newText;
+  private String previousText;
+
+  @Override
+  public void execute(Document doc) {
+    TextBlock block = (TextBlock) doc.getContent().get(index);
+    previousText = block.getText();
+    block.setText(newText);
+  }
+  @Override
+  public void undo(Document doc) {
+    ((TextBlock) doc.getContent().get(index)).setText(previousText);
+  }
+  @Override public String describe() { return "Update text at " + index; }
+}
+```
+
+## 4. Editor — managing undo/redo stacks
+
+```java
+public class DocumentEditor {
+  private final Document document;
+  private final Deque<EditCommand> undoStack = new ArrayDeque<>();
+  private final Deque<EditCommand> redoStack = new ArrayDeque<>();
+  private static final int MAX_HISTORY = 100;
+
+  public void execute(EditCommand command) {
+    command.execute(document);
+    undoStack.push(command);
+    redoStack.clear();   // new action invalidates redo history
+
+    if (undoStack.size() > MAX_HISTORY) {
+      // Drop oldest — convert to a linked list if needed
+      ((ArrayDeque<EditCommand>) undoStack).removeLast();
+    }
+    document.setUpdatedAt(Instant.now());
+  }
+
+  public boolean undo() {
+    if (undoStack.isEmpty()) return false;
+    EditCommand cmd = undoStack.pop();
+    cmd.undo(document);
+    redoStack.push(cmd);
+    return true;
+  }
+
+  public boolean redo() {
+    if (redoStack.isEmpty()) return false;
+    EditCommand cmd = redoStack.pop();
+    cmd.execute(document);
+    undoStack.push(cmd);
+    return true;
+  }
+
+  public List<String> history() {
+    return undoStack.stream().map(EditCommand::describe).toList();
+  }
+}
+```
+
+## 5. Access control
+
+```java
+public class AccessControlService {
+  public void assertCanEdit(User user, Document document) {
+    Permission perm = document.getCollaborators().get(user);
+    if (perm == null || perm == Permission.VIEWER)
+      throw new InsufficientPermissionException(user, document.getId());
+  }
+
+  public void share(Document document, User owner, User target, Permission permission) {
+    assertIsOwner(owner, document);
+    document.getCollaborators().put(target, permission);
+    documentRepo.save(document);
+    notifier.notify(target, owner.getName() + " shared a document with you.");
+  }
+
+  public void revokeAccess(Document document, User owner, User target) {
+    assertIsOwner(owner, document);
+    document.getCollaborators().remove(target);
+    documentRepo.save(document);
+  }
+
+  private void assertIsOwner(User user, Document document) {
+    if (!document.getOwner().getId().equals(user.getId()))
+      throw new InsufficientPermissionException(user, document.getId());
+  }
+}
+```
+
+## 6. Version snapshots
+
+```java
+public class VersionService {
+  public DocumentVersion saveVersion(Document document, User user) {
+    int nextVersion = document.getVersions().size() + 1;
+    List<Block> snapshot = deepCopy(document.getContent());  // immutable snapshot
+    DocumentVersion version = new DocumentVersion(nextVersion, snapshot, user, Instant.now());
+    document.getVersions().add(version);
+    documentRepo.save(document);
+    return version;
+  }
+
+  public void restoreVersion(Document document, int versionNumber, User user) {
+    accessControl.assertCanEdit(user, document);
+    DocumentVersion version = document.getVersions().stream()
+        .filter(v -> v.getVersionNumber() == versionNumber)
+        .findFirst()
+        .orElseThrow(() -> new VersionNotFoundException(versionNumber));
+    document.setContent(deepCopy(version.getSnapshot()));
+    document.setUpdatedAt(Instant.now());
+    documentRepo.save(document);
+  }
+}
+```
+
+## 7. Real-time collaboration — the conceptual model
+
+For true concurrent editing (Google Docs style), you need **Operational Transformation (OT)** or **CRDTs**:
+
+- **OT:** When User A and User B make concurrent edits, transform one operation relative to the other before applying. Maintains intent.
+- **CRDT (Conflict-free Replicated Data Type):** Model document as a sequence of uniquely-identified characters (LSEQ, RGA). Concurrent inserts are merged deterministically.
+
+For an interview, describe the problem clearly:
+
+> "If A inserts at index 3 and B deletes at index 3 simultaneously, naive application corrupts the document. OT transforms A's insert to account for B's delete before applying."
+
+You don't need to implement OT in an LLD interview. Naming the problem and the solution earns points.
+
+## 8. SOLID
+
+- **OCP:** New block type (`CodeBlock`) = new class extending `Block`. No editor changes.
+- **SRP:** `DocumentEditor` manages edit history; `VersionService` manages snapshots; `AccessControlService` manages permissions.
+- **DIP:** `DocumentEditor` depends on `EditCommand` interface, not concrete commands.
+
+## 9. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Real-time collab | WebSocket broadcast; OT or CRDT for conflict resolution. |
+| Suggestions mode | `SuggestedEdit` wrapped command; accepted by owner, rejected removes it. |
+| Search | Index `Block.text` content; full-text search by document title or body. |
+| Templates | `DocumentTemplate` with pre-populated blocks; `createFromTemplate` deep-copies blocks. |
+
+## 10. The 30-second summary
+
+> Document content is a `List<Block>`. Every edit is an `EditCommand` that knows how to `execute` and `undo`. Two stacks enable unlimited undo/redo. Version snapshots are deep copies. Access control guards all mutations. For real-time collab, mention OT or CRDTs — you don't need to implement them, just show you understand why naive concurrent edits are unsafe.

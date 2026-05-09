@@ -1,0 +1,219 @@
+---
+title: "Design a Notification System"
+slug: "design-notification-system"
+category: "lld"
+tags: ["oop", "design-patterns", "observer", "extensibility"]
+difficulty: "senior"
+readingTime: 11
+publishedAt: "2026-04-19"
+author: "Aman Kumar Keshu"
+excerpt: "Notification System is the Observer pattern at scale. The design challenge is decoupling senders from channels — so adding a new channel (WhatsApp) never touches existing code."
+isPremium: true
+---
+
+Notification System appears as a standalone LLD or as a component inside bigger designs (BookMyShow, Uber, e-commerce). It's always an Observer + Strategy combination.
+
+## 1. Clarify requirements
+
+- Channels: email, SMS, push notification, in-app, WhatsApp?
+- User preferences: opt-in/out per channel and notification type?
+- Template rendering?
+- Retry on failure?
+- Rate limiting (don't spam the user)?
+- Delivery tracking?
+
+Agreed scope:
+
+> Email, SMS, push notification channels. User preferences respected. Template-based messages. Retry up to 3 times. No rate limiting in scope.
+
+## 2. Core entities
+
+```
+Notification
+ ├─ id
+ ├─ type: NotificationType   (BOOKING_CONFIRMED | PAYMENT_DONE | REMINDER | ...)
+ ├─ userId: String
+ ├─ templateId: String
+ ├─ variables: Map<String, String>
+ └─ priority: Priority       (HIGH | NORMAL | LOW)
+
+NotificationChannel (interface)
+ ├─ EmailChannel
+ ├─ SMSChannel
+ └─ PushChannel
+
+Template
+ ├─ id
+ ├─ channel: ChannelType
+ └─ body: String             ← with {{variable}} placeholders
+
+UserPreference
+ ├─ userId: String
+ ├─ channel: ChannelType
+ └─ notificationType: NotificationType
+ └─ enabled: boolean
+
+DeliveryLog
+ ├─ notificationId
+ ├─ channel: ChannelType
+ ├─ status: DeliveryStatus  (PENDING | SENT | FAILED)
+ ├─ attempts: int
+ └─ lastAttemptAt: Instant
+```
+
+## 3. NotificationChannel — Strategy pattern
+
+```java
+public interface NotificationChannel {
+  ChannelType getType();
+  boolean send(String recipient, String subject, String body);
+}
+
+public class EmailChannel implements NotificationChannel {
+  private final EmailClient emailClient;
+
+  @Override public ChannelType getType() { return ChannelType.EMAIL; }
+
+  @Override
+  public boolean send(String recipient, String subject, String body) {
+    try {
+      emailClient.sendEmail(recipient, subject, body);
+      return true;
+    } catch (EmailException e) {
+      log.error("Email send failed to {}", recipient, e);
+      return false;
+    }
+  }
+}
+
+public class SMSChannel implements NotificationChannel {
+  private final SMSGateway smsGateway;
+
+  @Override public ChannelType getType() { return ChannelType.SMS; }
+
+  @Override
+  public boolean send(String recipient, String subject, String body) {
+    return smsGateway.sendSMS(recipient, body);   // SMS has no subject
+  }
+}
+```
+
+## 4. Template engine
+
+```java
+public class TemplateEngine {
+  private final TemplateRepository templateRepo;
+
+  public String render(String templateId, Map<String, String> variables) {
+    Template template = templateRepo.findById(templateId).orElseThrow();
+    String body = template.getBody();
+    for (Map.Entry<String, String> entry : variables.entrySet()) {
+      body = body.replace("{{" + entry.getKey() + "}}", entry.getValue());
+    }
+    return body;
+  }
+}
+```
+
+## 5. NotificationService — orchestrator
+
+```java
+public class NotificationService {
+  private final Map<ChannelType, NotificationChannel> channels;
+  private final TemplateEngine templateEngine;
+  private final UserPreferenceRepository prefRepo;
+  private final UserRepository userRepo;
+  private final DeliveryLogRepository logRepo;
+  private static final int MAX_RETRIES = 3;
+
+  public void send(Notification notification) {
+    User user = userRepo.findById(notification.getUserId()).orElseThrow();
+
+    channels.values().forEach(channel -> {
+      UserPreference pref = prefRepo.find(user.getId(), channel.getType(), notification.getType());
+      if (pref != null && !pref.isEnabled()) return;  // user opted out
+
+      String body = templateEngine.render(notification.getTemplateId(), notification.getVariables());
+      String recipient = getRecipient(user, channel.getType());
+
+      sendWithRetry(channel, recipient, notification.getType().getSubject(), body, notification.getId());
+    });
+  }
+
+  private void sendWithRetry(NotificationChannel channel, String recipient,
+                              String subject, String body, String notificationId) {
+    DeliveryLog log = new DeliveryLog(notificationId, channel.getType());
+    logRepo.save(log);
+
+    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      log.setAttempts(attempt);
+      log.setLastAttemptAt(Instant.now());
+      if (channel.send(recipient, subject, body)) {
+        log.setStatus(DeliveryStatus.SENT);
+        logRepo.save(log);
+        return;
+      }
+      sleep(attempt * 1000L);   // exponential backoff
+    }
+    log.setStatus(DeliveryStatus.FAILED);
+    logRepo.save(log);
+  }
+
+  private String getRecipient(User user, ChannelType type) {
+    return switch (type) {
+      case EMAIL -> user.getEmail();
+      case SMS   -> user.getPhone();
+      case PUSH  -> user.getDeviceToken();
+    };
+  }
+}
+```
+
+## 6. Observer integration
+
+When used inside a larger system, `NotificationService` is an Observer:
+
+```java
+// Inside BookingService (Observable)
+public Booking confirm(String bookingId, PaymentDetails payment) {
+  // ... booking logic ...
+  eventBus.publish(new BookingConfirmedEvent(booking));
+  return booking;
+}
+
+// Notification observer
+public class BookingNotificationHandler implements EventHandler<BookingConfirmedEvent> {
+  @Override
+  public void handle(BookingConfirmedEvent event) {
+    Notification n = Notification.builder()
+        .type(NotificationType.BOOKING_CONFIRMED)
+        .userId(event.getBooking().getUser().getId())
+        .templateId("booking-confirmed")
+        .variable("bookingId", event.getBooking().getId())
+        .variable("amount", event.getBooking().getTotalAmount().toString())
+        .build();
+    notificationService.send(n);
+  }
+}
+```
+
+This decouples `BookingService` completely from the notification logic.
+
+## 7. SOLID
+
+- **OCP:** Adding WhatsApp channel = new `WhatsAppChannel` class. Zero changes to `NotificationService`.
+- **SRP:** `TemplateEngine` renders; `NotificationService` orchestrates; each channel handles its own transport.
+- **DIP:** `NotificationService` depends on `NotificationChannel` interface.
+
+## 8. Follow-ups
+
+| Follow-up | Addition |
+|---|---|
+| Rate limiting | Count notifications per user per hour; skip if over limit. |
+| Priority queuing | HIGH priority notifications bypass queue; sent synchronously. |
+| Scheduled notifications | Store as `ScheduledNotification` with `sendAt`; background job triggers at time. |
+| Delivery webhooks | Channels callback on delivery; update `DeliveryLog` status asynchronously. |
+
+## 9. The 30-second summary
+
+> Two patterns: Strategy (channels) and Observer (event-driven dispatch). `NotificationService` looks up user preferences, renders the template, then tries each enabled channel with retry-and-backoff. Adding a new channel means one new class — nothing else changes.
