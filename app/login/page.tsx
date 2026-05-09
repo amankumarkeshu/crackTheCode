@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export default function LoginPage() {
+function LoginContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,7 +15,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Redirect if already signed in
   useEffect(() => {
     if (status === "authenticated") {
       router.replace(callbackUrl);
@@ -43,9 +43,7 @@ export default function LoginPage() {
   return (
     <div className="container flex min-h-[80vh] items-center justify-center py-16">
       <div className="mx-auto w-full max-w-sm">
-        {/* Card */}
         <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
-          {/* Logo / brand */}
           <div className="mb-6 text-center">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold tracking-tight">
               CTL
@@ -56,14 +54,12 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
-          {/* Google button */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -78,7 +74,6 @@ export default function LoginPage() {
             {loading ? "Redirecting to Google…" : "Continue with Google"}
           </button>
 
-          {/* Divider text */}
           <p className="mt-6 text-center text-xs text-muted-foreground">
             By signing in you agree to our{" "}
             <span className="underline underline-offset-2 cursor-pointer">Terms</span>
@@ -87,7 +82,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Trust signals */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <Badge variant="muted">No password needed</Badge>
           <Badge variant="muted">Secure OAuth 2.0</Badge>
@@ -95,6 +89,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
 

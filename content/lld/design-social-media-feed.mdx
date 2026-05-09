@@ -190,7 +190,7 @@ public class CommentService {
 
 | Model | When to use |
 |---|---|
-| Push (fanout on write) | Most users with normal follower counts (<1000) |
+| Push (fanout on write) | Most users with normal follower counts (&lt;1000) |
 | Pull (fanout on read) | Celebrity accounts; fetch posts at read time |
 | Hybrid | Push for normal users; pull + merge for celebrities in the feed |
 
