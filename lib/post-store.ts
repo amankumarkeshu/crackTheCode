@@ -1,60 +1,40 @@
-import fs from "fs";
-import path from "path";
+import { Redis } from "@upstash/redis";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
-function readJson<T>(file: string, fallback: T): T {
-  const p = path.join(DATA_DIR, file);
-  try {
-    if (!fs.existsSync(p)) return fallback;
-    return JSON.parse(fs.readFileSync(p, "utf-8")) as T;
-  } catch {
-    return fallback;
+// ── Views ─────────────────────────────────────────────────────────────────────
+
+export async function getViews(postKey: string): Promise<number> {
+  return (await redis.get<number>(`views:${postKey}`)) ?? 0;
+}
+
+export async function incrementViews(postKey: string): Promise<number> {
+  return await redis.incr(`views:${postKey}`);
+}
+
+// ── Reactions ─────────────────────────────────────────────────────────────────
+
+export async function getReactions(postKey: string): Promise<number> {
+  return (await redis.get<number>(`reactions:${postKey}`)) ?? 0;
+}
+
+export async function incrementReactions(postKey: string): Promise<number> {
+  return await redis.incr(`reactions:${postKey}`);
+}
+
+export async function decrementReactions(postKey: string): Promise<number> {
+  const val = await redis.decr(`reactions:${postKey}`);
+  if (val < 0) {
+    await redis.set(`reactions:${postKey}`, 0);
+    return 0;
   }
+  return val;
 }
 
-function writeJson(file: string, data: unknown) {
-  const p = path.join(DATA_DIR, file);
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), "utf-8");
-}
-
-// ── Views ────────────────────────────────────────────────────────────────────
-
-export function getViews(postKey: string): number {
-  const store = readJson<Record<string, number>>("views.json", {});
-  return store[postKey] ?? 0;
-}
-
-export function incrementViews(postKey: string): number {
-  const store = readJson<Record<string, number>>("views.json", {});
-  store[postKey] = (store[postKey] ?? 0) + 1;
-  writeJson("views.json", store);
-  return store[postKey];
-}
-
-// ── Reactions ────────────────────────────────────────────────────────────────
-
-export function getReactions(postKey: string): number {
-  const store = readJson<Record<string, number>>("reactions.json", {});
-  return store[postKey] ?? 0;
-}
-
-export function incrementReactions(postKey: string): number {
-  const store = readJson<Record<string, number>>("reactions.json", {});
-  store[postKey] = (store[postKey] ?? 0) + 1;
-  writeJson("reactions.json", store);
-  return store[postKey];
-}
-
-export function decrementReactions(postKey: string): number {
-  const store = readJson<Record<string, number>>("reactions.json", {});
-  store[postKey] = Math.max(0, (store[postKey] ?? 0) - 1);
-  writeJson("reactions.json", store);
-  return store[postKey];
-}
-
-// ── Comments ─────────────────────────────────────────────────────────────────
+// ── Comments ──────────────────────────────────────────────────────────────────
 
 export interface Comment {
   id: string;
@@ -66,28 +46,85 @@ export interface Comment {
   createdAt: string;
 }
 
-export function getComments(postKey: string): Comment[] {
-  const store = readJson<Record<string, Comment[]>>("comments.json", {});
-  return (store[postKey] ?? []).sort(
+export async function getComments(postKey: string): Promise<Comment[]> {
+  const data = await redis.get<Comment[]>(`comments:${postKey}`);
+  return (data ?? []).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
-export function addComment(comment: Comment): Comment {
-  const store = readJson<Record<string, Comment[]>>("comments.json", {});
-  if (!store[comment.postKey]) store[comment.postKey] = [];
-  store[comment.postKey].unshift(comment);
-  writeJson("comments.json", store);
+export async function addComment(comment: Comment): Promise<Comment> {
+  const key = `comments:${comment.postKey}`;
+  const existing = (await redis.get<Comment[]>(key)) ?? [];
+  existing.unshift(comment);
+  await redis.set(key, existing);
   return comment;
 }
 
-export function deleteComment(postKey: string, commentId: string, userId: string): boolean {
-  const store = readJson<Record<string, Comment[]>>("comments.json", {});
-  const list = store[postKey] ?? [];
-  const idx = list.findIndex((c) => c.id === commentId && c.authorId === userId);
+export async function deleteComment(
+  postKey: string,
+  commentId: string,
+  userId: string
+): Promise<boolean> {
+  const key = `comments:${postKey}`;
+  const existing = (await redis.get<Comment[]>(key)) ?? [];
+  const idx = existing.findIndex(
+    (c) => c.id === commentId && c.authorId === userId
+  );
   if (idx === -1) return false;
-  list.splice(idx, 1);
-  store[postKey] = list;
-  writeJson("comments.json", store);
+  existing.splice(idx, 1);
+  await redis.set(key, existing);
   return true;
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+
+const LEADERBOARD_KEY = "leaderboard";
+
+export async function trackUserRead(
+  userId: string,
+  userName: string,
+  userImage: string,
+  postKey: string
+): Promise<void> {
+  const readsKey = `user_reads:${userId}`;
+  // Only count each article once per user
+  const alreadyRead = await redis.sismember(readsKey, postKey);
+  if (!alreadyRead) {
+    await redis.sadd(readsKey, postKey);
+    await redis.zincrby(LEADERBOARD_KEY, 1, userId);
+    // Store user info separately so name/image updates are reflected
+    await redis.hset(`user_info:${userId}`, { name: userName, image: userImage });
+  }
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  image: string;
+  count: number;
+}
+
+export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+  const results = await redis.zrange<string[]>(LEADERBOARD_KEY, 0, limit - 1, {
+    rev: true,
+    withScores: true,
+  });
+
+  const entries: LeaderboardEntry[] = [];
+  // zrange with withScores returns [member, score, member, score, ...]
+  for (let i = 0; i < results.length; i += 2) {
+    const userId = results[i];
+    const count = Number(results[i + 1]);
+    const info = await redis.hgetall<{ name: string; image: string }>(
+      `user_info:${userId}`
+    );
+    entries.push({
+      userId,
+      name: info?.name ?? "Anonymous",
+      image: info?.image ?? "",
+      count,
+    });
+  }
+  return entries;
 }

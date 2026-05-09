@@ -8,7 +8,7 @@ interface Params { params: { category: string; slug: string } }
 
 export async function GET(_req: Request, { params }: Params) {
   const key = `${params.category}/${params.slug}`;
-  return NextResponse.json({ comments: getComments(key) });
+  return NextResponse.json({ comments: await getComments(key) });
 }
 
 export async function POST(req: Request, { params }: Params) {
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   const key = `${params.category}/${params.slug}`;
-  const comment = addComment({
+  const comment = await addComment({
     id: randomUUID(),
     postKey: key,
     authorId: session.user.id ?? session.user.email ?? "unknown",
@@ -45,7 +45,7 @@ export async function DELETE(req: Request, { params }: Params) {
   const { commentId } = await req.json() as { commentId: string };
   const key = `${params.category}/${params.slug}`;
   const userId = session.user.id ?? session.user.email ?? "unknown";
-  const deleted = deleteComment(key, commentId, userId);
+  const deleted = await deleteComment(key, commentId, userId);
 
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true });
