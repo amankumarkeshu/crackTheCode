@@ -15,7 +15,9 @@ import { PostInteractions } from "@/components/post-interactions";
 import { CommentsSection } from "@/components/comments-section";
 import { MarkAsRead } from "@/components/mark-as-read";
 import { PostCoverImage } from "@/components/post-cover-image";
+import { QuizWidget } from "@/components/quiz-widget";
 import { formatDate } from "@/lib/utils";
+import quizzes from "@/data/quizzes";
 
 interface PageProps {
   params: { category: string; slug: string };
@@ -144,6 +146,17 @@ export default function PostPage({ params }: PageProps) {
             <MarkAsRead category={params.category} slug={params.slug} />
           </div>
         </div>
+
+        {/* Quiz — only for system-design posts */}
+        {params.category === "system-design" && quizzes[params.slug] && (
+          <QuizWidget
+            slug={params.slug}
+            questions={quizzes[params.slug].questions.map((q) => ({
+              q: q.q,
+              options: q.options,
+            }))}
+          />
+        )}
 
         {/* Comments */}
         <div className="mx-auto max-w-3xl">

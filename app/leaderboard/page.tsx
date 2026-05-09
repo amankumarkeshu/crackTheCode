@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Trophy, BookOpen, Medal } from "lucide-react";
+import { Trophy, BookOpen, Medal, Brain } from "lucide-react";
 import { getLeaderboard } from "@/lib/post-store";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Leaderboard",
-  description: "Top readers on CrackTheLoop — ranked by articles read.",
+  description: "Top readers on CrackTheLoop — ranked by quiz points and articles read.",
 };
 
 export const revalidate = 60;
 
 const RANK_STYLES = [
-  { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-300 dark:border-amber-700", badge: "bg-amber-400 text-white", icon: "text-amber-500" },
-  { bg: "bg-slate-50 dark:bg-slate-800/40", border: "border-slate-300 dark:border-slate-600", badge: "bg-slate-400 text-white", icon: "text-slate-400" },
-  { bg: "bg-orange-50 dark:bg-orange-950/20", border: "border-orange-300 dark:border-orange-700", badge: "bg-orange-500 text-white", icon: "text-orange-500" },
+  { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-300 dark:border-amber-700", badge: "bg-amber-400 text-white" },
+  { bg: "bg-slate-50 dark:bg-slate-800/40", border: "border-slate-300 dark:border-slate-600", badge: "bg-slate-400 text-white" },
+  { bg: "bg-orange-50 dark:bg-orange-950/20", border: "border-orange-300 dark:border-orange-700", badge: "bg-orange-500 text-white" },
 ];
 
 export default async function LeaderboardPage() {
@@ -31,16 +31,26 @@ export default async function LeaderboardPage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Leaderboard</h1>
         <p className="mt-2 text-muted-foreground">
-          Top readers ranked by number of articles read. Keep learning!
+          Ranked by quiz points · Read articles and ace quizzes to climb!
         </p>
+      </div>
+
+      {/* Legend */}
+      <div className="mb-6 flex justify-center gap-6 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Brain className="h-3.5 w-3.5 text-amber-500" /> Quiz points
+        </span>
+        <span className="flex items-center gap-1.5">
+          <BookOpen className="h-3.5 w-3.5 text-sky-500" /> Articles read
+        </span>
       </div>
 
       {entries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-20 text-center">
-          <BookOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-          <p className="font-medium text-muted-foreground">No readers yet.</p>
+          <Trophy className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+          <p className="font-medium text-muted-foreground">No scores yet.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign in and start reading to appear here!
+            Sign in, read an article, and take a quiz to appear here!
           </p>
         </div>
       ) : (
@@ -50,7 +60,6 @@ export default async function LeaderboardPage() {
               bg: "bg-card",
               border: "border-border",
               badge: "bg-muted text-muted-foreground",
-              icon: "text-muted-foreground",
             };
             const rank = i + 1;
 
@@ -61,11 +70,7 @@ export default async function LeaderboardPage() {
               >
                 {/* Rank badge */}
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${style.badge}`}>
-                  {rank <= 3 ? (
-                    <Medal className="h-4 w-4" />
-                  ) : (
-                    rank
-                  )}
+                  {rank <= 3 ? <Medal className="h-4 w-4" /> : rank}
                 </div>
 
                 {/* Avatar */}
@@ -83,18 +88,24 @@ export default async function LeaderboardPage() {
                   </div>
                 )}
 
-                {/* Name */}
+                {/* Name + subtitle */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{entry.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {entry.count === 1 ? "1 article read" : `${entry.count} articles read`}
+                    {entry.articlesRead} {entry.articlesRead === 1 ? "article" : "articles"} read
                   </p>
                 </div>
 
-                {/* Score */}
-                <div className="flex items-center gap-1.5 text-sm font-medium">
-                  <BookOpen className={`h-4 w-4 ${style.icon}`} />
-                  <span>{entry.count}</span>
+                {/* Scores */}
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+                    <Brain className="h-4 w-4" />
+                    {entry.quizPoints}
+                  </span>
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    {entry.articlesRead}
+                  </span>
                 </div>
               </div>
             );

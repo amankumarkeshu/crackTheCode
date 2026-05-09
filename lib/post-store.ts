@@ -77,6 +77,31 @@ export async function deleteComment(
   return true;
 }
 
+// ── Quiz scores ───────────────────────────────────────────────────────────────
+
+const QUIZ_LEADERBOARD_KEY = "quiz_leaderboard";
+
+export async function saveQuizScore(
+  userId: string,
+  userName: string,
+  userImage: string,
+  slug: string,
+  score: number
+): Promise<void> {
+  const bestKey = `quiz_best:${userId}:${slug}`;
+  const prev = (await redis.get<number>(bestKey)) ?? 0;
+  if (score > prev) {
+    await redis.set(bestKey, score);
+    // Add delta to the global quiz leaderboard
+    await redis.zincrby(QUIZ_LEADERBOARD_KEY, score - prev, userId);
+    await redis.hset(`user_info:${userId}`, { name: userName, image: userImage });
+  }
+}
+
+export async function getUserQuizScore(userId: string, slug: string): Promise<number | null> {
+  return redis.get<number>(`quiz_best:${userId}:${slug}`);
+}
+
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 
 const LEADERBOARD_KEY = "leaderboard";
@@ -102,29 +127,48 @@ export interface LeaderboardEntry {
   userId: string;
   name: string;
   image: string;
-  count: number;
+  articlesRead: number;
+  quizPoints: number;
 }
 
 export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
-  const results = await redis.zrange<string[]>(LEADERBOARD_KEY, 0, limit - 1, {
-    rev: true,
-    withScores: true,
-  });
+  // Collect all unique userIds from both leaderboards
+  const [readResults, quizResults] = await Promise.all([
+    redis.zrange<string[]>(LEADERBOARD_KEY, 0, limit - 1, { rev: true, withScores: true }),
+    redis.zrange<string[]>(QUIZ_LEADERBOARD_KEY, 0, limit - 1, { rev: true, withScores: true }),
+  ]);
 
-  const entries: LeaderboardEntry[] = [];
-  // zrange with withScores returns [member, score, member, score, ...]
-  for (let i = 0; i < results.length; i += 2) {
-    const userId = results[i];
-    const count = Number(results[i + 1]);
-    const info = await redis.hgetall<{ name: string; image: string }>(
-      `user_info:${userId}`
-    );
-    entries.push({
-      userId,
-      name: info?.name ?? "Anonymous",
-      image: info?.image ?? "",
-      count,
-    });
+  const userMap = new Map<string, { articlesRead: number; quizPoints: number }>();
+
+  for (let i = 0; i < readResults.length; i += 2) {
+    const uid = readResults[i];
+    const score = Number(readResults[i + 1]);
+    userMap.set(uid, { articlesRead: score, quizPoints: 0 });
   }
+  for (let i = 0; i < quizResults.length; i += 2) {
+    const uid = quizResults[i];
+    const score = Number(quizResults[i + 1]);
+    const existing = userMap.get(uid) ?? { articlesRead: 0, quizPoints: 0 };
+    userMap.set(uid, { ...existing, quizPoints: score });
+  }
+
+  // Sort by quizPoints desc, then articlesRead desc
+  const sorted = [...userMap.entries()].sort((a, b) => {
+    const diff = b[1].quizPoints - a[1].quizPoints;
+    return diff !== 0 ? diff : b[1].articlesRead - a[1].articlesRead;
+  }).slice(0, limit);
+
+  const entries: LeaderboardEntry[] = await Promise.all(
+    sorted.map(async ([userId, scores]) => {
+      const info = await redis.hgetall<{ name: string; image: string }>(`user_info:${userId}`);
+      return {
+        userId,
+        name: info?.name ?? "Anonymous",
+        image: info?.image ?? "",
+        articlesRead: scores.articlesRead,
+        quizPoints: scores.quizPoints,
+      };
+    })
+  );
   return entries;
 }
