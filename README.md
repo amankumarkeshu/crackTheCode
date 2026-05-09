@@ -103,6 +103,24 @@ Open `lib/site.ts` and edit:
 - Social links (Twitter, LinkedIn, GitHub, Topmate, YouTube)
 - Companies you've worked at / interviewed at (used in the marquee)
 
+## Auth gate (login required for SD / LLD / DSA articles)
+
+Individual article pages under the **System Design**, **LLD**, and **DSA**
+categories require a signed-in user. Listing pages (`/blog`,
+`/blog/system-design`, `/blog/lld`, `/blog/dsa`) stay public so visitors can
+still browse titles and excerpts as a teaser.
+
+- Enforced by `middleware.ts` (uses `next-auth/middleware`).
+- Protected slugs are listed in `lib/access.ts` (`PROTECTED_CATEGORIES`).
+- Unauthenticated visitors are redirected to `/login?callbackUrl=…` and bounced
+  back to the article after Google sign-in.
+- Cards in protected categories show a small **"Sign in to read"** pill while
+  signed out (see `components/post-lock-badge.tsx`).
+
+To migrate from "logged-in only" → "paid only" later, change the `authorized`
+callback in `middleware.ts` (e.g. `({ token }) => token?.isPremium === true`)
+and update the badge copy. The route matcher itself does not need to change.
+
 ## Roadmap (Phase 2 — not built yet)
 
 - Magic-link auth (NextAuth + Resend)
