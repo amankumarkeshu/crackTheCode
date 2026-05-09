@@ -1,6 +1,6 @@
 # amankumarkeshu.in
 
-Personal site, blog, and (eventually) paid System Design Vault for [Aman Kumar Keshu](https://amankumarkeshu.in).
+Personal site, blog, and (eventually) paid System Design Vault for [CrackTheCode](https://amankumarkeshu.in).
 
 Built with **Next.js 14 (App Router)**, **MDX**, **Tailwind CSS** and TypeScript.
 
