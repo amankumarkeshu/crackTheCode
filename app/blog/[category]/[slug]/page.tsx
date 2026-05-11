@@ -16,6 +16,7 @@ import { CommentsSection } from "@/components/comments-section";
 import { MarkAsRead } from "@/components/mark-as-read";
 import { PostCoverImage } from "@/components/post-cover-image";
 import { QuizWidget } from "@/components/quiz-widget";
+import { InArticleAd, DisplayAd } from "@/components/ad-unit";
 import { formatDate } from "@/lib/utils";
 import quizzes from "@/data/quizzes";
 
@@ -136,6 +137,11 @@ export default function PostPage({ params }: PageProps) {
 
       {/* ── Article body ─────────────────────────────────────────────── */}
       <div className="container py-12 md:py-16">
+        {/* In-article ad — highest CPM placement, loads after content starts */}
+        <div className="mx-auto max-w-3xl">
+          <InArticleAd slot={process.env.NEXT_PUBLIC_ADSENSE_IN_ARTICLE_SLOT ?? ""} />
+        </div>
+
         <MDXContent source={post.content} />
 
         {/* Bottom interaction strip */}
@@ -145,6 +151,11 @@ export default function PostPage({ params }: PageProps) {
             <PostInteractions category={params.category} slug={params.slug} />
             <MarkAsRead category={params.category} slug={params.slug} />
           </div>
+        </div>
+
+        {/* Display ad — end of article, high viewability */}
+        <div className="mx-auto max-w-3xl mt-10">
+          <DisplayAd slot={process.env.NEXT_PUBLIC_ADSENSE_DISPLAY_SLOT ?? ""} />
         </div>
 
         {/* Quiz — only for system-design posts */}

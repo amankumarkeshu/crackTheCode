@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 import { ThemeProvider } from "@/components/theme-provider";
@@ -62,8 +63,20 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const adsenseId = process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID;
+
   return (
     <html lang="en" className={`${inter.variable} ${serif.variable}`} suppressHydrationWarning>
+      <head>
+        {adsenseId && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
+      </head>
       <body className="min-h-screen flex flex-col">
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

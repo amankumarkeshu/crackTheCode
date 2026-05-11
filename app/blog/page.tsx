@@ -4,6 +4,7 @@ import { categories } from "@/lib/categories";
 import { getAllPosts } from "@/lib/content";
 import { PostCard } from "@/components/post-card";
 import { Badge } from "@/components/ui/badge";
+import { InFeedAd } from "@/components/ad-unit";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -51,8 +52,16 @@ export default function BlogIndexPage() {
           </p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <PostCard key={`${post.frontmatter.category}/${post.frontmatter.slug}`} post={post} />
+            {posts.map((post, i) => (
+              <>
+                <PostCard key={`${post.frontmatter.category}/${post.frontmatter.slug}`} post={post} />
+                {/* In-feed ad after every 6th card — high viewability, non-intrusive */}
+                {(i + 1) % 6 === 0 && (
+                  <div key={`ad-${i}`} className="col-span-full">
+                    <InFeedAd slot={process.env.NEXT_PUBLIC_ADSENSE_IN_FEED_SLOT ?? ""} />
+                  </div>
+                )}
+              </>
             ))}
           </div>
         )}
