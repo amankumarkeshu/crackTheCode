@@ -45,8 +45,8 @@ export function AdUnit({
     }
   }, [publisherId]);
 
-  // Don't render anything if publisher ID is not configured
-  if (!publisherId) return null;
+  // Don't render anything if publisher ID is not configured or slot is empty
+  if (!publisherId || !slot) return null;
 
   const isInArticle = format === "in-article";
   const isInFeed = format === "in-feed";
