@@ -1985,6 +1985,344 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "inmobi-sd-1",  company: "InMobi", type: "system-design", difficulty: "hard",  question: "Design a mobile DSP (Demand-Side Platform) for real-time bidding.", tags: ["rtb", "ads", "latency"], askedFor: "SDE-3", frequency: "high" },
   { id: "inmobi-lld-1", company: "InMobi", type: "lld", difficulty: "medium",           question: "Design an Ad Frequency Cap store.", tags: ["rate-limit", "redis", "oop"], askedFor: "SDE-2", frequency: "medium" },
   { id: "inmobi-dsa-1", company: "InMobi", type: "dsa", difficulty: "medium",           question: "Random Pick Index (reservoir sampling).", tags: ["probability", "design"], askedFor: "SDE-2", frequency: "medium" },
+
+  // ════════════════════════════════════════════════════════════════════
+  // CAT A  — HIGH-PAYING COMPANIES  (new additions)
+  // ════════════════════════════════════════════════════════════════════
+
+  // ────────────────────────────────────────────────────────────────────
+  // RUBRIK  (cloud data management / cyber-resilience)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "rubrik-sd-1", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design Rubrik's incremental-forever backup pipeline — dedup, change-block tracking, retention policies.", tags: ["backup", "dedup", "storage", "immutability"], askedFor: "Senior SWE", frequency: "high", note: "Core domain question. Focus on CDC, chunking dedup, and immutable snapshot chain." },
+  { id: "rubrik-sd-2", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a ransomware anomaly-detection service over backup telemetry.", tags: ["ml", "anomaly", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rubrik-sd-3", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a metadata catalog for billions of files across cloud & on-prem.", tags: ["metadata", "search", "distributed-db"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rubrik-sd-4", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a cloud archive tiering system (hot → warm → cold → glacier).", tags: ["storage", "tiering", "cost"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rubrik-sd-5", company: "Rubrik", type: "system-design", difficulty: "medium", question: "Design a multi-tenant RBAC system for a data-protection platform.", tags: ["rbac", "multi-tenant", "authz"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rubrik-lld-1", company: "Rubrik", type: "lld", difficulty: "medium", question: "Design a snapshot lifecycle manager (create, retain, expire, delete).", tags: ["state-machine", "scheduler", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rubrik-lld-2", company: "Rubrik", type: "lld", difficulty: "medium", question: "Design a pluggable data-connector framework (S3, NFS, Azure Blob).", tags: ["strategy", "adapter", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rubrik-dsa-1", company: "Rubrik", type: "dsa", difficulty: "medium", question: "Find the longest subarray with equal 0s and 1s.", tags: ["prefix-sum", "hashmap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rubrik-dsa-2", company: "Rubrik", type: "dsa", difficulty: "medium", question: "Merge Overlapping Intervals.", tags: ["intervals", "sorting"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rubrik-dsa-3", company: "Rubrik", type: "dsa", difficulty: "hard", question: "Serialize/Deserialize N-ary Tree.", tags: ["tree", "bfs"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // RIPPLING  (HR / IT / finance platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "rippling-sd-1", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design Rippling's compound app platform — HR, IT, and finance modules sharing one employee graph.", tags: ["multi-module", "graph", "rbac"], askedFor: "Senior SWE", frequency: "high", note: "Their core differentiator. Focus on cross-module data consistency and permissioning." },
+  { id: "rippling-sd-2", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design an automated payroll engine (tax withholding, direct deposit, off-cycle runs).", tags: ["payroll", "compliance", "batch"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rippling-sd-3", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design device management at scale — zero-touch provisioning of laptops for new hires.", tags: ["mdm", "provisioning", "iot"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rippling-sd-4", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design an employee lifecycle workflow (hire → onboard → transfer → offboard).", tags: ["workflow", "saga", "state-machine"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rippling-sd-5", company: "Rippling", type: "system-design", difficulty: "medium", question: "Design an SSO + app-provisioning bridge (SCIM 2.0 at scale).", tags: ["sso", "scim", "identity"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rippling-lld-1", company: "Rippling", type: "lld", difficulty: "medium", question: "Design a rule engine for benefits eligibility (age, tenure, location conditions).", tags: ["rules", "dsl", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rippling-lld-2", company: "Rippling", type: "lld", difficulty: "medium", question: "Design an approval chain for expense reimbursements (dynamic, multi-level).", tags: ["workflow", "chain-of-responsibility", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rippling-dsa-1", company: "Rippling", type: "dsa", difficulty: "medium", question: "Top K Employees by salary within each department.", tags: ["heap", "hashmap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rippling-dsa-2", company: "Rippling", type: "dsa", difficulty: "medium", question: "Design a Time-Based Key-Value Store.", tags: ["binary-search", "design"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "rippling-dsa-3", company: "Rippling", type: "dsa", difficulty: "hard", question: "Employee Free Time (merge intervals across schedules).", tags: ["intervals", "heap"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // GLEAN  (enterprise AI search)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "glean-sd-1", company: "Glean", type: "system-design", difficulty: "hard", question: "Design Glean's enterprise search — crawl, index, and permission-aware retrieval across 100+ SaaS apps.", tags: ["search", "indexing", "rbac", "crawler"], askedFor: "Senior SWE", frequency: "high", note: "Core product. Permissions must be enforced at query time, not just index time." },
+  { id: "glean-sd-2", company: "Glean", type: "system-design", difficulty: "hard", question: "Design a real-time document change-feed pipeline (connectors for Slack, Drive, Confluence).", tags: ["connector", "stream", "kafka"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "glean-sd-3", company: "Glean", type: "system-design", difficulty: "hard", question: "Design a semantic search layer using embeddings + ANN index.", tags: ["vector-db", "ann", "embeddings", "llm"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "glean-sd-4", company: "Glean", type: "system-design", difficulty: "medium", question: "Design a search result re-ranking pipeline combining text-score and ML signals.", tags: ["ranking", "ml", "search"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "glean-lld-1", company: "Glean", type: "lld", difficulty: "medium", question: "Design a document permission inheritance model (folder → file, with overrides).", tags: ["rbac", "tree", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "glean-lld-2", company: "Glean", type: "lld", difficulty: "medium", question: "Design a connector SDK (polling vs webhook modes, incremental sync).", tags: ["sdk", "strategy", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "glean-dsa-1", company: "Glean", type: "dsa", difficulty: "medium", question: "Search a 2D Matrix II.", tags: ["binary-search", "matrix"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "glean-dsa-2", company: "Glean", type: "dsa", difficulty: "hard", question: "Word Search II — Trie + DFS backtracking.", tags: ["trie", "dfs"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "glean-dsa-3", company: "Glean", type: "dsa", difficulty: "medium", question: "LRU Cache.", tags: ["cache", "design"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // NEW RELIC  (observability / APM)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "newrelic-sd-1", company: "New Relic", type: "system-design", difficulty: "hard", question: "Design a distributed tracing pipeline (ingestion, sampling, storage, query).", tags: ["tracing", "opentelemetry", "sampling", "clickhouse"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "newrelic-sd-2", company: "New Relic", type: "system-design", difficulty: "hard", question: "Design an alerting engine with NRQL-based conditions and anomaly detection.", tags: ["alerting", "stream", "ml"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "newrelic-sd-3", company: "New Relic", type: "system-design", difficulty: "hard", question: "Design a metrics ingestion system (billions of data-points/min, rollup aggregation).", tags: ["tsdb", "stream", "aggregation"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "newrelic-sd-4", company: "New Relic", type: "system-design", difficulty: "medium", question: "Design a log management pipeline with live-tail and full-text search.", tags: ["logs", "elasticsearch", "stream"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "newrelic-lld-1", company: "New Relic", type: "lld", difficulty: "medium", question: "Design a configurable dashboard widget system.", tags: ["composite", "oop", "strategy"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "newrelic-lld-2", company: "New Relic", type: "lld", difficulty: "medium", question: "Design a query plan cache for NRQL.", tags: ["cache", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "newrelic-dsa-1", company: "New Relic", type: "dsa", difficulty: "medium", question: "Range Sum Query — Immutable (prefix sum).", tags: ["prefix-sum"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "newrelic-dsa-2", company: "New Relic", type: "dsa", difficulty: "hard", question: "Count of Range Sum (merge sort).", tags: ["divide-conquer", "merge-sort"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // BROADCOM  (semiconductors / VMware / software infra)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "broadcom-sd-1", company: "Broadcom", type: "system-design", difficulty: "hard", question: "Design VMware vSphere's VM live-migration (vMotion) orchestration.", tags: ["virtualization", "network", "state-transfer"], askedFor: "Staff SWE", frequency: "high" },
+  { id: "broadcom-sd-2", company: "Broadcom", type: "system-design", difficulty: "hard", question: "Design a distributed software-defined storage system (vSAN-like).", tags: ["storage", "replication", "erasure-coding"], askedFor: "Staff SWE", frequency: "medium" },
+  { id: "broadcom-sd-3", company: "Broadcom", type: "system-design", difficulty: "hard", question: "Design a multi-cloud workload scheduler.", tags: ["scheduler", "cluster", "multi-cloud"], askedFor: "Staff SWE", frequency: "medium" },
+  { id: "broadcom-sd-4", company: "Broadcom", type: "system-design", difficulty: "medium", question: "Design a software license management service.", tags: ["entitlements", "rbac"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "broadcom-lld-1", company: "Broadcom", type: "lld", difficulty: "medium", question: "Design a plugin framework for a hypervisor management console.", tags: ["plugin", "strategy", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "broadcom-dsa-1", company: "Broadcom", type: "dsa", difficulty: "medium", question: "Maximum Subarray (Kadane's).", tags: ["dp", "array"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "broadcom-dsa-2", company: "Broadcom", type: "dsa", difficulty: "medium", question: "Find All Duplicates in an Array.", tags: ["array", "cycle-sort"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // COUPANG  (South Korean e-commerce / logistics)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "coupang-sd-1", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design Coupang Rocket Delivery — same-day fulfilment routing for millions of SKUs.", tags: ["routing", "inventory", "geo"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "coupang-sd-2", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design a warehouse picking-path optimisation system.", tags: ["routing", "graph", "optimisation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "coupang-sd-3", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design a real-time inventory sync across thousands of fulfilment centres.", tags: ["inventory", "consistency", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "coupang-sd-4", company: "Coupang", type: "system-design", difficulty: "medium", question: "Design a product review + Q&A system with machine translation.", tags: ["reviews", "i18n", "ml"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "coupang-lld-1", company: "Coupang", type: "lld", difficulty: "medium", question: "Design a delivery slot reservation system (time windows, capacity).", tags: ["booking", "intervals", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "coupang-dsa-1", company: "Coupang", type: "dsa", difficulty: "medium", question: "Minimum Cost to Connect All Points (Prim's MST).", tags: ["graph", "mst"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "coupang-dsa-2", company: "Coupang", type: "dsa", difficulty: "medium", question: "Jump Game II — minimum jumps (greedy).", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // AMBIENT AI  (physical security AI / video intelligence)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "ambientai-sd-1", company: "Ambient AI", type: "system-design", difficulty: "hard", question: "Design a real-time video analytics pipeline for physical security (cameras → event detection → alert).", tags: ["video", "cv", "stream", "alerting"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "ambientai-sd-2", company: "Ambient AI", type: "system-design", difficulty: "hard", question: "Design an edge-to-cloud ML inference architecture for camera feeds.", tags: ["edge", "ml", "inference", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "ambientai-sd-3", company: "Ambient AI", type: "system-design", difficulty: "medium", question: "Design a site access-control audit log system.", tags: ["audit", "compliance", "storage"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "ambientai-lld-1", company: "Ambient AI", type: "lld", difficulty: "medium", question: "Design a multi-camera alert deduplication engine.", tags: ["dedup", "state-machine", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "ambientai-dsa-1", company: "Ambient AI", type: "dsa", difficulty: "medium", question: "Sliding Window Maximum.", tags: ["deque", "sliding-window"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "ambientai-dsa-2", company: "Ambient AI", type: "dsa", difficulty: "medium", question: "Meeting Rooms II — minimum conference rooms.", tags: ["intervals", "heap"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // HARNESS  (software delivery / CI-CD platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "harness-sd-1", company: "Harness", type: "system-design", difficulty: "hard", question: "Design a CI/CD pipeline execution engine with parallelism, retry, and rollback.", tags: ["ci-cd", "scheduler", "dag"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-sd-2", company: "Harness", type: "system-design", difficulty: "hard", question: "Design a feature-flag service with targeting rules and kill-switch (LaunchDarkly-like).", tags: ["feature-flags", "targeting", "cache"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-sd-3", company: "Harness", type: "system-design", difficulty: "hard", question: "Design a cloud cost management + anomaly alerting product.", tags: ["billing", "anomaly", "stream"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "harness-sd-4", company: "Harness", type: "system-design", difficulty: "medium", question: "Design a canary deployment orchestrator with automated rollback.", tags: ["deploy", "canary", "metrics"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-lld-1", company: "Harness", type: "lld", difficulty: "medium", question: "Design a DAG-based pipeline step executor with dependency resolution.", tags: ["dag", "topological-sort", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-lld-2", company: "Harness", type: "lld", difficulty: "medium", question: "Design a plugin marketplace for pipeline steps.", tags: ["plugin", "registry", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "harness-dsa-1", company: "Harness", type: "dsa", difficulty: "medium", question: "Parallel Courses — topological sort (min time to complete all).", tags: ["graph", "topo-sort", "bfs"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-dsa-2", company: "Harness", type: "dsa", difficulty: "medium", question: "Task Scheduler — greedy with cooldown.", tags: ["greedy", "heap"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // CUSTOMER.IO  (messaging automation platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "customerio-sd-1", company: "Customer.io", type: "system-design", difficulty: "hard", question: "Design a multi-channel messaging orchestration engine (email, push, SMS, in-app).", tags: ["messaging", "workflow", "queue"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "customerio-sd-2", company: "Customer.io", type: "system-design", difficulty: "hard", question: "Design a customer segmentation engine for real-time audience targeting.", tags: ["segmentation", "stream", "query"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "customerio-sd-3", company: "Customer.io", type: "system-design", difficulty: "medium", question: "Design a visual campaign journey builder (trigger → conditions → actions).", tags: ["workflow", "dag", "rules"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "customerio-lld-1", company: "Customer.io", type: "lld", difficulty: "medium", question: "Design a send-time optimisation module (per-user best-time prediction).", tags: ["ml", "scheduling", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "customerio-dsa-1", company: "Customer.io", type: "dsa", difficulty: "medium", question: "Design a Logger Rate Limiter.", tags: ["hashmap", "design"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "customerio-dsa-2", company: "Customer.io", type: "dsa", difficulty: "medium", question: "Number of Recent Calls (sliding window queue).", tags: ["queue", "sliding-window"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // COHESITY  (data security / backup / ransomware recovery)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "cohesity-sd-1", company: "Cohesity", type: "system-design", difficulty: "hard", question: "Design a distributed backup system with global deduplication and erasure coding.", tags: ["backup", "dedup", "erasure-coding"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cohesity-sd-2", company: "Cohesity", type: "system-design", difficulty: "hard", question: "Design a ransomware detection engine over file-system snapshots.", tags: ["anomaly", "ml", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cohesity-sd-3", company: "Cohesity", type: "system-design", difficulty: "hard", question: "Design a multi-cloud data recovery orchestration platform.", tags: ["recovery", "orchestration", "multi-cloud"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cohesity-lld-1", company: "Cohesity", type: "lld", difficulty: "medium", question: "Design a backup job scheduler with priority queues and retry policies.", tags: ["scheduler", "priority-queue", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cohesity-dsa-1", company: "Cohesity", type: "dsa", difficulty: "medium", question: "Minimum Number of Arrows to Burst Balloons.", tags: ["greedy", "intervals"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cohesity-dsa-2", company: "Cohesity", type: "dsa", difficulty: "hard", question: "Count Smaller Numbers After Self (BIT / merge sort).", tags: ["bit", "merge-sort"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // ARCANA  (Web3 / decentralised key management)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "arcana-sd-1", company: "Arcana", type: "system-design", difficulty: "hard", question: "Design a decentralised key management system with threshold cryptography (DKG).", tags: ["cryptography", "distributed", "threshold"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "arcana-sd-2", company: "Arcana", type: "system-design", difficulty: "hard", question: "Design a wallet-as-a-service SDK (social login → non-custodial wallet).", tags: ["wallet", "oauth", "sdk"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "arcana-lld-1", company: "Arcana", type: "lld", difficulty: "medium", question: "Design a gas-fee abstraction layer for dApp transactions.", tags: ["oop", "blockchain", "strategy"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "arcana-dsa-1", company: "Arcana", type: "dsa", difficulty: "medium", question: "Implement consistent hashing for node assignment.", tags: ["hashing", "design"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // TIGERHALL  (social learning / knowledge-sharing platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "tigerhall-sd-1", company: "Tigerhall", type: "system-design", difficulty: "hard", question: "Design a social learning feed with content recommendation.", tags: ["feed", "recommendation", "ml"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "tigerhall-sd-2", company: "Tigerhall", type: "system-design", difficulty: "medium", question: "Design a live group coaching session (video + Q&A + polls).", tags: ["webrtc", "real-time", "live"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "tigerhall-lld-1", company: "Tigerhall", type: "lld", difficulty: "medium", question: "Design a streak / habit-tracking engine for daily learning goals.", tags: ["gamification", "scheduler", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "tigerhall-dsa-1", company: "Tigerhall", type: "dsa", difficulty: "medium", question: "Design a Leaderboard (increment score, top-K, rank of a player).", tags: ["heap", "design"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // APPWRITE  (open-source BaaS)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "appwrite-sd-1", company: "Appwrite", type: "system-design", difficulty: "hard", question: "Design a multi-tenant BaaS platform (auth, DB, storage, functions) on Kubernetes.", tags: ["multi-tenant", "k8s", "baas"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "appwrite-sd-2", company: "Appwrite", type: "system-design", difficulty: "medium", question: "Design Appwrite Realtime — WebSocket fanout to database change events.", tags: ["websocket", "fan-out", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "appwrite-lld-1", company: "Appwrite", type: "lld", difficulty: "medium", question: "Design a declarative permission model (document-level security rules).", tags: ["rbac", "abac", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "appwrite-dsa-1", company: "Appwrite", type: "dsa", difficulty: "medium", question: "Implement a simple in-memory document query engine (filter, sort, paginate).", tags: ["design", "sorting", "hashmap"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // EMIRATES  (airline / travel tech)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "emirates-sd-1", company: "Emirates", type: "system-design", difficulty: "hard", question: "Design a flight inventory + seat reservation system handling thousands of bookings/sec.", tags: ["inventory", "booking", "consistency"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "emirates-sd-2", company: "Emirates", type: "system-design", difficulty: "hard", question: "Design a dynamic airfare pricing engine (yield management).", tags: ["pricing", "ml", "rules"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "emirates-sd-3", company: "Emirates", type: "system-design", difficulty: "medium", question: "Design Emirates Skywards loyalty points accrual and redemption ledger.", tags: ["ledger", "loyalty", "batch"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "emirates-lld-1", company: "Emirates", type: "lld", difficulty: "medium", question: "Design a boarding gate assignment system.", tags: ["scheduling", "state-machine", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "emirates-dsa-1", company: "Emirates", type: "dsa", difficulty: "medium", question: "Minimum Cost of Flights Within K Stops (Bellman-Ford variant).", tags: ["graph", "dp"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "emirates-dsa-2", company: "Emirates", type: "dsa", difficulty: "medium", question: "Find Cheapest Flights Within K Stops (BFS / Dijkstra).", tags: ["graph", "bfs"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // CAREEM  (super-app / ride-hailing / MENA)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "careem-sd-1", company: "Careem", type: "system-design", difficulty: "hard", question: "Design Careem's super-app backend — shared identity across rides, food, payments.", tags: ["super-app", "identity", "api-gateway"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "careem-sd-2", company: "Careem", type: "system-design", difficulty: "hard", question: "Design a real-time driver tracking and ETA prediction service for MENA cities.", tags: ["geo", "ml", "real-time"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "careem-sd-3", company: "Careem", type: "system-design", difficulty: "medium", question: "Design Careem Pay — digital wallet with cross-currency transfers.", tags: ["wallet", "fx", "ledger"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "careem-lld-1", company: "Careem", type: "lld", difficulty: "medium", question: "Design a promotional code engine with usage limits and expiry.", tags: ["rules", "ttl", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "careem-dsa-1", company: "Careem", type: "dsa", difficulty: "medium", question: "Network Delay Time — Dijkstra's shortest path.", tags: ["graph", "dijkstra"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ════════════════════════════════════════════════════════════════════
+  // CAT B — SOLID PAYING COMPANIES (new additions)
+  // ════════════════════════════════════════════════════════════════════
+
+  // ────────────────────────────────────────────────────────────────────
+  // PROXIMITYWORKS  (product studio)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "proximityworks-sd-1", company: "ProximityWorks", type: "system-design", difficulty: "hard", question: "Design a white-label SaaS subscription billing platform.", tags: ["billing", "subscription", "multi-tenant"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "proximityworks-lld-1", company: "ProximityWorks", type: "lld", difficulty: "medium", question: "Design a configurable form builder with validation rules.", tags: ["builder-pattern", "strategy", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "proximityworks-dsa-1", company: "ProximityWorks", type: "dsa", difficulty: "medium", question: "Longest Palindromic Substring (Manacher's / expand-around-centre).", tags: ["string", "dp"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // AGODA  (online travel / Booking Holdings)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "agoda-sd-1", company: "Agoda", type: "system-design", difficulty: "hard", question: "Design Agoda's hotel search — availability check at scale across millions of properties.", tags: ["search", "availability", "cache"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "agoda-sd-2", company: "Agoda", type: "system-design", difficulty: "hard", question: "Design a rate and availability sync pipeline from hotel PMS/GDS.", tags: ["connector", "stream", "cache"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "agoda-sd-3", company: "Agoda", type: "system-design", difficulty: "medium", question: "Design a personalised hotel recommendation engine.", tags: ["recommendation", "ml", "user-profile"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "agoda-lld-1", company: "Agoda", type: "lld", difficulty: "medium", question: "Design a room booking hold + confirmation state machine.", tags: ["state-machine", "ttl", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "agoda-dsa-1", company: "Agoda", type: "dsa", difficulty: "medium", question: "Find All Possible Combinations of available room dates (backtracking).", tags: ["backtracking", "intervals"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "agoda-dsa-2", company: "Agoda", type: "dsa", difficulty: "medium", question: "Group dates by availability bucket (calendar interval grouping).", tags: ["intervals", "greedy"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // INDEED  (job search marketplace)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "indeed-sd-1", company: "Indeed", type: "system-design", difficulty: "hard", question: "Design Indeed's job search — index, query, and rank billions of job postings.", tags: ["search", "indexing", "ranking"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "indeed-sd-2", company: "Indeed", type: "system-design", difficulty: "hard", question: "Design a resume parsing + skill-extraction pipeline.", tags: ["nlp", "ml", "pipeline"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "indeed-sd-3", company: "Indeed", type: "system-design", difficulty: "medium", question: "Design a job-seeker recommendation service (jobs-for-you feed).", tags: ["recommendation", "ml", "graph"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "indeed-lld-1", company: "Indeed", type: "lld", difficulty: "medium", question: "Design a job alert subscription system (email + push on new matches).", tags: ["observer", "scheduler", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "indeed-dsa-1", company: "Indeed", type: "dsa", difficulty: "medium", question: "Top K Most Relevant Words (TF-IDF ranking, heap).", tags: ["heap", "string"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "indeed-dsa-2", company: "Indeed", type: "dsa", difficulty: "medium", question: "Count Words in a String (streaming, sliding window).", tags: ["string", "sliding-window"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // DEVREV  (product + developer support platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "devrev-sd-1", company: "DevRev", type: "system-design", difficulty: "hard", question: "Design a bi-directional sync between a CRM and issue-tracker (conflict-free).", tags: ["sync", "crdt", "conflict-resolution"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "devrev-sd-2", company: "DevRev", type: "system-design", difficulty: "hard", question: "Design an AI support agent that resolves tickets using product docs + past tickets.", tags: ["llm", "rag", "search"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "devrev-sd-3", company: "DevRev", type: "system-design", difficulty: "medium", question: "Design a developer activity graph (commits, PRs, tickets — unified timeline).", tags: ["graph", "timeline", "aggregation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "devrev-lld-1", company: "DevRev", type: "lld", difficulty: "medium", question: "Design a smart inbox with AI triage (priority, routing, auto-label).", tags: ["ml", "rules", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "devrev-dsa-1", company: "DevRev", type: "dsa", difficulty: "medium", question: "Design a Trie for product-doc autocomplete.", tags: ["trie"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // ROBLOX  (gaming / UGC metaverse platform)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "roblox-sd-1", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design Roblox's real-time multiplayer game server infrastructure.", tags: ["gaming", "real-time", "udp", "matchmaking"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "roblox-sd-2", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design the Roblox Avatar Marketplace — item listing, purchase, inventory.", tags: ["marketplace", "inventory", "economy"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "roblox-sd-3", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design Roblox's virtual economy (Robux) with fraud prevention.", tags: ["ledger", "fraud", "economy"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "roblox-sd-4", company: "Roblox", type: "system-design", difficulty: "medium", question: "Design a UGC content moderation pipeline (text, image, 3D assets).", tags: ["moderation", "ml", "queue"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "roblox-lld-1", company: "Roblox", type: "lld", difficulty: "medium", question: "Design a game-session matchmaking engine.", tags: ["matching", "oop", "queue"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "roblox-dsa-1", company: "Roblox", type: "dsa", difficulty: "medium", question: "Random Point in Non-overlapping Rectangles.", tags: ["binary-search", "probability"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "roblox-dsa-2", company: "Roblox", type: "dsa", difficulty: "hard", question: "Minimum Number of Refueling Stops (DP / greedy + heap).", tags: ["dp", "greedy", "heap"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // WALT DISNEY  (media / streaming / theme parks)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "disney-sd-1", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design Disney+ — video streaming with DRM, multi-profile, and offline downloads.", tags: ["streaming", "drm", "cdn", "offline"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "disney-sd-2", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design a theme-park virtual queue (Lightning Lane) — slot booking for millions.", tags: ["booking", "queue", "capacity"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "disney-sd-3", company: "Walt Disney", type: "system-design", difficulty: "medium", question: "Design MagicBand RFID-based park experience personalisation.", tags: ["iot", "rfid", "personalisation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "disney-lld-1", company: "Walt Disney", type: "lld", difficulty: "medium", question: "Design a content entitlement engine (subscription tiers + regional rights).", tags: ["entitlements", "rbac", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "disney-dsa-1", company: "Walt Disney", type: "dsa", difficulty: "medium", question: "Count Islands with BFS in a dynamic grid.", tags: ["bfs", "grid"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // ABNORMAL AI  (email security / threat detection)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "abnormalai-sd-1", company: "Abnormal AI", type: "system-design", difficulty: "hard", question: "Design an email threat detection pipeline (phishing, BEC, malware) at 10B+ emails/day.", tags: ["ml", "stream", "email", "security"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "abnormalai-sd-2", company: "Abnormal AI", type: "system-design", difficulty: "hard", question: "Design a behavioural baseline model for each employee (normal vs anomalous email patterns).", tags: ["ml", "anomaly", "user-profile"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "abnormalai-sd-3", company: "Abnormal AI", type: "system-design", difficulty: "medium", question: "Design a SOC case management system with auto-triage and playbooks.", tags: ["workflow", "rules", "triage"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "abnormalai-lld-1", company: "Abnormal AI", type: "lld", difficulty: "medium", question: "Design a verdict caching layer for email verdicts (TTL + invalidation).", tags: ["cache", "ttl", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "abnormalai-dsa-1", company: "Abnormal AI", type: "dsa", difficulty: "medium", question: "Longest Substring with At Most K Distinct Characters.", tags: ["sliding-window", "hashmap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "abnormalai-dsa-2", company: "Abnormal AI", type: "dsa", difficulty: "hard", question: "Maximum Sum of Non-adjacent Nodes in a Tree.", tags: ["tree", "dp"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // WARNER MUSIC GROUP  (music / media tech)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "wmg-sd-1", company: "Warner Music Group", type: "system-design", difficulty: "hard", question: "Design a royalty calculation and distribution pipeline for streaming plays.", tags: ["royalties", "batch", "ledger"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "wmg-sd-2", company: "Warner Music Group", type: "system-design", difficulty: "hard", question: "Design a music rights management system (track, album, territory, splits).", tags: ["rights", "metadata", "graph"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "wmg-sd-3", company: "Warner Music Group", type: "system-design", difficulty: "medium", question: "Design a real-time streaming charts service (Billboard-style).", tags: ["aggregation", "stream", "ranking"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "wmg-lld-1", company: "Warner Music Group", type: "lld", difficulty: "medium", question: "Design a contract clause extraction + comparison engine.", tags: ["nlp", "rules", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "wmg-dsa-1", company: "Warner Music Group", type: "dsa", difficulty: "medium", question: "Find Median of a Number Stream.", tags: ["heap", "design"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ════════════════════════════════════════════════════════════════════
+  // CAT C — MID-TIER COMPANIES (new additions + expansions)
+  // ════════════════════════════════════════════════════════════════════
+
+  // ────────────────────────────────────────────────────────────────────
+  // NUTANIX  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "nutanix-sd-2b", company: "Nutanix", type: "system-design", difficulty: "hard", question: "Design Nutanix HCI's distributed storage fabric (data locality, replication, healing).", tags: ["storage", "replication", "hci"], askedFor: "SDE-3", frequency: "high" },
+  { id: "nutanix-sd-3", company: "Nutanix", type: "system-design", difficulty: "hard", question: "Design a VM snapshot & clone service with copy-on-write semantics.", tags: ["storage", "cow", "snapshots"], askedFor: "SDE-3", frequency: "high" },
+  { id: "nutanix-sd-4", company: "Nutanix", type: "system-design", difficulty: "medium", question: "Design a cluster health monitoring + self-healing orchestrator.", tags: ["monitoring", "orchestration", "alerting"], askedFor: "SDE-2/3", frequency: "medium" },
+  { id: "nutanix-lld-2", company: "Nutanix", type: "lld", difficulty: "medium", question: "Design a resource quota enforcement system for VMs on a cluster.", tags: ["rbac", "quota", "oop"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "nutanix-dsa-2b", company: "Nutanix", type: "dsa", difficulty: "medium", question: "LRU Cache with thread safety.", tags: ["cache", "concurrency"], askedFor: "SDE-2", frequency: "high" },
+  { id: "nutanix-dsa-3", company: "Nutanix", type: "dsa", difficulty: "hard", question: "Recover Binary Search Tree (Morris traversal or recursive).", tags: ["tree", "bst"], askedFor: "SDE-3", frequency: "medium" },
+
+  // ════════════════════════════════════════════════════════════════════
+  // EXPANSIONS — thin existing companies
+  // ════════════════════════════════════════════════════════════════════
+
+  // ────────────────────────────────────────────────────────────────────
+  // CONFLUENT  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "confluent-sd-5", company: "Confluent", type: "system-design", difficulty: "hard", question: "Design Kafka Tiered Storage (offload old segments to object storage transparently).", tags: ["kafka", "tiering", "s3"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "confluent-sd-6", company: "Confluent", type: "system-design", difficulty: "hard", question: "Design a stream processing SQL engine (ksqlDB-like) with stateful aggregations.", tags: ["stream", "sql", "stateful"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "confluent-lld-3", company: "Confluent", type: "lld", difficulty: "medium", question: "Design a Schema Registry with forward/backward compatibility checks.", tags: ["registry", "versioning", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "confluent-dsa-3", company: "Confluent", type: "dsa", difficulty: "hard", question: "Design a min-latency out-of-order event reordering buffer (watermark-based).", tags: ["stream", "queue", "design"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // DATABRICKS  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "databricks-sd-3b", company: "Databricks", type: "system-design", difficulty: "hard", question: "Design a cluster auto-scaler that minimises cost while meeting SLA.", tags: ["autoscaling", "cost", "scheduler"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "databricks-sd-4b", company: "Databricks", type: "system-design", difficulty: "hard", question: "Design Unity Catalog — fine-grained data governance across lakehouse tables.", tags: ["governance", "rbac", "metadata"], askedFor: "Staff SWE", frequency: "high" },
+  { id: "databricks-lld-2", company: "Databricks", type: "lld", difficulty: "medium", question: "Design a query result cache (cluster-scoped, invalidated on table write).", tags: ["cache", "invalidation", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "databricks-dsa-2b", company: "Databricks", type: "dsa", difficulty: "hard", question: "Meeting Rooms III — assign each meeting to minimum-indexed free room.", tags: ["heap", "intervals"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // SNOWFLAKE  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "snowflake-sd-2b", company: "Snowflake", type: "system-design", difficulty: "hard", question: "Design Snowflake's virtual warehouse (elastic compute that auto-suspends).", tags: ["compute", "autoscaling", "olap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "snowflake-sd-3b", company: "Snowflake", type: "system-design", difficulty: "hard", question: "Design Snowflake Data Sharing (zero-copy share live data across accounts).", tags: ["sharing", "metadata", "access-control"], askedFor: "Staff SWE", frequency: "medium" },
+  { id: "snowflake-lld-2", company: "Snowflake", type: "lld", difficulty: "medium", question: "Design a micro-partition pruning index for columnar storage.", tags: ["index", "olap", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "snowflake-dsa-2b", company: "Snowflake", type: "dsa", difficulty: "hard", question: "Max Points on a Line.", tags: ["math", "hashmap"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // CLOUDFLARE  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "cloudflare-sd-3b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare Workers — serverless compute at the edge (V8 isolates).", tags: ["edge", "serverless", "isolates"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cloudflare-sd-4b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare R2 — S3-compatible object storage with zero egress fees.", tags: ["storage", "s3-compat", "cdn"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cloudflare-lld-2", company: "Cloudflare", type: "lld", difficulty: "medium", question: "Design a WAF rule engine (IP allow/deny lists, rate-limit by header).", tags: ["rules", "rate-limit", "oop"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cloudflare-dsa-2b", company: "Cloudflare", type: "dsa", difficulty: "medium", question: "Most Common Word excluding banned words.", tags: ["string", "hashmap"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // SALESFORCE  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "sfdc-sd-6", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce Einstein GPT — AI-generated CRM content at scale.", tags: ["llm", "rag", "multi-tenant"], askedFor: "MTS+", frequency: "high" },
+  { id: "sfdc-sd-7", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce MuleSoft integration runtime — API gateway + transformation.", tags: ["api-gateway", "transformation", "connector"], askedFor: "MTS+", frequency: "medium" },
+  { id: "sfdc-lld-4", company: "Salesforce", type: "lld", difficulty: "medium", question: "Design a dynamic report builder with cross-object filters.", tags: ["builder-pattern", "query", "oop"], askedFor: "MTS", frequency: "medium" },
+  { id: "sfdc-dsa-3b", company: "Salesforce", type: "dsa", difficulty: "medium", question: "Evaluate Boolean Expression.", tags: ["stack", "string"], askedFor: "MTS", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // BOOKING.COM  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "booking-sd-5b", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design Booking.com Genius loyalty tier — dynamic discounts for repeat customers.", tags: ["loyalty", "pricing", "segmentation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "booking-sd-6", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design a fraud-prevention layer for OTA bookings (stolen card, chargeback).", tags: ["fraud", "ml", "payments"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "booking-lld-4", company: "Booking.com", type: "lld", difficulty: "medium", question: "Design a property listing ranking model interface.", tags: ["strategy", "ranking", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "booking-dsa-3b", company: "Booking.com", type: "dsa", difficulty: "medium", question: "Count Unique Hotel Deals (interval deduplication).", tags: ["intervals", "sorting"], askedFor: "Senior SWE", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // INTUIT  (expanded)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "intuit-sd-4", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design QuickBooks Online real-time bank feed sync.", tags: ["sync", "open-banking", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "intuit-sd-5", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design a tax calculation engine with jurisdictional rules (federal + state + local).", tags: ["rules", "tax", "compliance"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "intuit-lld-4", company: "Intuit", type: "lld", difficulty: "medium", question: "Design a financial reconciliation module (match bank lines to transactions).", tags: ["matching", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "intuit-dsa-4", company: "Intuit", type: "dsa", difficulty: "medium", question: "Two Sum variants — with sorted array, BST, and data stream.", tags: ["hashmap", "binary-search", "bst"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // FLIPKART  (more)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "flipkart-sd-9",  company: "Flipkart", type: "system-design", difficulty: "hard", question: "Design Flipkart Seller Hub — seller analytics dashboard (real-time + batch).", tags: ["analytics", "batch", "stream"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "flipkart-lld-6", company: "Flipkart", type: "lld", difficulty: "medium", question: "Design a configurable product attribute system (category-specific attributes).", tags: ["oop", "builder-pattern"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "flipkart-dsa-7", company: "Flipkart", type: "dsa", difficulty: "medium", question: "4Sum — generalise k-sum with sorting + recursion.", tags: ["two-pointers", "sorting"], askedFor: "SDE-2", frequency: "medium" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // CRED  (more)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "cred-sd-4",  company: "CRED", type: "system-design", difficulty: "hard", question: "Design CRED Mint (peer-to-peer lending marketplace).", tags: ["fintech", "matching", "ledger"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cred-lld-4", company: "CRED", type: "lld", difficulty: "medium", question: "Design a gamified challenge engine (daily tasks → rewards → levels).", tags: ["gamification", "state-machine", "oop"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cred-dsa-3b", company: "CRED", type: "dsa", difficulty: "medium", question: "Jump Game (can reach end) — greedy.", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
+
+  // ────────────────────────────────────────────────────────────────────
+  // PHONEPE  (more)
+  // ────────────────────────────────────────────────────────────────────
+  { id: "phonepe-sd-8",  company: "PhonePe", type: "system-design", difficulty: "hard", question: "Design PhonePe's UPI fraud detection in <100ms.", tags: ["fraud", "ml", "latency"], askedFor: "SDE-3", frequency: "high" },
+  { id: "phonepe-lld-5", company: "PhonePe", type: "lld", difficulty: "medium", question: "Design a transaction retry + idempotency layer for UPI APIs.", tags: ["idempotency", "retry", "oop"], askedFor: "SDE-2", frequency: "high" },
+  { id: "phonepe-dsa-4", company: "PhonePe", type: "dsa", difficulty: "medium", question: "Daily Temperatures — monotonic stack.", tags: ["stack", "array"], askedFor: "SDE-2", frequency: "high" },
 ];
 
 // ────────────────────────────────────────────────────────────────────
