@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 import { ThemeProvider } from "@/components/theme-provider";
@@ -69,11 +68,11 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         {adsenseId && (
-          <Script
+          // eslint-disable-next-line @next/next/no-sync-scripts
+          <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
           />
         )}
       </head>
