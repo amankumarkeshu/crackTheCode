@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata: Metadata = {
   title: "Interview Questions — Filter by Company & Type",
   description:
-    "Curated bank of real interview questions reported across major companies. Filter by company, by type (System Design / LLD / DSA), by difficulty, or search.",
+    "1000+ curated interview questions across 90+ companies — Google, Meta, Amazon, Uber, LinkedIn, Flipkart, Swiggy, and more. Filter by company, type (System Design / LLD / DSA), and difficulty.",
 };
 
 export default function InterviewQuestionsPage() {

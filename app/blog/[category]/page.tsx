@@ -50,7 +50,7 @@ export default function CategoryPage({ params }: PageProps) {
               href="/interview-questions"
               className="font-medium text-amber-700 underline-offset-4 hover:underline dark:text-amber-300"
             >
-              Browse 470+ tagged questions →
+              Browse 1000+ tagged questions →
             </Link>
           </div>
         )}
