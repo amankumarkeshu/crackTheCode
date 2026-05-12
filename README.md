@@ -132,7 +132,52 @@ and update the badge copy. The route matcher itself does not need to change.
 
 ## Deployment
 
-Recommended: **Vercel**. Connect the repo, set the production domain to `amankumarkeshu.in`, done.
+### Via Netlify Dashboard (Recommended)
+
+1. Connect your GitHub repo to [Netlify](https://netlify.com)
+2. Set build command: `npm run build`
+3. Set publish directory: `.next`
+4. Deploy automatically on git push to `master`
+
+### Via Netlify CLI
+
+For direct deployment of built files:
+
+```bash
+# Install Netlify CLI (one-time)
+npm install -g netlify-cli
+
+# Build the project
+npm run build
+
+# Deploy to production (requires NETLIFY_AUTH_TOKEN)
+NETLIFY_AUTH_TOKEN=nfp_your_token_here netlify deploy --prod --dir=.next --site=your-site-id
+
+# Or set up site linking first
+netlify link
+netlify deploy --prod --dir=.next
+```
+
+**Getting your auth token:**
+1. Go to [app.netlify.com/user/applications](https://app.netlify.com/user/applications)
+2. Create a new Personal Access Token with "Deploy" scope
+3. Use it in the `NETLIFY_AUTH_TOKEN` environment variable
+
+### Other Deployment Options
+
+**Vercel:**
+```bash
+npm install -g vercel
+vercel --prod
+```
+
+**Manual/Self-hosted:**
+```bash
+npm run build
+# Copy .next/ folder to your web server
+# Serve with Node.js: npm start
+# Or use a static hosting service
+```
 
 ## License
 
