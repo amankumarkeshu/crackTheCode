@@ -42,6 +42,18 @@ export default function CategoryPage({ params }: PageProps) {
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">{cat.title}</h1>
         </div>
         <p className="mt-4 text-lg text-muted-foreground">{cat.description}</p>
+
+        {cat.slug === "interview-experiences" && (
+          <div className="mt-6 rounded-xl border border-amber-400/40 bg-amber-500/5 p-4 text-sm">
+            Looking for the question bank instead?{" "}
+            <Link
+              href="/interview-questions"
+              className="font-medium text-amber-700 underline-offset-4 hover:underline dark:text-amber-300"
+            >
+              Browse 1000+ tagged questions →
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="mt-12">
