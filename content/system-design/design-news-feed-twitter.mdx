@@ -298,14 +298,12 @@ We've designed a **chronological** feed. But every modern social product (Twitte
 
 The right answer is a clean separation of concerns:
 
-```
-┌─────────────────────┐  ┌──────────────────┐  ┌───────────────────┐
-│ Candidate generation│→ │  Feature fetch   │→ │  Scoring (ML)     │ → top K
-│ (this entire post)  │  │ (user/item embed)│  │ (DNN / GBDT)      │   shown
-└─────────────────────┘  └──────────────────┘  └───────────────────┘
-        ~5,000                  ~5,000              ~50 → 10
-        candidates              enriched            best
-```
+<Excalidraw
+  src="/diagrams/news-feed-ranking-pipeline.svg"
+  caption="The ranking funnel: cheap retrieval first (~5K candidates), expensive ML last (~10 shown). Each stage has a strict latency budget."
+  alt="News feed ranking pipeline: candidate generation, feature fetch, scoring"
+  size="full"
+/>
 
 ### Stage 1 — Candidate generation (what we already built)
 

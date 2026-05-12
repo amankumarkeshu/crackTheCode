@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" font-family="'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" font-size="15">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="19"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.2"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="370" y="36" fill="#1f2937" font-size="20" font-weight="bold">News Feed  Ranking Pipeline</text>
+
+  <!-- Stage 1: Candidate generation -->
+  <g filter="url(#rough)">
+    <rect x="40" y="100" width="280" height="140" rx="16" stroke="#1f2937" stroke-width="3" fill="#dbeafe"/>
+  </g>
+  <text x="90" y="140" fill="#1e3a8a" font-weight="bold" font-size="17">Candidate Generation</text>
+  <text x="60" y="170" fill="#1e3a8a" font-size="13">pull from pre-built</text>
+  <text x="60" y="190" fill="#1e3a8a" font-size="13">inbox + celebrity tweets</text>
+  <text x="60" y="218" fill="#475569" font-size="12">budget: ~50 ms</text>
+
+  <!-- Stage 2: Feature hydration -->
+  <g filter="url(#rough)">
+    <rect x="400" y="100" width="280" height="140" rx="16" stroke="#1f2937" stroke-width="3" fill="#ede9fe"/>
+  </g>
+  <text x="450" y="140" fill="#4c1d95" font-weight="bold" font-size="17">Feature Hydration</text>
+  <text x="420" y="170" fill="#5b21b6" font-size="13">user + item embeddings,</text>
+  <text x="420" y="190" fill="#5b21b6" font-size="13">engagement rate, recency</text>
+  <text x="420" y="218" fill="#475569" font-size="12">budget: ~100 ms</text>
+
+  <!-- Stage 3: Scoring -->
+  <g filter="url(#rough)">
+    <rect x="760" y="100" width="280" height="140" rx="16" stroke="#1f2937" stroke-width="3" fill="#fef3c7"/>
+  </g>
+  <text x="850" y="140" fill="#78350f" font-weight="bold" font-size="17">Scoring (ML)</text>
+  <text x="780" y="170" fill="#92400e" font-size="13">DNN / GBDT  predicts</text>
+  <text x="780" y="190" fill="#92400e" font-size="13">P(like), P(comment), &</text>
+  <text x="780" y="218" fill="#475569" font-size="12">budget: ~150 ms</text>
+
+  <!-- Top K shown -->
+  <g filter="url(#rough)">
+    <rect x="1080" y="120" width="100" height="100" rx="14" stroke="#1f2937" stroke-width="3" fill="#d1fae5"/>
+  </g>
+  <text x="1100" y="160" fill="#065f46" font-weight="bold">top K</text>
+  <text x="1095" y="185" fill="#047857" font-size="13">shown</text>
+  <text x="1098" y="208" fill="#047857" font-size="13">in app</text>
+
+  <!-- Arrows between stages -->
+  <line x1="320" y1="170" x2="400" y2="170" stroke="#1f2937" stroke-width="3" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <line x1="680" y1="170" x2="760" y2="170" stroke="#1f2937" stroke-width="3" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <line x1="1040" y1="170" x2="1080" y2="170" stroke="#1f2937" stroke-width="3" marker-end="url(#arrow)" filter="url(#rough)"/>
+
+  <!-- Numbers below each stage -->
+  <text x="115" y="280" fill="#1e3a8a" font-size="22" font-weight="bold">~5,000</text>
+  <text x="120" y="305" fill="#475569" font-size="13">candidates</text>
+
+  <text x="475" y="280" fill="#4c1d95" font-size="22" font-weight="bold">~5,000</text>
+  <text x="475" y="305" fill="#475569" font-size="13">+ features</text>
+
+  <text x="850" y="280" fill="#78350f" font-size="22" font-weight="bold">~50 ’ 10</text>
+  <text x="845" y="305" fill="#475569" font-size="13">ranked best</text>
+
+  <text x="1090" y="280" fill="#065f46" font-size="22" font-weight="bold">10</text>
+  <text x="1088" y="305" fill="#475569" font-size="13">visible</text>
+
+  <!-- Bottom note -->
+  <text x="290" y="345" fill="#475569" font-size="13" font-style="italic">Each stage trims the funnel: cheap retrieval first, expensive ML last.</text>
+</svg>

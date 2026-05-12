@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" font-family="'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" font-size="16">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.2"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrow-dash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <!-- Top row: Browser ’ CDN ’ API GW ’ Redirect Svc -->
+  <g filter="url(#rough)">
+    <rect x="30" y="60" width="150" height="80" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#dbeafe"/>
+    <rect x="240" y="60" width="150" height="80" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#e0f2fe"/>
+    <rect x="450" y="60" width="150" height="80" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#ede9fe"/>
+    <rect x="660" y="60" width="170" height="80" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#e0e7ff"/>
+  </g>
+  <text x="80" y="105" fill="#1e3a8a" font-weight="bold">Browser</text>
+  <text x="280" y="100" fill="#0c4a6e" font-weight="bold">CDN (edge)</text>
+  <text x="285" y="125" fill="#475569" font-size="13">optional cache</text>
+  <text x="497" y="105" fill="#4c1d95" font-weight="bold">API Gateway</text>
+  <text x="680" y="105" fill="#312e81" font-weight="bold">Redirect Service</text>
+
+  <!-- Arrows between top boxes -->
+  <line x1="180" y1="100" x2="240" y2="100" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <line x1="390" y1="100" x2="450" y2="100" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <line x1="600" y1="100" x2="660" y2="100" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+
+  <!-- Redis cache -->
+  <g filter="url(#rough)">
+    <rect x="660" y="220" width="170" height="70" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#fef3c7"/>
+  </g>
+  <text x="710" y="250" fill="#78350f" font-weight="bold">Redis (LRU)</text>
+  <text x="710" y="272" fill="#92400e" font-size="13">code ’ long_url</text>
+
+  <!-- Arrow Redirect Svc ’ Redis -->
+  <line x1="745" y1="140" x2="745" y2="220" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="755" y="180" fill="#1f2937" font-size="13">lookup</text>
+
+  <!-- DB on miss -->
+  <g filter="url(#rough)">
+    <ellipse cx="430" cy="255" rx="100" ry="40" stroke="#1f2937" stroke-width="2.5" fill="#d1fae5"/>
+  </g>
+  <text x="395" y="250" fill="#065f46" font-weight="bold">Postgres /</text>
+  <text x="395" y="270" fill="#065f46" font-weight="bold">DynamoDB</text>
+
+  <!-- Cache miss arrow Redis ’ DB (dashed red) -->
+  <path d="M660 270 Q585 285 530 260" stroke="#dc2626" stroke-width="2.5" fill="none" stroke-dasharray="7 5" marker-end="url(#arrow-dash)" filter="url(#rough)"/>
+  <text x="540" y="305" fill="#dc2626" font-size="14">cache miss</text>
+
+  <!-- Write-through DB ’ Redis -->
+  <path d="M530 240 Q600 200 660 235" stroke="#059669" stroke-width="2.5" fill="none" stroke-dasharray="7 5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="558" y="200" fill="#059669" font-size="13">write-through</text>
+
+  <!-- 302 response -->
+  <g filter="url(#rough)">
+    <rect x="30" y="360" width="800" height="70" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#fef9c3"/>
+  </g>
+  <text x="350" y="392" fill="#713f12" font-weight="bold" font-size="18">302 Redirect ’ long URL</text>
+  <text x="395" y="415" fill="#854d0e" font-size="13">(use 301 only if you don't need click analytics)</text>
+
+  <!-- Long arrow from Redirect Svc back to Browser via response -->
+  <path d="M105 140 Q105 360 105 360" stroke="#1f2937" stroke-width="2.5" fill="none" marker-end="url(#arrow)" filter="url(#rough)"/>
+
+  <!-- Title -->
+  <text x="350" y="36" fill="#1f2937" font-size="20" font-weight="bold">URL Shortener  Read Path</text>
+</svg>

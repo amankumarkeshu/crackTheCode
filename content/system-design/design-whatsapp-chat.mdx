@@ -51,12 +51,12 @@ For this post: 1:1 + groups up to 1,000, read receipts, presence, persistent his
 
 ## 4. The two foundational components
 
-```
-Client ────────WebSocket────────► Connection Server ───► Message Service ───► Storage
-  (long-lived TCP, ~hours)         (stateful, holds          (stateless,         (Cassandra,
-                                    50K conns each)           message logic)      partitioned by
-                                                                                  conversation_id)
-```
+<Excalidraw
+  src="/diagrams/whatsapp-architecture.svg"
+  caption="The connection server is the stateful piece: it owns ~50K live TCP sockets. Everything behind it is roughly stateless."
+  alt="WhatsApp architecture: client, connection server, message service, Cassandra"
+  size="full"
+/>
 
 The **connection server** is the most important and least-talked-about piece. It owns the long-lived TCP socket. Everything else is roughly stateless and easy.
 

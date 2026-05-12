@@ -114,12 +114,12 @@ Storage choice:
 
 The interview is won or lost here.
 
-```
-Browser → CDN (edge cache, optional) → API GW
-       → Redirect Service → Redis (LRU)
-                         ↘ DB on miss → write-through to Redis
-       → 301 to long URL
-```
+<Excalidraw
+  src="/diagrams/url-shortener-read-path.svg"
+  caption="Read path: Redis hit is the happy case; cache miss falls back to the DB and warms Redis."
+  alt="URL shortener read path"
+  size="full"
+/>
 
 Key decisions:
 - **301 vs 302?** 301 is permanent and aggressively cached by browsers — saves you traffic but breaks click analytics. Most real shorteners use **302** to keep every click reaching origin.
@@ -158,14 +158,12 @@ Implications:
 
 Lower volume → simpler:
 
-```
-Client → API GW → Shorten Service
-   → Sequence Service (get next ID)
-   → Encode to base62
-   → Insert into DB
-   → Warm Redis (optional)
-   → 201 with short URL
-```
+<Excalidraw
+  src="/diagrams/url-shortener-write-path.svg"
+  caption="Write path: Snowflake-style sequence, base62 encode, single insert, optional Redis warm."
+  alt="URL shortener write path"
+  size="full"
+/>
 
 For custom aliases, use `INSERT ... ON CONFLICT DO NOTHING` and surface a 409 if taken. For random codes, retry on rare collisions.
 
@@ -175,12 +173,12 @@ A fatal mistake: writing to your analytics store synchronously on every redirect
 
 **Fan out asynchronously:**
 
-```
-Redirect Service → publishes click event to Kafka
-    → Stream processor (Flink/Spark) aggregates
-    → Writes counts to OLAP store (ClickHouse / BigQuery)
-    → Dashboard queries OLAP
-```
+<Excalidraw
+  src="/diagrams/url-shortener-analytics.svg"
+  caption="Analytics is async: Redirect publishes to Kafka, Flink aggregates, OLAP stores it, dashboards query OLAP. Redirect latency stays under 5 ms."
+  alt="URL shortener analytics fan-out"
+  size="full"
+/>
 
 Per-link counters in Redis (`INCR code:clicks`) give "near real-time" numbers; durable analytics flow through the stream pipeline.
 

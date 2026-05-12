@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 360" font-family="'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" font-size="15">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="13"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.2"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="320" y="36" fill="#1f2937" font-size="20" font-weight="bold">Click Analytics  async fan-out off the hot path</text>
+
+  <!-- Redirect Service -->
+  <g filter="url(#rough)">
+    <rect x="20" y="140" width="170" height="90" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#e0e7ff"/>
+  </g>
+  <text x="35" y="180" fill="#312e81" font-weight="bold">Redirect Service</text>
+  <text x="40" y="205" fill="#1e1b4b" font-size="13">on every click</text>
+
+  <!-- Kafka topic -->
+  <g filter="url(#rough)">
+    <rect x="250" y="140" width="180" height="90" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#fce7f3"/>
+  </g>
+  <text x="290" y="178" fill="#831843" font-weight="bold">Kafka topic</text>
+  <text x="270" y="200" fill="#9d174d" font-size="13">"link.clicks"</text>
+  <text x="270" y="218" fill="#9d174d" font-size="13">partitioned by code</text>
+
+  <!-- Stream processor -->
+  <g filter="url(#rough)">
+    <rect x="490" y="140" width="200" height="90" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#ddd6fe"/>
+  </g>
+  <text x="510" y="178" fill="#4c1d95" font-weight="bold">Flink / Spark</text>
+  <text x="510" y="200" fill="#5b21b6" font-size="13">aggregate by code</text>
+  <text x="510" y="218" fill="#5b21b6" font-size="13">+ window (1m, 5m)</text>
+
+  <!-- OLAP store -->
+  <g filter="url(#rough)">
+    <rect x="750" y="140" width="200" height="90" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#fef3c7"/>
+  </g>
+  <text x="772" y="178" fill="#78350f" font-weight="bold">ClickHouse /</text>
+  <text x="772" y="198" fill="#78350f" font-weight="bold">BigQuery</text>
+  <text x="773" y="218" fill="#92400e" font-size="13">OLAP, columnar</text>
+
+  <!-- Dashboard -->
+  <g filter="url(#rough)">
+    <rect x="800" y="0" width="180" height="70" rx="14" stroke="#1f2937" stroke-width="2.5" fill="#d1fae5"/>
+  </g>
+  <text x="828" y="35" fill="#065f46" font-weight="bold">Dashboard</text>
+  <text x="825" y="55" fill="#047857" font-size="13">queries OLAP</text>
+
+  <!-- Redis counter (below redirect) -->
+  <g filter="url(#rough)">
+    <rect x="20" y="280" width="170" height="60" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#fee2e2"/>
+  </g>
+  <text x="35" y="305" fill="#991b1b" font-weight="bold">Redis INCR</text>
+  <text x="32" y="325" fill="#b91c1c" font-size="12">near-real-time count</text>
+
+  <!-- Arrows -->
+  <line x1="190" y1="185" x2="250" y2="185" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="195" y="175" fill="#1f2937" font-size="12">publish</text>
+  <line x1="430" y1="185" x2="490" y2="185" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <line x1="690" y1="185" x2="750" y2="185" stroke="#1f2937" stroke-width="2.5" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="694" y="175" fill="#1f2937" font-size="12">writes</text>
+  <path d="M890 140 Q890 90 890 70" stroke="#1f2937" stroke-width="2.5" fill="none" marker-end="url(#arrow)" filter="url(#rough)"/>
+
+  <!-- Redirect ’ Redis (side channel) -->
+  <path d="M105 230 L105 280" stroke="#1f2937" stroke-width="2.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow)" filter="url(#rough)"/>
+
+  <!-- Bottom annotation -->
+  <text x="270" y="330" fill="#475569" font-size="13">Redirect responds in &lt;5 ms  analytics happens entirely off the critical path.</text>
+</svg>

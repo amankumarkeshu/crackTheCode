@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 460" font-family="'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" font-size="15">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="17"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.2"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="380" y="36" fill="#1f2937" font-size="20" font-weight="bold">WhatsApp  high-level architecture</text>
+
+  <!-- Client phones -->
+  <g filter="url(#rough)">
+    <rect x="20" y="120" width="160" height="190" rx="20" stroke="#1f2937" stroke-width="2.5" fill="#dbeafe"/>
+    <rect x="40" y="140" width="120" height="150" rx="8" stroke="#1e3a8a" stroke-width="2" fill="#bfdbfe"/>
+  </g>
+  <text x="60" y="180" fill="#1e3a8a" font-weight="bold">User A</text>
+  <text x="60" y="205" fill="#1e3a8a" font-size="13">mobile app</text>
+  <text x="60" y="230" fill="#1e3a8a" font-size="13">offline-first</text>
+  <text x="60" y="255" fill="#1e3a8a" font-size="13">queue</text>
+  <text x="55" y="335" fill="#475569" font-size="13">~2B clients</text>
+
+  <!-- Connection Server -->
+  <g filter="url(#rough)">
+    <rect x="280" y="120" width="200" height="190" rx="14" stroke="#1f2937" stroke-width="3" fill="#fce7f3"/>
+  </g>
+  <text x="310" y="165" fill="#831843" font-weight="bold" font-size="17">Connection Server</text>
+  <text x="305" y="195" fill="#9d174d" font-size="13">stateful  owns the TCP</text>
+  <text x="305" y="215" fill="#9d174d" font-size="13">socket for ~50K clients</text>
+  <text x="305" y="245" fill="#9d174d" font-size="13">heartbeats + presence</text>
+  <text x="305" y="275" fill="#9d174d" font-size="13">routes by user_id ’</text>
+  <text x="305" y="293" fill="#9d174d" font-size="13">  connection_server_id</text>
+
+  <!-- Session registry (below connection server) -->
+  <g filter="url(#rough)">
+    <rect x="280" y="360" width="200" height="60" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#fef3c7"/>
+  </g>
+  <text x="298" y="385" fill="#78350f" font-weight="bold">Session Registry</text>
+  <text x="293" y="405" fill="#92400e" font-size="12">user ’ server (Redis)</text>
+
+  <!-- Connection server ” session registry -->
+  <line x1="380" y1="310" x2="380" y2="360" stroke="#1f2937" stroke-width="2" stroke-dasharray="5 4" filter="url(#rough)"/>
+
+  <!-- Message Service -->
+  <g filter="url(#rough)">
+    <rect x="580" y="120" width="200" height="190" rx="14" stroke="#1f2937" stroke-width="3" fill="#e0e7ff"/>
+  </g>
+  <text x="615" y="165" fill="#312e81" font-weight="bold" font-size="17">Message Service</text>
+  <text x="600" y="195" fill="#1e1b4b" font-size="13">stateless, horizontally</text>
+  <text x="600" y="213" fill="#1e1b4b" font-size="13">scalable</text>
+  <text x="600" y="240" fill="#1e1b4b" font-size="13">- generate message_id</text>
+  <text x="600" y="258" fill="#1e1b4b" font-size="13">- fan out to recipients</text>
+  <text x="600" y="276" fill="#1e1b4b" font-size="13">- write to storage</text>
+  <text x="600" y="294" fill="#1e1b4b" font-size="13">- write to offline queue</text>
+
+  <!-- Storage (Cassandra) -->
+  <g filter="url(#rough)">
+    <ellipse cx="980" cy="215" rx="120" ry="80" stroke="#1f2937" stroke-width="3" fill="#d1fae5"/>
+  </g>
+  <text x="935" y="195" fill="#065f46" font-weight="bold" font-size="17">Cassandra</text>
+  <text x="900" y="220" fill="#047857" font-size="13">partitioned by</text>
+  <text x="895" y="240" fill="#047857" font-size="13">conversation_id</text>
+  <text x="908" y="260" fill="#047857" font-size="13">sorted by msg_id</text>
+
+  <!-- Offline queue (Kafka, below message service) -->
+  <g filter="url(#rough)">
+    <rect x="580" y="360" width="200" height="60" rx="12" stroke="#1f2937" stroke-width="2.5" fill="#fce7f3"/>
+  </g>
+  <text x="610" y="385" fill="#831843" font-weight="bold">Offline Queue</text>
+  <text x="610" y="405" fill="#9d174d" font-size="12">Kafka topic per shard</text>
+
+  <!-- Message Service ” offline queue -->
+  <line x1="680" y1="310" x2="680" y2="360" stroke="#1f2937" stroke-width="2" stroke-dasharray="5 4" filter="url(#rough)"/>
+
+  <!-- Arrows: A ’ connection server (WebSocket) -->
+  <path d="M180 215 L280 215" stroke="#1f2937" stroke-width="3" fill="none" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="190" y="200" fill="#1f2937" font-size="13" font-weight="bold">WebSocket</text>
+  <text x="190" y="240" fill="#6b7280" font-size="12">long-lived TCP</text>
+
+  <!-- Arrows: connection server ’ message service (RPC) -->
+  <path d="M480 215 L580 215" stroke="#1f2937" stroke-width="3" fill="none" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="500" y="200" fill="#1f2937" font-size="13" font-weight="bold">internal RPC</text>
+  <text x="510" y="240" fill="#6b7280" font-size="12">gRPC / Thrift</text>
+
+  <!-- Arrows: message service ’ storage -->
+  <path d="M780 215 L860 215" stroke="#1f2937" stroke-width="3" fill="none" marker-end="url(#arrow)" filter="url(#rough)"/>
+  <text x="785" y="200" fill="#1f2937" font-size="13" font-weight="bold">persist</text>
+</svg>
