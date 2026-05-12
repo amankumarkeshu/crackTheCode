@@ -1,0 +1,181 @@
+---
+title: "Design Uber / a Ride-Sharing System"
+slug: "design-uber-ride-sharing"
+category: "system-design"
+tags: ["geospatial", "real-time", "matching", "state-machine", "websocket"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Geospatial indexing, 4-second driver location updates, nearest-driver matching, surge pricing, and the trip state machine - the question Uber/Lyft loops literally use."
+---
+
+Ride-sharing is actually three problems stitched together: a high-write geospatial index updated millions of times per second, a matching engine that finds the right driver in under 5 seconds, and a trip lifecycle state machine that needs to be perfectly consistent so a driver can never be double-booked.
+
+## 1. Clarifying Scope First
+
+- Is this ride-sharing (Uber), food delivery (DoorDash), or both? They share most of the design but differ in matching constraints.
+- How quickly after a rider requests must they be matched? A few seconds?
+- How often does each driver report their location? Every few seconds?
+- Do we need to calculate surge pricing when demand outstrips supply?
+- How many drivers and riders are we talking about? Millions globally?
+- Does this work in a single city or worldwide?
+
+For this article: ride-sharing, 5 million active drivers, 100 million monthly riders, 25 million trips per day, match within 5 seconds, driver location updates every 4 seconds.
+
+## 2. Requirements
+
+**Functional:**
+1. Driver app reports location every 4 seconds.
+2. Rider requests a ride with pickup and destination.
+3. Match rider with nearest available driver.
+4. Both parties track the trip in real time.
+5. Calculate and collect fare.
+6. Show surge pricing in high-demand zones.
+
+**Non-Functional:**
+1. Matching latency under 5 seconds end-to-end.
+2. Location update writes: 1.25 million per second sustained.
+3. No driver ever assigned to two trips at the same time (strong consistency for matching).
+4. Rider tracking can be slightly stale (a few seconds is fine).
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Driver** | driver_id, name, vehicle_type, status (AVAILABLE / ON_TRIP / OFFLINE) |
+| **Rider** | rider_id, name, payment_method |
+| **Location** | driver_id, lat, lng, heading, updated_at |
+| **Trip** | trip_id, rider_id, driver_id, status, origin, destination, fare, created_at |
+| **SurgeZone** | cell_id, multiplier, computed_at |
+| **TripEvent** | trip_id, event_type, at, metadata |
+
+## 4. APIs
+
+```http
+-- Driver: update location
+POST /api/v1/driver/location
+{ "lat": 37.77, "lng": -122.41, "heading": 90 }
+→ 204
+
+-- Rider: request ride
+POST /api/v1/trips
+{ "origin": {...}, "destination": {...}, "vehicle_type": "uberx" }
+→ 202 { "trip_id": "t_881", "status": "REQUESTING" }
+
+-- Get trip status
+GET /api/v1/trips/:id
+→ 200 { "status": "DRIVER_EN_ROUTE", "driver_location": {...}, "eta_s": 240 }
+
+-- Driver: accept/decline
+POST /api/v1/trips/:id/respond
+{ "accept": true }
+→ 200
+
+-- Driver/Rider: complete trip
+POST /api/v1/trips/:id/complete
+→ 200 { "fare": 12.50 }
+```
+
+## 5. High Level Design
+
+```
+Driver App ─WebSocket─► Location Service ─► Redis Geo (hot store, sharded by geohash)
+                                           └► Cassandra (cold store, 30-day trail)
+
+Rider App ─REST─► Trip Service ─► Matching Engine ─► Location Service
+                       │                                    │
+                       ▼                               (find nearby drivers)
+                  Trip DB (Postgres, sharded by trip_id)
+
+Surge Pricing ─── Flink job reading demand/supply per cell ──► Redis cache
+```
+
+## 6. Deep Dives
+
+### 6.1 Geospatial indexing: how to find nearby drivers in milliseconds
+
+You need to answer "find all available drivers within 2km of (lat, lng)" in under a few milliseconds. Three viable approaches:
+
+**Geohash (simplest):** encode latitude/longitude as a base32 string where shared prefixes mean nearby locations. A 6-character prefix covers roughly a 1.2km x 0.6km cell. Query all drivers whose geohash prefix matches the rider's.
+
+Problem: the boundary issue. Two points right next to each other can have completely different prefixes if they straddle a cell boundary. Fix: query the cell plus all 8 neighboring cells.
+
+**S2 cells (Google's approach):** Earth divided into a hierarchy of cells. A 64-bit cell ID at level 14 covers about 250m x 250m. Better boundary behavior than geohash.
+
+**Quadtree (in-memory):** recursively divide a 2D region into 4 quadrants until each leaf has fewer than N points. Adapts to density: dense urban areas get fine cells, rural areas stay coarse. Used in-memory inside matching workers.
+
+Real Uber: geohash-based primary store in Redis, plus per-region in-memory quadtree on matching workers.
+
+### 6.2 The location update path: 1.25 million writes per second
+
+Naive approach: write each update directly to a database. This melts any traditional database.
+
+Hot path:
+1. Driver app pushes update over WebSocket to Location Service.
+2. Location Service writes to Redis using `GEOADD` (Redis Geo sorted set keyed by geohash prefix).
+3. Redis is sharded by 4-character geohash prefix (creates roughly 10,000 shards).
+4. Asynchronously, an aggregator batches updates to Cassandra for the historical trail.
+
+The Redis hot store needs special attention for popular areas. Downtown San Francisco has far more drivers than a rural road. Shard by a finer geohash prefix (5 characters) to distribute hot areas, or replicate hot-prefix keys across multiple Redis nodes.
+
+### 6.3 The matching engine
+
+When a ride request comes in:
+```
+1. Get rider's geohash prefix
+2. Query Location Service for all AVAILABLE drivers within 2km
+   (start with 6-char prefix; widen to 5-char if no candidates found)
+3. Filter: vehicle type matches, driver not blacklisted, ETA acceptable
+4. Score candidates: proximity, driver acceptance rate, recent earnings balance
+5. Send dispatch offer to top driver via push notification
+6. Wait up to 10 seconds for accept or decline
+7. If declined or timeout, offer to next driver
+8. On accept: atomic CAS on trip status REQUESTING -> MATCHED, driver status -> ON_TRIP
+```
+
+Step 8's atomic compare-and-swap is critical. Two riders cannot grab the same driver. Use a transactional update with optimistic locking on driver state.
+
+### 6.4 Trip state machine
+
+A trip transitions through these states:
+
+```
+REQUESTING -> MATCHED -> DRIVER_EN_ROUTE -> ARRIVED -> IN_PROGRESS -> COMPLETED
+                   \                                               /
+                    CANCELLED (at any point) ────────────────────
+```
+
+Every transition is stored durably and idempotently keyed on `(trip_id, target_state)`. The state machine is the anchor of correctness - payment, ratings, and dispute resolution all reference these transitions.
+
+### 6.5 Surge pricing
+
+Every 30 seconds, a Flink streaming job computes per-cell demand/supply:
+
+```
+demand  = count(ride requests in last 5 minutes in cell)
+supply  = count(AVAILABLE drivers in cell)
+ratio   = demand / max(supply, 1)
+if ratio > threshold: multiplier = f(ratio)
+```
+
+Result is written to a `surge:cell_id -> multiplier` cache in Redis. The pricing service reads this when quoting a fare. Drivers see surge zones highlighted on their map to incentivize moving there.
+
+### 6.6 Failure handling
+
+| Failure | Behavior |
+|---|---|
+| Driver app loses connection mid-trip | Last known location valid for ~60s; trip continues; client reconnects and replays |
+| Matching engine crashes mid-dispatch | Dispatch was recorded; if no driver ack within timeout, retry via another worker |
+| Redis location shard down | Read from Cassandra (slower); matching widens radius to compensate |
+| Trip DB shard down | Affected trips cannot transition; users see service unavailable; replay on recovery |
+
+<Callout type="tip" title="The 30-second summary">
+Ride-sharing is a **high-write geospatial index plus matching engine plus trip state machine**. The geospatial layer (geohash/S2 in Redis hot store, Cassandra cold store) handles 1.25 million location writes per second. The dispatch loop (CAS on driver state, dispatch offers, accept timeouts) prevents double-booking. The trip state machine anchors correctness for billing and disputes. Surge is a stream-processed demand/supply ratio per geographic cell.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat), same long-lived-connection pattern for real-time location
+- [Design Google Maps](/blog/system-design/design-google-maps), the routing and ETA layer
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), the hot location store
+</Callout>

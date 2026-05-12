@@ -1,0 +1,183 @@
+---
+title: "Design a URL Shortener (the staff-engineer answer)"
+slug: "design-url-shortener"
+category: "system-design"
+tags: ["caching", "data-modeling", "rate-limiting"]
+difficulty: "senior"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Beyond the standard hash-and-store: how to design a URL shortener at billions-per-day scale, with capacity numbers, cache strategy, and the trade-offs interviewers actually probe."
+---
+
+URL shortener is the Hello World of system design rounds. Done badly, it is a 5-minute conversation about base62 encoding. Done well, it is a 45-minute exploration of capacity planning, caching, hot keys, analytics pipelines, and abuse prevention - exactly what a senior+ interviewer wants.
+
+## 1. Clarifying Scope First
+
+- Do people mostly create links or mostly click them? (Almost always mostly click.)
+- Do links expire, or do they last forever?
+- Can someone pick their own custom short code like `bit.ly/my-link`?
+- Do we track how many clicks each link gets? Do we care where clicks come from?
+- Do we need to prevent abuse, like someone shortening a phishing link?
+- Is this global, and how fast should redirects feel?
+
+For this article: 100 million new links per day, 10 billion redirects per day, optional custom aliases, click analytics, rate limiting, sub-50ms redirect latency globally, links last 5 years by default.
+
+## 2. Requirements
+
+**Functional:**
+1. Shorten a long URL and return a short one.
+2. Clicking a short URL redirects to the original long URL.
+3. Optional custom aliases.
+4. Optional click analytics: counts, geography, referrer.
+
+**Non-Functional:**
+1. Redirects must almost never fail. Downtime breaks every share that ever used the service.
+2. Redirect latency under 50ms at p99.
+3. A shortened URL must never break: durability is critical.
+4. Scale to about 1 billion redirects per day.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Link** | code, long_url, user_id, created_at, expires_at, is_disabled |
+| **User** | user_id, email, plan, created_at |
+| **ClickEvent** | code, clicked_at, ip, country, referrer, user_agent |
+| **CustomAlias** | alias, code, user_id |
+
+## 4. APIs
+
+```http
+-- Create short link
+POST /api/v1/shorten
+{
+  "longUrl": "https://example.com/very/long/path",
+  "customAlias": "my-link",   // optional
+  "ttlDays": 365              // optional
+}
+→ 201 { "shortUrl": "https://short.ly/aZ3x9q" }
+
+-- Redirect (hot path)
+GET /:code
+→ 302 Location: <longUrl>
+
+-- Get link stats
+GET /api/v1/links/:code/stats
+→ 200 { "total_clicks": 12843, "clicks_today": 241, "top_countries": [...] }
+
+-- Delete link
+DELETE /api/v1/links/:code
+→ 204
+```
+
+## 5. High Level Design
+
+```
+Client
+  │ GET /:code
+  ▼
+CDN (optional: caches 302s for short windows)
+  │ miss
+  ▼
+API Servers (stateless)
+  │
+  ├── Redis cache (code → long_url)  ← hot path, sub-ms
+  │       miss
+  └── Links table (Postgres or DynamoDB)
+            read code, return long_url
+
+Write path:
+  POST /shorten
+  → Sequence Service (generates next ID)
+  → base62 encode to code
+  → INSERT into Links table
+  → warm Redis cache
+  → return shortUrl
+
+Analytics:
+  Redirect emits event to Kafka
+  → Flink aggregates clicks per code
+  → ClickHouse / DynamoDB stores aggregates
+  (never on the hot redirect path)
+```
+
+## 6. Deep Dives
+
+### 6.1 Generating the short code
+
+Three approaches, each with different trade-offs:
+
+| Approach | Pros | Cons |
+|---|---|---|
+| Hash (MD5/SHA) + base62 truncate | Stateless, deterministic | Collisions; same long URL always gives same code |
+| Auto-increment ID + base62 encode | Zero collisions, compact | Predictable (enumeration risk); needs a sequence service |
+| Random base62, check-and-insert | Unpredictable, simple | Collision retries get slow as space fills |
+
+**Best answer:** distributed sequence service producing a 64-bit Snowflake-style ID, then base62-encoded to about 7 characters. App servers pre-fetch ranges of IDs to avoid calling the sequence service on every write.
+
+```
+64-bit Snowflake:
+  41 bits timestamp (ms) | 10 bits machine ID | 12 bits sequence
+  → base62 encode → 7-9 characters
+```
+
+Do not say "just use UUID." UUIDs are 22+ characters in base62. Interviewers know this trade-off; address it explicitly.
+
+### 6.2 Cache strategy: the read path is everything
+
+The key insight: with a 100:1 read-to-write ratio, and the top 20% of links serving 80% of traffic, caching the hot set completely transforms the system.
+
+Top 10 million hot links at 500 bytes each is only 5 GB in Redis - trivially small.
+
+**301 vs 302:** 301 is permanent and cached aggressively by browsers. This saves traffic but breaks click analytics because browsers never contact the server again. Most real shorteners use **302** so every click reaches origin.
+
+**Hot key protection:** if a viral link gets 100K requests per second, a single Redis node will struggle. Mitigations: local cache on each app server with a very short TTL, request coalescing so only one backend call goes out per key per interval.
+
+### 6.3 The bot traffic multiplier
+
+Real shorteners see 5-20x their human traffic in bot crawls: link previews from WhatsApp, Slack, Twitter, search crawlers, malware scanners. Every shared link gets fetched dozens of times before any human clicks it.
+
+Implications:
+- Provision capacity for the bot multiplier, not just human traffic.
+- Do not count bot hits as "clicks" in analytics. Filter by User-Agent or request method (bots usually issue HEAD requests).
+- Bot traffic is actually what creates hot-key problems, not human traffic.
+
+### 6.4 Analytics: never on the redirect path
+
+Writing to the analytics store synchronously on every redirect is a common mistake. It adds latency and creates a dependency that can break the core redirect path.
+
+Instead: the redirect handler publishes a tiny event to Kafka and returns immediately. A Flink job aggregates click counts and geographic data. Per-link counters in Redis give near-real-time numbers. Durable analytics flow through the stream pipeline separately.
+
+The redirect stays under 5ms. Analytics may be a minute behind. That trade-off is always worth it.
+
+### 6.5 ID generation: the Snowflake deep-dive
+
+If the interviewer asks to go deeper on ID generation:
+
+**Clock skew is the correctness risk.** Two failure modes that bite real systems:
+1. NTP moves the clock backwards 30 seconds. The next 30 seconds of generated IDs collide with already-issued IDs.
+   - Fix: if `now < last_used_timestamp`, block ID generation until the clock catches up.
+2. Two machines share the same machine ID after a VM clone or container restart.
+   - Fix: lease machine IDs from etcd/ZooKeeper at startup with a heartbeat. Fail loudly if the lease cannot be renewed.
+
+**Custom aliases:** they live in the same code namespace as auto-generated codes. Use `INSERT ... ON CONFLICT DO NOTHING` for uniqueness. Reserve single-letter and common-word aliases so they cannot be squatted.
+
+**Enumeration attacks:** sequential IDs are predictable. An attacker can enumerate `aZ3x9q`, `aZ3x9r`, `aZ3x9s` and discover every link the service ever shortened. Mitigations: hash the ID with a secret salt before encoding, or use part of the bits for randomness.
+
+### 6.6 Abuse prevention
+
+- Rate limit link creation per user and per IP at the API gateway (token bucket).
+- Block known-bad domains at write time using phishing and malware blocklists.
+- Soft-disable flagged links (`is_disabled = true`) rather than deleting. Deletion breaks the audit trail.
+- HTTPS only on the redirect domain.
+
+<Callout type="tip" title="The 30-second summary">
+A URL shortener is fundamentally a **read-heavy key-value store with a sequence generator in front**. The interesting parts are the cache strategy, hot-key protection, async analytics, and abuse prevention. Get those four right and you have answered the staff-level version of the question.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), the read path is basically this
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), for abuse prevention
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending), for finding the most-clicked links
+</Callout>

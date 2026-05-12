@@ -1,0 +1,224 @@
+---
+title: "Design a Distributed Job Scheduler"
+slug: "design-distributed-job-scheduler"
+category: "system-design"
+tags: ["cron", "job-scheduling", "distributed-locks", "at-least-once", "idempotency"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How do you run millions of scheduled jobs reliably when any machine can crash at any time, without running the same job twice or missing it entirely?"
+---
+
+A job scheduler sounds simple: run this function at this time. Cron does it on a single machine. The interview question is what happens when you need 10 million jobs per day, any machine can crash, and you need every job to run exactly once (or at least once with safe retry).
+
+## 1. Clarifying Scope First
+
+- Are jobs triggered by a schedule (every day at 9 AM), by a delay (run in 30 minutes), or by an event (run when this other job finishes)?
+- Can we run the same job twice safely if something goes wrong, or does the business logic require it runs exactly once?
+- How long can a job run? Seconds? Minutes? Hours?
+- Does the order of jobs matter? Does one job block another from starting?
+- What happens if a job fails? Automatic retry? Alert and stop? Skip?
+
+For this article: cron-style recurring schedules plus one-off delayed jobs. At-least-once execution with idempotent consumers. Jobs can run up to 1 hour. No strict ordering between unrelated jobs. Automatic retry with exponential backoff on failure.
+
+## 2. Requirements
+
+**Functional:**
+1. Create a job with a cron schedule (e.g. `0 9 * * *`) or a single run-at time.
+2. The scheduler fires each job at approximately its scheduled time, within a few seconds.
+3. Each job is dispatched to a worker for execution.
+4. Job status is tracked: pending, running, succeeded, failed.
+5. Failed jobs are retried with configurable backoff, up to a max retry count.
+
+**Non-Functional:**
+1. Supports 10 million active job definitions.
+2. Can fire up to 100,000 jobs per minute burst.
+3. No missed executions: if the scheduler is down, jobs scheduled during downtime fire as soon as it recovers (or skip with a note if too late).
+4. No double-execution: the same job instance must not run on two workers simultaneously.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **JobDefinition** | job_id, name, schedule (cron string), payload, max_retries, timeout_s, enabled |
+| **JobInstance** | instance_id, job_id, scheduled_at, started_at, finished_at, status, worker_id, attempt |
+| **Worker** | worker_id, host, last_heartbeat, capacity |
+| **Lock** | lock_key, holder_id, expires_at |
+
+## 4. APIs
+
+```http
+-- Create a recurring job
+POST /api/v1/jobs
+{
+  "name": "send_daily_digest",
+  "schedule": "0 9 * * *",
+  "timezone": "America/New_York",
+  "payload": { "template": "daily_digest" },
+  "max_retries": 3,
+  "timeout_s": 300
+}
+→ 201 { "job_id": "j_9182" }
+
+-- Schedule a one-off job
+POST /api/v1/jobs/:job_id/schedule
+{ "run_at": "2026-06-01T09:00:00Z" }
+→ 201 { "instance_id": "inst_55" }
+
+-- Get job status
+GET /api/v1/instances/:instance_id
+→ 200 { "status": "running", "started_at": "...", "attempt": 1 }
+
+-- List recent job runs
+GET /api/v1/jobs/:job_id/instances?limit=20
+→ 200 { "instances": [...] }
+```
+
+## 5. High Level Design
+
+```
+Scheduler Service (leader-elected, runs on 3 replicas, 1 active at a time)
+    │
+    │  Every 10 seconds: scan job_definitions WHERE next_run_at <= now
+    │  Create job_instance rows with status=PENDING
+    │  Push instance_ids into a queue
+    │
+    ▼
+Message Queue (Redis Streams or Kafka)
+    │
+    ▼
+Worker Pool (horizontally scalable)
+    │  Pull instance_id from queue
+    │  Acquire distributed lock on instance_id
+    │  Update instance status=RUNNING, worker_id=me
+    │  Execute job payload
+    │  On success: update status=SUCCEEDED, compute next_run_at for recurring
+    │  On failure: update status=FAILED, if retries < max: re-enqueue with delay
+
+Status DB (Postgres)
+    job_definitions, job_instances
+
+Metadata DB / Cache (Redis)
+    Distributed locks, heartbeats
+```
+
+## 6. Deep Dives
+
+### 6.1 Leader election for the scheduler
+
+The scheduler service scans the database every N seconds and creates job instances. If two schedulers run simultaneously, they both see the same due jobs and create duplicate instances.
+
+Use a distributed lock or leader election to ensure only one scheduler is active:
+
+```
+Scheduler node A: acquire lock "scheduler_leader" with TTL 30s
+  -> succeeds: A is leader, starts scanning
+Scheduler node B: tries same lock
+  -> fails: B sleeps, retries
+
+Every 20s: A renews the lock (before 30s TTL expires)
+If A dies: lock expires after 30s, B acquires it
+```
+
+With Redis `SET NX PX`: one atomic operation, no race condition. If A is paused (GC pause, network partition), the lock expires and B takes over. This is intentional: prefer brief double-scheduling over missing a job.
+
+### 6.2 Scanning at scale: too many jobs
+
+Scanning all 10 million job definitions every 10 seconds is expensive. Three approaches:
+
+**1. Narrow-window query:** Only fetch jobs due in the next minute:
+```sql
+SELECT * FROM job_definitions
+WHERE next_run_at BETWEEN NOW() AND NOW() + INTERVAL '1 minute'
+  AND enabled = true
+LIMIT 10000
+```
+Efficient with an index on `next_run_at`.
+
+**2. Sharded schedulers:** Partition job_definitions by hash of `job_id` into 16 buckets. 16 scheduler instances each own 1 bucket. No cross-node coordination needed for scans.
+
+**3. Min-heap in memory:** Load all `job_id, next_run_at` pairs into a priority queue at startup. Only query the database for jobs whose `next_run_at` has arrived. Reloads from DB when a new job is created. Works well for fewer than 10 million jobs.
+
+### 6.3 Preventing double execution: the fence
+
+Even with a leader-elected scheduler creating each instance once, two workers might grab the same instance from the queue if a consumer group delivers twice. Use a distributed lock per instance:
+
+```
+Worker W1: SETNX "lock:inst_55" W1 EX 600  -> OK (acquired)
+Worker W2: SETNX "lock:inst_55" W2 EX 600  -> FAIL (W1 holds it)
+
+W1 updates DB: status=RUNNING
+W1 finishes: update status=SUCCEEDED, DEL "lock:inst_55"
+```
+
+The lock TTL must be longer than the maximum job runtime (600s for a 1-hour job limit). If W1 dies mid-job, the lock expires and a retry worker can pick it up.
+
+**Optimistic locking alternative (no Redis):** update the database row directly with a version check:
+```sql
+UPDATE job_instances
+SET status = 'RUNNING', worker_id = :my_id, version = version + 1
+WHERE instance_id = :id AND status = 'PENDING' AND version = :expected_version
+```
+If 0 rows updated, another worker claimed it.
+
+### 6.4 Heartbeat and timeout detection
+
+A worker takes a job and then the server hosting it loses power. Without a heartbeat, the job stays in RUNNING state forever.
+
+Each worker sends a heartbeat every 15 seconds:
+```sql
+UPDATE job_instances SET heartbeat_at = NOW()
+WHERE instance_id = :id AND worker_id = :my_id
+```
+
+A separate watchdog service queries:
+```sql
+SELECT * FROM job_instances
+WHERE status = 'RUNNING'
+  AND heartbeat_at < NOW() - INTERVAL '45 seconds'
+```
+
+These are "zombie" jobs. The watchdog marks them as FAILED and re-enqueues them (if retries remain). The watchdog itself uses a distributed lock so only one runs at a time.
+
+### 6.5 Cron parsing and time zone handling
+
+`0 9 * * *` means 9 AM. But in which time zone? A job that must run at 9 AM New York time must not run at 9 AM UTC.
+
+Store the IANA timezone string (e.g. `America/New_York`) with the job. When computing `next_run_at`, convert to UTC for storage:
+
+```python
+import croniter, pytz
+from datetime import datetime
+
+tz = pytz.timezone("America/New_York")
+now_local = datetime.now(tz)
+cron = croniter.croniter("0 9 * * *", now_local)
+next_local = cron.get_next(datetime)
+next_utc = next_local.astimezone(pytz.utc)  # store this
+```
+
+Day-light saving time transitions can create duplicate or missing 9 AM runs. Handle by always computing from the previous run's UTC time, not from "now."
+
+### 6.6 Retry with exponential backoff
+
+Failed jobs should not retry immediately (transient errors need time to clear).
+
+```python
+delay_seconds = base_delay * (2 ** attempt)  # e.g. 30, 60, 120, 240
+max_delay = 3600  # cap at 1 hour
+run_at = now + min(delay_seconds, max_delay) + random_jitter
+```
+
+Jitter prevents retry storms: if 10,000 jobs fail simultaneously (e.g. downstream service blip), they spread retries over a time window instead of hammering at the same second.
+
+After max_retries, move to a dead-letter queue. Alert on-call. Human intervention required.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed job scheduler is a **leader-elected scanner** that materializes due jobs into a queue, consumed by stateless workers that use **distributed locks to prevent double execution** and **heartbeats to detect zombie jobs**. The scheduler itself can scale to millions of job definitions by narrowing its database scan window or sharding job ownership. Idempotent job logic handles the inevitable at-least-once delivery.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Distributed Queue](/blog/system-design/design-distributed-queue), the queue that backs job dispatching
+- [Design Distributed Locking](/blog/system-design/design-distributed-locking), the mechanism that prevents double execution
+</Callout>

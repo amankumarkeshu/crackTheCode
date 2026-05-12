@@ -1,0 +1,188 @@
+---
+title: "Design a Distributed Tracing System (Jaeger / Tempo / X-Ray)"
+slug: "design-distributed-tracing-system"
+category: "system-design"
+tags: ["observability", "tracing", "spans", "sampling", "opentelemetry"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Track a single request across hundreds of microservices: span model, head- vs tail-based sampling, ingestion at millions of spans/sec, time-bounded queries, and the cost-vs-fidelity trade-off."
+---
+
+In a microservices world, a single user request fans out to dozens of services. When something is slow or wrong, you need to trace that request across all hops to see where the time went. Building a system that does this at scale (millions of spans per second, queries returning in seconds) is its own design problem.
+
+## 1. Clarifying Scope First
+
+- Are we building this as an internal tool for our own services, or as a product that other companies buy (like Datadog)?
+- How many services will we trace? A few dozen, or thousands?
+- How many events per second do we expect? A small startup might send 100,000 per second; a large e-commerce platform could send 50 million.
+- How long do we keep the data? A week for hot queries, a month for searching, three months for compliance?
+- After a request finishes, can we decide whether to keep or discard its trace based on what we saw (for example, always keep slow or errored traces)? Or do we decide upfront?
+- What should engineers be able to search for? Find trace by ID, find all slow requests to a service, see which services call which?
+
+For this article: internal OpenTelemetry-compatible tracer, about 10 million spans per second across thousands of services, 7-day hot retention, tail-based sampling (decide after seeing the full trace), queries by trace ID and slow-trace search.
+
+## 2. Requirements
+
+**Functional:**
+1. Services emit spans; the system collects them and links them into complete traces.
+2. Engineers can look up a trace by its ID and see the full tree of spans and timing.
+3. Engineers can search for traces that were slow, errored, or matched certain tags.
+4. The system shows a service-dependency graph: which services call which.
+5. Tail-based sampling: keep 100% of slow or errored traces, sample down everything else.
+
+**Non-Functional:**
+1. Handles at least 10 million spans per second ingest without dropping data.
+2. Trace lookups return within 3 seconds even for traces with thousands of spans.
+3. Tail-based sampling decisions complete within 30 seconds of the trace finishing.
+4. The tracing system itself must not meaningfully slow down the services it observes.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Trace** | trace_id, root_span_id, start_time, duration_ms, service_count, has_error |
+| **Span** | span_id, trace_id, parent_span_id, service_name, operation, start_time, duration_ms, status, tags{} |
+| **Service** | service_name, language, sdk_version |
+| **SamplingDecision** | trace_id, keep, reason, decided_at |
+| **DependencyEdge** | source_service, target_service, call_count, error_count, window |
+
+## 4. APIs
+
+```http
+-- SDK sends a batch of spans (internal only)
+POST /v1/spans
+Content-Type: application/x-protobuf
+[SpanBatch]
+→ 202
+
+-- Look up a trace by ID
+GET /api/v1/traces/:trace_id
+→ 200 { "spans": [...], "duration_ms": 412, "has_error": false }
+
+-- Search for traces
+GET /api/v1/traces/search?service=checkout&min_duration_ms=500&has_error=true&from=...&to=...
+→ 200 { "traces": [{ "trace_id": "...", "duration_ms": 1200, "root_op": "POST /checkout" }] }
+
+-- Get service dependency graph
+GET /api/v1/services/dependencies?window=1h
+→ 200 { "edges": [{ "from": "frontend", "to": "cart-service", "calls": 12000 }] }
+```
+
+## 5. High Level Design
+
+```
+Services (thousands)
+    │ OpenTelemetry SDK: batches spans locally
+    │ sends every 5 seconds or when buffer full
+    ▼
+Collector tier (stateless, horizontally scalable)
+    Route spans by trace_id into a message queue
+
+Message Queue (Kafka, partitioned by trace_id)
+    All spans for the same trace go to the same partition
+
+Span Aggregator (stateful, one per partition)
+    Buffers spans for each trace in memory (Redis)
+    Waits 30 seconds for trace to complete
+    Makes sampling decision
+    Writes kept spans to storage
+
+Storage layer
+    Trace index (Elasticsearch): for search by service, duration, error
+    Span store (Cassandra): for trace-by-id lookups, keyed by trace_id
+
+Query service
+    Handles search and lookup APIs
+    Returns results to UI / alerting systems
+```
+
+## 6. Deep Dives
+
+### 6.1 The span model and trace propagation
+
+Every span records one unit of work: an HTTP call, a database query, a function call.
+
+```
+Span fields:
+  trace_id:    7a3f9b...  (same for every span in this request)
+  span_id:     c2d1...    (unique to this span)
+  parent_id:   a1b2...    (the span that called this one; none for the root)
+  service:     cart-service
+  operation:   GET /cart/items
+  start_time:  1716900000.005
+  duration_ms: 23
+  status:      OK
+  tags:        { http.status_code: 200, user_id: u_42 }
+```
+
+When `cart-service` calls `inventory-service`, it passes the `trace_id` and its own `span_id` (as the new parent) in HTTP headers. The receiving service reads those headers and creates a child span. This is trace context propagation; every major framework does it automatically with the OpenTelemetry SDK.
+
+### 6.2 Head-based vs tail-based sampling
+
+At 10 million spans per second and 100 bytes each, that is 1 GB/sec of raw span data. You cannot keep all of it. You must sample.
+
+**Head-based sampling** (simple, cheap): the first service decides randomly whether to record the trace. If it rolls "drop," no child span is ever sent. Cheap because the decision is made once up front. Problem: you never know at the time of the first span whether this request will fail or be slow. You might discard the exact trace you needed.
+
+**Tail-based sampling** (what this design uses): all spans are sent to collectors regardless. The aggregator holds spans in memory for 30 seconds. After the trace completes (no new spans arriving), it looks at the full trace:
+- Has any span errored? Keep 100%.
+- Any span slower than 500ms? Keep 100%.
+- Otherwise: keep 1% randomly.
+
+This guarantees that slow and broken traces are always retained. Cost: you buffer all spans in memory and make the decision later.
+
+### 6.3 Routing spans to the same aggregator
+
+For tail-based sampling to work, all spans of the same trace must reach the same aggregator. Route at the Kafka level: `partition = hash(trace_id) % num_partitions`. Each aggregator consumes one Kafka partition, so all spans for a given trace land on one machine.
+
+If the aggregator crashes, Kafka rebalances its partition to a surviving aggregator. That aggregator picks up mid-trace spans from Redis (where they were buffered) and continues. The 30-second window restarts on recovery.
+
+### 6.4 Storing traces for lookup
+
+Two different access patterns require two different storage systems:
+
+**Trace by ID** (random access, must be fast):
+- Cassandra with `trace_id` as the partition key.
+- All spans for that trace in one row group.
+- Lookup time: under 10ms.
+
+**Search by service/duration/error** (full-text-like, flexible query):
+- Elasticsearch. Index one document per trace with metadata: `service`, `root_operation`, `duration_ms`, `has_error`, `tags`.
+- Query: `service:checkout AND duration_ms:>500 AND has_error:true`.
+- Elasticsearch returns trace IDs; then fetch spans from Cassandra.
+
+The two stores are written in parallel by the aggregator after the sampling decision.
+
+### 6.5 Service dependency graph
+
+A background job reads the "edges" from spans every minute:
+
+```sql
+-- Extract each (caller, callee) pair from spans
+SELECT parent_service, child_service, COUNT(*), SUM(error) as errors
+FROM spans
+WHERE start_time > now - 1h
+GROUP BY parent_service, child_service
+```
+
+Store results in a small table or materialized view. The API returns edges with call counts and error rates. This powers the visual service map.
+
+### 6.6 Keeping overhead low in the SDK
+
+The SDK runs inside your services. If it is slow or uses too much memory, engineers will disable it.
+
+Key SDK behaviors:
+- **Async export**: spans are queued in memory and sent by a background thread. No blocking on the request path.
+- **Local batching**: spans are buffered for 5 seconds or 512 KB, whichever comes first, then sent in one batch. Reduces network calls.
+- **Circuit breaker**: if the collector is unreachable, stop trying after 3 failures, log a warning, and drop spans rather than blocking memory.
+- **Low-cardinality tags**: never put user IDs or request bodies in span tags at scale. Each unique tag value costs index storage.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed tracing system is a **tail-based sampling pipeline**: SDK batches spans to a stateless collector tier, which routes by trace ID into Kafka, consumed by stateful aggregators that buffer for 30 seconds and make a keep/drop decision. Kept spans go to Cassandra for trace lookup and Elasticsearch for search. The biggest design decision is head vs tail sampling: tail is more useful but requires buffering all spans in flight.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Distributed Queue](/blog/system-design/design-distributed-queue), the Kafka backbone used here
+- [Design Rate Limiter](/blog/system-design/design-rate-limiter), another observability-adjacent infrastructure component
+</Callout>

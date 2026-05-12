@@ -1,0 +1,195 @@
+---
+title: "Design Instagram (photos, feed, stories, explore)"
+slug: "design-instagram"
+category: "system-design"
+tags: ["photos", "feed", "stories", "ranking", "media-pipeline"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Photo upload pipeline, multi-resolution serving, the asymmetric-follow feed, 24-hour ephemeral Stories, and Explore - a tour of Instagram's core systems and what makes each one unique."
+---
+
+Instagram is mostly News Feed plus WhatsApp plus YouTube stitched together with photo-specific tweaks. If you have already designed those, this question is about identifying which patterns you reuse and which subsystems are truly unique to Instagram. The unique parts: the photo upload pipeline, Stories (a completely different storage strategy), and Explore (interest-based ranking with no follow-graph dependency).
+
+## 1. Clarifying Scope First
+
+- Are we building photos only, or short videos and Reels too?
+- Do people follow celebrities who have millions of followers, or is it mostly friends following friends?
+- Are Stories 24-hour posts that disappear, and do they live separately from the main feed?
+- Do we need a discovery tab showing content from people the user does not follow?
+- Is direct messaging in scope?
+- Is this global with hundreds of millions of users?
+
+For this article: photos and short videos, full feed with asymmetric follows, 24-hour Stories, Explore tab, direct messaging, 2 billion monthly active users, 100 million posts per day.
+
+## 2. Requirements
+
+**Functional:**
+1. Upload a photo or video.
+2. See a feed of posts from people you follow.
+3. View and post 24-hour Stories.
+4. Discover content in the Explore tab.
+5. Send and receive direct messages.
+6. Like, comment, and save posts.
+
+**Non-Functional:**
+1. Feed reads should feel instant: under 200ms p99.
+2. Uploaded photos available to followers within seconds.
+3. CDN serves about 1.7 million image requests per second globally.
+4. Stories disappear at exactly 24 hours.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **User** | user_id, username, follower_count, bio, avatar_url |
+| **Post** | post_id, author_id, caption, media_urls[], created_at, status |
+| **MediaVariant** | post_id, resolution, storage_url, format |
+| **Story** | story_id, user_id, media_url, created_at, expires_at |
+| **Follow** | follower_id, followee_id, created_at |
+| **FeedInbox** | user_id, post_id, author_id, ts (pre-built timeline) |
+| **Like** | post_id, user_id, created_at |
+| **Comment** | comment_id, post_id, user_id, text, created_at |
+
+## 4. APIs
+
+```http
+-- Upload photo (pre-signed upload)
+POST /api/v1/posts/init
+{ "caption": "...", "media_count": 1 }
+→ 201 { "post_id": "p_99", "upload_urls": ["https://s3.../..."] }
+
+POST /api/v1/posts/:id/publish
+→ 200 { "post_id": "p_99", "status": "processing" }
+
+-- Get feed
+GET /api/v1/feed?cursor=...
+→ 200 { "posts": [...], "next_cursor": "..." }
+
+-- Post a story
+POST /api/v1/stories
+{ "upload_url_result": "done" }
+→ 201 { "story_id": "s_12" }
+
+-- Get stories tray
+GET /api/v1/stories/tray
+→ 200 { "stories": [{ "user_id": ..., "unseen_count": 3 }, ...] }
+```
+
+## 5. High Level Design
+
+```
+Mobile App ─► API Gateway ─► Service Mesh ─►
+
+   Posts Service       Media Pipeline (Kafka + workers)
+   Feed Service        Object Storage + CDN
+   Stories Service     Notification Service
+   DM Service          Explore Service (ML)
+   User Service        Search Service
+
+Each service owns its data, exposes gRPC APIs.
+```
+
+The key split: **Posts** and **Stories** look similar from the outside but use completely different storage strategies because Stories disappear in 24 hours while Posts live forever.
+
+## 6. Deep Dives
+
+### 6.1 Photo upload pipeline
+
+```
+1. Client calls init, gets a pre-signed upload URL
+2. Client PUTs original photo directly to S3 (chunked for large files)
+3. Client calls publish
+4. Posts Service persists row (status: PROCESSING), publishes to Kafka
+5. Media workers:
+   a. Generate 4 sizes: 150x150 thumb, 320, 720, 1080
+   b. Strip EXIF metadata (privacy)
+   c. Re-encode to WebP/AVIF for size savings
+   d. Run safety classifier (NSFW / spam)
+   e. Write all variants to object storage
+6. Posts Service marks post READY, triggers fan-out to followers' feeds
+7. CDN pre-warm: push smallest 2 variants to top regions immediately
+```
+
+Why pre-generate sizes rather than resize on the fly? At 1.7 million image reads per second, pre-generated sizes give a dramatically higher CDN cache hit rate. On-the-fly resize is great for low-traffic products; it is economically painful at Instagram scale.
+
+### 6.2 The feed: reuse News Feed pattern
+
+Instagram's home feed uses the same **hybrid push/pull** pattern described in [News Feed (Twitter)](/blog/system-design/design-news-feed-twitter):
+- Normal users (median ~150 follows) get fan-out on write: posts go into followers' `FeedInbox`.
+- Celebrities (Cristiano Ronaldo with 600M followers) get fan-out on read: pulled at query time.
+- Inbox capped at ~500 entries; deep scroll falls back to pull.
+
+The major Instagram-specific difference: **the feed is ranked, not chronological**. The inbox stores candidate post IDs. A ranking layer scores them by relevance at read time and returns them in a personalized order.
+
+### 6.3 Stories: fundamentally different from posts
+
+Stories expire in 24 hours. This changes everything about the storage strategy.
+
+```sql
+stories(
+  id           bigint PK,
+  user_id      bigint,
+  media_url    text,
+  created_at   timestamp,
+  expires_at   timestamp,   -- created_at + 24h
+  view_count   bigint
+)
+```
+
+- **No inbox for Stories.** They use fan-out on read. When you open the app, Instagram queries "stories from people I follow where `expires_at > now()`."
+- **No need to push.** Most stories are viewed within hours of posting so the hot read cache covers them efficiently.
+- A nightly GC job deletes expired media from object storage.
+
+Why different from posts? Story volume is high but lifetime is tiny. Pre-writing stories to 500M followers' inboxes would be almost entirely wasted effort since 90% would expire before the follower even looks.
+
+This contrast between posts (fan-out on write) and stories (fan-out on read) is a great staff-level point: same product, two completely different storage strategies based on data lifetime and access pattern.
+
+### 6.4 Explore: discovery without the follow graph
+
+The Explore tab shows posts from people you do not follow. It is a pure ranking problem:
+
+```
+1. Candidate generation (offline, refreshed hourly):
+   For each user, produce ~5K candidate posts based on:
+     - Friends-of-friends graph
+     - Topic and interest embeddings
+     - Geographic affinity
+     - Content trending in their language
+
+2. Online scoring (per request, < 100ms):
+   Score each candidate with a neural network
+   Filter: already-seen, blocked accounts, NSFW
+   Return top 20
+
+3. Real-time updates:
+   User engages (like, save, long dwell) → update interest embedding
+   → next request uses fresh signal
+```
+
+### 6.5 Like and follower counts
+
+These are distributed counters with a massive write rate. See [Design a Distributed Counter](/blog/system-design/design-distributed-counter) for the full design.
+
+Short version: each counter is sharded into N sub-counters. Writes go to a random shard; reads sum across shards. Hot posts (a celebrity post going viral) use more shards.
+
+### 6.6 CDN strategy
+
+Photo URLs are content-hashed:
+```
+https://cdn.ig/p/<sha256-of-content>/<resolution>.webp
+```
+
+This means they are infinitely cacheable with no invalidation needed. When a photo is "deleted," it is removed from object storage; the CDN TTL expires it within hours.
+
+<Callout type="tip" title="The 30-second summary">
+Instagram is **News Feed (with ranking) plus Chat plus YouTube** with photo-specific tweaks. The unique parts: a multi-resolution upload pipeline driven by Kafka, Stories with fundamentally different storage (TTL-based, fan-out on read), and an Explore page that is pure ML ranking with no follow-graph dependency. Like-counts are distributed counters; everything is content-hashed for infinite CDN cacheability.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), the feed core
+- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat), Instagram DM
+- [Design YouTube](/blog/system-design/design-youtube), media pipeline and CDN
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), like and view counts
+</Callout>

@@ -1,0 +1,203 @@
+---
+title: "Design YouTube (upload, transcoding, delivery)"
+slug: "design-youtube"
+category: "system-design"
+tags: ["video", "cdn", "transcoding", "object-storage", "abr-streaming"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How to design YouTube end-to-end: chunked upload, async transcoding into multiple bitrates, CDN-backed adaptive streaming, and the metadata layer that ties it all together."
+---
+
+"Design YouTube" is two completely different systems pretending to be one. The write path (upload and transcode) is slow, async, and batch-shaped. The read path (playback) is hot, latency-critical, and CDN-served. Junior candidates blur them together. Staff candidates separate them and design each one properly.
+
+## 1. Clarifying Scope First
+
+- Are we handling live streams, or only videos that are uploaded and watched later?
+- What video formats can people upload?
+- How long can videos be? A few minutes? Several hours?
+- Do we need to serve videos in multiple quality levels so it adapts to slow connections?
+- Is this global or just one region?
+- Are comments and recommendations in scope?
+
+For this article: uploaded videos only (no live), MP4 input, transcode to 144p through 4K, global CDN delivery, about 2 billion users, 500 hours of video uploaded every minute.
+
+## 2. Requirements
+
+**Functional:**
+1. Upload a video.
+2. Process it: transcode to multiple bitrates, generate thumbnails.
+3. Stream it back to viewers at the quality level their connection supports.
+4. List and search videos.
+
+**Non-Functional:**
+1. Read-heavy: roughly 1,000 views for every upload.
+2. First frame of playback in under 2 seconds, globally.
+3. Uploaded originals are never lost.
+4. Petabytes of new content per day.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Video** | video_id, owner_id, title, description, duration_s, status, created_at |
+| **VideoVariant** | video_id, bitrate, resolution, codec, manifest_url |
+| **User** | user_id, name, channel_id, subscriber_count |
+| **ViewEvent** | video_id, user_id, watched_at, duration_watched_s |
+| **Thumbnail** | video_id, timestamp_s, storage_url |
+| **UploadSession** | upload_id, video_id, chunks_expected, chunks_received, status |
+
+## 4. APIs
+
+```http
+-- Initiate upload
+POST /api/v1/videos/upload/init
+{ "filename": "vlog.mp4", "size_bytes": 5368709120 }
+→ 201 { "upload_id": "u_982", "chunk_urls": ["https://s3.../..."] }
+
+-- Complete upload
+POST /api/v1/videos/upload/:upload_id/complete
+{ "chunk_ids": ["c0","c1","c2",...] }
+→ 202 { "video_id": "v_456", "status": "processing" }
+
+-- Get video
+GET /api/v1/videos/:id
+→ 200 { "video_id": "v_456", "title": "...", "manifest_url": "..." }
+
+-- Record view event
+POST /api/v1/videos/:id/view
+{ "user_id": "u_42", "watched_s": 312 }
+→ 204
+```
+
+## 5. High Level Design
+
+```
+Uploader ─► Upload Service ─► Object Storage (raw original)
+                                        │
+                                        ▼
+                              Kafka: "video.uploaded"
+                                        │
+                                        ▼
+                             Transcode Workers (Flink)
+                             split into 10-sec segments,
+                             encode each at 5 bitrates in parallel
+                                        │
+                                        ▼
+                          Object Storage (transcoded segments + HLS manifest)
+                                        │
+                                        ▼
+                                       CDN  ◄── Viewer (HLS/DASH player)
+
+Metadata Service ────► Video DB (video_id, status, available variants)
+```
+
+Two storage tiers: **object storage** (S3/GCS) holds the actual bytes, **metadata DB** (sharded SQL or wide-column) holds everything queryable.
+
+## 6. Deep Dives
+
+### 6.1 Chunked resumable upload
+
+Naively uploading a multi-gigabyte file over HTTP is fragile. The real approach:
+
+1. Client calls init, gets a list of pre-signed chunk URLs (5-10 MB each).
+2. Client splits the file into chunks and PUTs each chunk directly to object storage, bypassing the API server.
+3. Client retries any failed chunk with the same chunk ID (idempotent).
+4. Client calls complete with the list of chunk IDs.
+5. Upload Service triggers the transcode pipeline.
+
+The API server never touches the video bytes. The client talks directly to S3. Chunks upload in parallel. A failed connection loses at most one chunk.
+
+### 6.2 Parallel transcode pipeline
+
+A single 1-hour 4K video might take 10x real-time to transcode on one machine. The solution: segment-level parallelism.
+
+```
+Original video → split into 10-second segments
+                       │
+                 Kafka: transcode_jobs
+                       │
+           ┌───────────┴───────────┐
+           ▼                       ▼
+       Worker 1               Worker N
+    (all bitrates,           (all bitrates,
+     segment 0)               segment N)
+           │                       │
+           └───────────┬───────────┘
+                       ▼
+             Reassemble per bitrate
+                       │
+                       ▼
+             Generate HLS/DASH manifest
+                       │
+                       ▼
+             Object Storage (final renditions)
+                       │
+                       ▼
+         Metadata Service: mark video "ready"
+```
+
+A 60-minute video at 6 segments per minute becomes 360 segments processed in parallel. A failed worker only reruns one 10-second segment, not the whole video.
+
+Hardware: GPU encoders (NVENC) or dedicated ASICs. CPU encoding at this scale is economically infeasible.
+
+### 6.3 Adaptive Bitrate (ABR) streaming
+
+The viewer's player does not ask for "the 720p video." It asks for a manifest, then fetches individual 10-second segments at whichever bitrate fits current bandwidth.
+
+```
+GET /video/abc/master.m3u8
+  → list of variants: 144p, 360p, 720p, 1080p, 4K
+
+GET /video/abc/720p/playlist.m3u8
+  → list of 10-second .ts segments
+
+GET /video/abc/720p/segment_0017.ts
+  → 10 seconds of video
+```
+
+Every 10 seconds, the player measures throughput, picks the highest quality it can sustain, and switches on the next segment boundary. Segment boundaries are aligned across all bitrates so switching is seamless.
+
+### 6.4 CDN strategy
+
+Without a CDN, you would need to serve petabytes per second from origin. That is not possible.
+
+```
+Edge (viewer's ISP) → Regional cache → Origin (object storage)
+      ~5ms                ~30ms             ~150ms
+      hit ~80%            hit ~99%          miss ~1%
+```
+
+YouTube runs its own edge cache fleet (Google Global Cache) that ISPs install inside their own data centers. ISPs save backbone bandwidth; YouTube saves egress costs.
+
+For new and viral content: pre-warm the edge by pushing the manifest and first few segments to the top cities the moment a video goes live or starts trending.
+
+### 6.5 View counting
+
+A view is not every GET on a segment file. That overcounts wildly. YouTube's heuristic: a view is recorded when a unique user watches at least 30 seconds.
+
+Pipeline:
+1. Player sends a `playback_event` to the metrics service every few seconds.
+2. A stream processor aggregates per `(user, video)` over a sliding window.
+3. When the user crosses the 30-second threshold, increment the view counter if they have not been counted in the last few hours.
+4. View count is a distributed counter. See the [Distributed Counter](/blog/system-design/design-distributed-counter) post.
+
+### 6.6 Failure handling
+
+| Failure | Behavior |
+|---|---|
+| Upload chunk fails | Client retries only that chunk; idempotent on chunk ID |
+| Transcode worker dies | Kafka offset uncommitted; another worker picks it up; idempotent on segment ID |
+| Origin storage down | CDN absorbs reads from cache; new uploads queue and retry |
+| Whole region down | Multi-region replication; CDN routes to surviving region |
+
+<Callout type="tip" title="The 30-second summary">
+YouTube is **two systems**: an async chunked-upload and transcode pipeline producing HLS/DASH segments in object storage, and a CDN-fronted read path that does roughly 99% of the bandwidth at the edge. Metadata lives in a separate sharded database. View counts are stream-processed distributed counters. The interview win is **separating write and read paths cleanly** and refusing to let either contaminate the other.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the transcode job pipeline
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), sits in front of metadata reads
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), view-count storage
+</Callout>

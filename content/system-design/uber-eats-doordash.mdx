@@ -1,0 +1,269 @@
+---
+title: "Design Uber Eats / DoorDash (Food Delivery)"
+slug: "design-uber-eats-doordash"
+category: "system-design"
+tags: ["food-delivery", "marketplace", "geospatial", "matching", "etas"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Three-sided marketplace: customer, restaurant, courier. Catalog freshness, order pipeline, courier matching with cooking-time-aware ETAs, batched deliveries, and the settlement nightmare."
+---
+
+A food delivery app looks like a simple order form. Behind it is a three-sided marketplace: customer places order, restaurant cooks, courier delivers. Each side has its own data, latency, and timing constraints. The ETA is not just driving time - it includes cooking time. The catalog changes every hour. And the food goes cold while you optimize.
+
+## 1. Clarifying Scope First
+
+- Are we building this for one city, one country, or everywhere?
+- Do we connect customers to restaurants that do their own delivery, or do we provide couriers who pick up and deliver for the restaurant?
+- Are couriers gig workers who can take multiple orders at once, or are they dedicated per restaurant?
+- How many orders per day are we handling? A few million or tens of millions?
+- Can one courier pick up two different orders from the same restaurant on one trip?
+
+For this article: a platform where we provide gig couriers, about 10 million orders per day across thousands of cities, couriers can batch two orders from the same restaurant, and surge pricing applies when demand exceeds supply.
+
+## 2. Requirements
+
+**Functional:**
+1. Customer browses restaurants, sees menus, and places an order.
+2. Restaurant receives the order, confirms it, cooks, and marks it ready for pickup.
+3. A nearby courier is matched to the order when the food will be ready soon.
+4. Customer can track their order and the courier's location in real time.
+5. If no courier is available, the order is held until one becomes free.
+6. Courier earns a payout; restaurant earns a payout; platform takes a cut.
+
+**Non-Functional:**
+1. Order placement confirms in under 2 seconds.
+2. Courier assignment completes within 30 seconds of the restaurant accepting.
+3. Location updates visible to customer within 5 seconds.
+4. Menu information refreshes within 5 minutes of a restaurant changing it.
+5. System handles 10 million orders per day with peak bursts around dinner time.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Customer** | customer_id, name, address, payment_method |
+| **Restaurant** | restaurant_id, name, location, cuisine, opening_hours, menu_version |
+| **MenuItem** | item_id, restaurant_id, name, price, available, prep_time_min |
+| **Courier** | courier_id, current_location, status (available/delivering/offline), vehicle_type |
+| **Order** | order_id, customer_id, restaurant_id, courier_id, items[], status, total, created_at |
+| **OrderItem** | item_id, quantity, price_at_order_time |
+| **Delivery** | delivery_id, order_id, courier_id, pickup_at, delivered_at, route |
+| **Payout** | payout_id, recipient_id, recipient_type, amount, order_id, settled_at |
+
+## 4. APIs
+
+```http
+-- Browse nearby restaurants
+GET /api/v1/restaurants?lat=40.71&lng=-74.00&radius_km=3&cuisine=italian
+→ 200 { "restaurants": [{ "id": "r_55", "name": "Tony's", "eta_min": 35, "rating": 4.8 }] }
+
+-- Place an order
+POST /api/v1/orders
+{
+  "restaurant_id": "r_55",
+  "items": [{ "item_id": "m_12", "quantity": 2 }],
+  "delivery_address": { "lat": 40.71, "lng": -74.01 },
+  "payment_token": "tok_..."
+}
+→ 201 { "order_id": "ord_882", "estimated_total": 28.50, "eta_min": 38 }
+
+-- Restaurant accepts order
+PATCH /api/v1/orders/:id/status
+{ "status": "confirmed", "prep_time_min": 20 }
+→ 200
+
+-- Courier location update (from courier app, every 5 seconds)
+PUT /api/v1/couriers/:id/location
+{ "lat": 40.710, "lng": -74.005 }
+→ 204
+
+-- Customer tracks order
+GET /api/v1/orders/:id/tracking
+→ 200 {
+  "status": "courier_picked_up",
+  "courier_location": { "lat": 40.711, "lng": -74.003 },
+  "eta_min": 12
+}
+```
+
+## 5. High Level Design
+
+```
+Customer App
+    │ Place order → Order Service
+    │
+Order Service
+    │ Validate cart, check restaurant open, lock items
+    │ Charge payment (Stripe)
+    │ Create order (status=PENDING)
+    │ Notify restaurant via WebSocket / push notification
+    │
+Restaurant App
+    │ Accept order → Update status=CONFIRMED, send prep_time
+    │
+Matching Service
+    │ Triggered when: order confirmed AND (time_now + prep_time - 5min)
+    │ Find available couriers within radius using geospatial index
+    │ Score candidates (distance, current load, vehicle type)
+    │ Assign best courier, send push notification
+    │
+Courier App
+    │ Pushes GPS location every 5s → Location Service → Redis
+    │ Picks up order → PUT /orders/:id/status=picked_up
+    │ Delivers → PUT /orders/:id/status=delivered
+    │
+Tracking
+    Customer app polls GET /orders/:id/tracking every 5s
+    OR WebSocket push from Location Service
+
+Storage:
+    Orders: Postgres (transactional, order state machine)
+    Courier locations: Redis (in-memory, TTL 30s)
+    Restaurant catalog: CDN-cached + Redis, written by restaurants
+    Geospatial index: Redis GEO or PostGIS
+```
+
+## 6. Deep Dives
+
+### 6.1 The order state machine
+
+An order moves through well-defined states. Invalid transitions must be rejected.
+
+```
+PENDING
+  -> CONFIRMED (restaurant accepted)
+  -> CANCELLED_BY_RESTAURANT (restaurant rejected or timeout)
+
+CONFIRMED
+  -> COURIER_ASSIGNED (matching service assigned a courier)
+  -> NO_COURIER_FOUND (after timeout, customer notified)
+
+COURIER_ASSIGNED
+  -> COURIER_PICKED_UP (courier scanned barcode at restaurant)
+  -> COURIER_REASSIGNED (original courier cancelled)
+
+COURIER_PICKED_UP
+  -> DELIVERED (courier confirmed delivery)
+
+Any state -> CANCELLED_BY_CUSTOMER (before pickup only)
+```
+
+The state is stored in Postgres. State transitions are guarded by optimistic locking:
+```sql
+UPDATE orders
+SET status = 'CONFIRMED', updated_at = NOW()
+WHERE order_id = :id AND status = 'PENDING'
+```
+If 0 rows updated, someone else already changed the state.
+
+### 6.2 Matching couriers with cooking-time awareness
+
+Matching too early: courier arrives at restaurant, waits 15 minutes while food cooks - bad experience, courier leaves.
+
+Matching too late: food is ready, sitting at the counter getting cold for 5 minutes while we find a courier.
+
+The right time to start matching: `restaurant_ready_time - travel_time_from_nearest_courier`.
+
+```
+Order confirmed. Restaurant says prep time = 20 minutes.
+Time now: 6:00 PM
+
+Target pickup: 6:20 PM
+Average drive to restaurant for a nearby courier: 5-7 minutes
+
+Start matching at: 6:13 PM (7 minutes before pickup)
+```
+
+The matching service runs on a timer. It queries:
+```
+"Find couriers within 2km of restaurant r_55
+  who are available or will finish current delivery before 6:18 PM"
+```
+
+Score candidates:
+- Estimated arrival time at restaurant (lower is better)
+- Whether they are already near the restaurant (empty return trip reduction)
+- Current courier rating
+- Whether batching with another order improves economics
+
+### 6.3 Real-time courier location at scale
+
+10 million active orders. Each courier sends a GPS update every 5 seconds. That is potentially hundreds of thousands of location writes per second.
+
+Every customer with an active order needs to see their courier's location.
+
+Architecture:
+- Couriers write location to a Location Service.
+- Location Service writes to Redis: `GEOADD couriers <lng> <lat> <courier_id>`.
+- Redis TTL of 30 seconds: if no heartbeat in 30 seconds, courier is considered offline.
+- Customers poll `GET /tracking/:order_id`. The server looks up the assigned courier's location in Redis and returns it. No database read needed.
+
+For WebSocket push (better UX but more complex):
+- Courier app connects to a WebSocket gateway.
+- Location updates stream to a location-update Kafka topic.
+- A fan-out service subscribes, looks up which customer is waiting for each courier, and pushes the update to the customer's WebSocket connection.
+
+### 6.4 Restaurant catalog freshness
+
+A restaurant has 200 items. The owner turns off "Chicken Biryani" at 9 PM because they ran out. The customer sees it as available, orders it, and then the restaurant has to reject the order. Bad experience.
+
+The catalog needs to be fresh but also cacheable for performance:
+
+- Menu data is stored in Postgres (source of truth).
+- A restaurant updates an item (toggles availability, changes price).
+- The change publishes an event to Kafka.
+- A cache invalidation service deletes the CDN and Redis cache keys for that restaurant's menu.
+- Next request rebuilds the cache from Postgres.
+
+TTL-based caching with short TTL (5 minutes) as a fallback so even without events, menus refresh frequently. Restaurant apps see near-real-time changes via WebSocket.
+
+### 6.5 Surge pricing
+
+When demand exceeds courier supply in an area, prices go up to attract more couriers.
+
+```
+Every 60 seconds:
+  For each city zone (geohash cell):
+    active_orders = count of unassigned orders in zone
+    available_couriers = count of available couriers in zone
+    demand_ratio = active_orders / max(available_couriers, 1)
+    
+    if demand_ratio > 1.5: apply 1.2x surge multiplier
+    if demand_ratio > 2.5: apply 1.5x surge multiplier
+    if demand_ratio > 4.0: apply 2.0x surge multiplier
+```
+
+Surge prices are shown to customers before they place the order. Couriers see higher earnings in the zone, which incentivizes them to move there.
+
+### 6.6 Settlement and payouts
+
+At delivery, the platform owes money to the restaurant and to the courier. Three parties are involved.
+
+Double-entry ledger:
+```
+When order placed:
+  DEBIT  customer_account   $28.50
+  CREDIT platform_escrow    $28.50
+
+When delivered:
+  DEBIT  platform_escrow    $28.50
+  CREDIT restaurant_account $20.00  (food cost minus platform fee)
+  CREDIT courier_account    $5.50   (delivery fee)
+  CREDIT platform_revenue   $3.00   (commission)
+```
+
+Restaurants receive payouts weekly (batched). Couriers receive payouts daily or on-demand (some platforms allow instant payout for a fee).
+
+Idempotency is critical: if the payout job runs twice, the restaurant must not receive double payment. Use a unique `payout_id` derived from `order_id + recipient_id` and check before inserting.
+
+<Callout type="tip" title="The 30-second summary">
+A food delivery platform is a **three-sided marketplace with a timing problem**: the courier must arrive at the restaurant exactly when the food is ready, not before or after. The key design elements are a cooking-time-aware matching service, geospatial courier tracking in Redis, a cache-invalidation-driven catalog, surge pricing based on real-time supply/demand ratios, and a double-entry ledger for settlement.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Uber Ride Sharing](/blog/system-design/design-uber-ride-sharing), two-sided marketplace without the catalog problem
+- [Design Google Maps](/blog/system-design/design-google-maps), the routing engine behind ETAs
+- [Design Payment System](/blog/system-design/design-payment-system), the ledger and payout mechanics
+</Callout>

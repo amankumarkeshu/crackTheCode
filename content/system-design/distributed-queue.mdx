@@ -1,0 +1,201 @@
+---
+title: "Design a Distributed Message Queue (Kafka-style)"
+slug: "design-distributed-queue"
+category: "system-design"
+tags: ["kafka", "message-queue", "pub-sub", "partitioning", "consumer-groups", "at-least-once"]
+difficulty: "senior"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How do you build a queue that handles millions of events per second, survives broker crashes, and lets multiple services consume the same stream without stepping on each other?"
+---
+
+Almost every large backend relies on an asynchronous queue: order placed, notification sent, analytics logged. But "just use SQS" is not a system design answer. You need to explain how a durable, ordered, high-throughput message queue works from the inside.
+
+## 1. Clarifying Scope First
+
+- Is this a simple task queue (each message processed by exactly one consumer) or a topic system where many services can read the same message stream?
+- Does message order matter? Does it matter globally, or only within a single partition?
+- What guarantees does the consumer need? At-least-once (may process duplicates) or exactly-once?
+- How long should unread messages be kept? Hours, days, weeks?
+- What is the expected throughput? Thousands of messages per second or millions?
+- Do we need to replay old messages (re-read from any point in history)?
+
+For this article: a Kafka-style pub/sub topic system, ordered within a partition, at-least-once delivery with consumer-side idempotency, messages retained for 7 days, targets millions of messages per second, supports replay.
+
+## 2. Requirements
+
+**Functional:**
+1. Producers publish messages to a named topic.
+2. A topic has one or more partitions; messages with the same key go to the same partition.
+3. Consumer groups each get their own cursor (offset) in each partition, so different services can read the same stream independently.
+4. Consumers commit their offset after processing; on crash, they resume from their last committed offset.
+5. Consumers can seek to an arbitrary offset to replay messages.
+
+**Non-Functional:**
+1. Write throughput of at least 1 million messages per second across the cluster.
+2. End-to-end latency under 10ms at p95 for a single write.
+3. Durable: a committed message survives the failure of any one broker.
+4. Ordered: messages within a partition arrive in the order they were written.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Topic** | topic_name, partition_count, replication_factor, retention_ms |
+| **Partition** | topic_name, partition_id, leader_broker_id, replica_broker_ids[] |
+| **Message** | offset, partition_id, key, value, headers, timestamp |
+| **ConsumerGroup** | group_id, topic_name |
+| **OffsetCommit** | group_id, topic_name, partition_id, committed_offset |
+| **Broker** | broker_id, host, port, partitions_led[], partitions_replicated[] |
+
+## 4. APIs
+
+```http
+-- Produce a batch of messages
+POST /v1/topics/:topic/produce
+{
+  "messages": [
+    { "key": "user_42", "value": "<base64 payload>", "headers": {} }
+  ]
+}
+→ 200 { "offsets": [{ "partition": 3, "offset": 8812 }] }
+
+-- Consume a batch of messages
+GET /v1/topics/:topic/partitions/:partition/messages?offset=8800&limit=100&group_id=analytics
+→ 200 { "messages": [...], "next_offset": 8900 }
+
+-- Commit offset
+POST /v1/consumer-groups/:group_id/offsets
+{ "topic": "orders", "partition": 3, "offset": 8900 }
+→ 204
+
+-- Fetch partition metadata (which broker leads which partition)
+GET /v1/topics/:topic/metadata
+→ 200 { "partitions": [{ "id": 0, "leader": "broker_2", ... }] }
+```
+
+## 5. High Level Design
+
+```
+Producers (orders-service, payments-service)
+    │ TCP (proprietary binary protocol)
+    ▼
+Broker cluster (N brokers)
+    Each broker leads some partitions and replicas others.
+    │
+    ├── Write path
+    │   Leader appends message to local commit log (sequential disk write).
+    │   Leader sends to all in-sync replicas (ISR).
+    │   Once all ISR ack, leader acks producer.
+    │
+    └── Read path
+        Consumer fetches from leader (or follower if configured).
+        Consumer advances offset locally.
+        Commits offset to offset store (separate topic or ZooKeeper).
+
+ZooKeeper / KRaft: cluster metadata, partition assignment, leader election
+Offset store: __consumer_offsets topic
+```
+
+## 6. Deep Dives
+
+### 6.1 Why sequential disk writes are fast enough
+
+A common misconception: queues must store everything in memory to be fast. Kafka proves otherwise. Modern SSDs sustain 500 MB/s for sequential writes. A Kafka broker appending to an ordered commit log is sequential. A database doing `INSERT` with index updates is random. Sequential is 10-100x faster.
+
+```
+Partition log on disk:
+  00000000000000000.log   <- old segment (immutable)
+  00000000000014500.log   <- current active segment (append-only)
+```
+
+Each segment is a plain file. Messages are never updated; only new ones are appended. Compaction (background cleanup) runs separately.
+
+### 6.2 Partition model for parallelism
+
+A topic with 1 partition can only be written and read sequentially. To scale, split the topic into N partitions:
+
+```
+Orders topic, 12 partitions:
+  Partition 0, 1, 2  <- led by Broker A
+  Partition 3, 4, 5  <- led by Broker B
+  Partition 6, 7, 8  <- led by Broker C
+  Partition 9,10,11  <- led by Broker D
+```
+
+Producers shard by key: `partition = hash(message_key) % N`. All events for user_42 always go to the same partition, maintaining per-user order.
+
+Consumer group "payments" with 12 consumers: each consumer owns 1 partition. 12x parallelism, total ordering within each user's events.
+
+### 6.3 Replication: in-sync replicas (ISR)
+
+For durability, each partition is replicated across brokers. The leader keeps a list of followers that are "in sync" (ISR):
+
+```
+Partition 3: leader = Broker A
+  ISR = [Broker A, Broker B, Broker C]
+  Broker D is lagging -> removed from ISR
+```
+
+Producer sends with `acks=all`: leader waits for all ISR members to acknowledge before confirming. If Broker A fails, Kafka elects a new leader from ISR (Broker B or C), guaranteeing no committed message is lost.
+
+Trade-off: a slow replica in ISR blocks all writes. The ISR mechanism automatically shrinks to exclude laggards, then readmits them when they catch up.
+
+### 6.4 Consumer groups and independent offsets
+
+This is the key feature that makes a message queue useful for multiple teams:
+
+```
+Topic: orders
+  Partition 0: 0 ... 9999
+
+Consumer group: payments
+  offset on partition 0: 9998 (nearly caught up)
+
+Consumer group: analytics
+  offset on partition 0: 1500 (processing historical data, intentionally slower)
+
+Consumer group: notifications
+  offset on partition 0: 9999 (up to date)
+```
+
+All three groups read from the same topic without interfering. "Delete after consumed" is not the model; retention TTL governs deletion.
+
+### 6.5 At-least-once vs exactly-once
+
+**At-least-once** (simplest and most common):
+- Consumer processes message, then commits offset.
+- If consumer crashes between process and commit, it reprocesses the message after restart.
+- Correct behavior requires idempotent consumers: safe to process the same message twice.
+
+**Exactly-once** (Kafka Transactions):
+- Producer uses a transactional ID, creating a producer epoch. Duplicate retries from the same epoch are deduped.
+- Consumer reads with `isolation.level=read_committed`: only sees messages where the producer transaction is committed.
+- More overhead; needed for payment and inventory systems.
+
+### 6.6 Log compaction for lookup tables
+
+Retention by time (7 days) works for event streams. But for a changelog (user profile updates), you want to keep only the latest value per key forever. Log compaction handles this:
+
+```
+Before compaction:
+  key=user_42, value={"name":"old"}   <- stale
+  key=user_43, value={"name":"B"}
+  key=user_42, value={"name":"new"}   <- latest
+
+After compaction:
+  key=user_43, value={"name":"B"}
+  key=user_42, value={"name":"new"}
+```
+
+The compaction thread runs in the background, reducing log size while preserving the latest value per key. Consumers bootstrapping from offset 0 get the full materialized state.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed queue is a **partitioned commit log** where producers append sequentially, replicas use ISR for durability, and consumer groups each maintain their own offset so different services can read independently without deleting messages. The key design decisions: how many partitions, what ack level, at-least-once vs exactly-once, and retention vs compaction.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Notification System](/blog/system-design/design-notification-system), queues for fan-out
+- [Design Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler), queue-driven job execution
+</Callout>

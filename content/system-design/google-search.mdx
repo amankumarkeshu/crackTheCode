@@ -1,0 +1,198 @@
+---
+title: "Design Google Search"
+slug: "design-google-search"
+category: "system-design"
+tags: ["search", "inverted-index", "ranking", "information-retrieval"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Crawl 100 billion documents, build a sharded inverted index, serve 100K queries per second under 300ms, and rank results with a multi-stage ML funnel."
+---
+
+"Design Google Search" covers the whole pipeline: crawl, index, serve, rank - each with its own scaling story. You will not out-Google Google in 45 minutes, but a staff candidate must show all the moving parts, the key architectural choices, and the fundamental trade-offs.
+
+## 1. Clarifying Scope First
+
+- Are we building general web search, or just search within our own product's content?
+- How many documents: millions, billions?
+- How fast does it need to feel? Sub-second?
+- Do different users get different results for the same query (personalization)?
+- How fresh do results need to be? Can a new article take days to appear, or must it appear within minutes?
+- Are we handling images and videos or just web pages?
+
+For this article: general web search, about 100 billion documents, 100,000 queries per second, median response time under 300ms, some personalization by locale and language, breaking news should appear within minutes.
+
+## 2. Requirements
+
+**Functional:**
+1. User types a query and gets a ranked list of relevant results.
+2. Continuous crawling to discover and index new and updated pages.
+3. Snippet generation: a short preview excerpt per result.
+4. Spell correction and query understanding.
+
+**Non-Functional:**
+1. Median query latency under 300ms, p99 under 1 second.
+2. New pages indexable within minutes (hot tier) or hours (normal).
+3. 99.999% availability.
+4. Scale to 100 billion documents and 100K queries per second.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Document** | doc_id, url, content, crawled_at, language, page_rank_score |
+| **PostingList** | term, entries (doc_id, tf, positions, field), compressed |
+| **IndexShard** | shard_id, doc_id_range, posting_lists, doc_store |
+| **CrawlRecord** | url, last_crawled_at, http_status, content_hash, next_crawl_at |
+| **SearchResult** | doc_id, title, url, snippet, score |
+
+## 4. APIs
+
+```http
+-- Search
+GET /api/v1/search?q=best+pizza+berlin&lang=de&page=1
+→ 200 {
+    "total_results": 8400000,
+    "results": [
+      { "title": "...", "url": "...", "snippet": "..." },
+      ...
+    ],
+    "next_page_token": "..."
+  }
+
+-- (Internal) Submit URL for indexing
+POST /internal/index
+{ "url": "https://example.com/article", "priority": "high" }
+→ 202
+```
+
+## 5. High Level Design
+
+```
+User query
+    │
+    ▼
+Query Parser (tokenize, spell-correct, language detect, intent)
+    │
+    ▼
+Mixer / Frontend
+    │ scatter to all shards in parallel
+    ├── Shard 0   ─►  local inverted index lookup -> top-100
+    ├── Shard 1   ─►  local inverted index lookup -> top-100
+    ├── ...
+    └── Shard 2000 ► local inverted index lookup -> top-100
+    │ gather
+    ▼
+Mixer aggregates (200,000 candidates -> top 1,000)
+    │
+    ▼
+Re-ranker (ML model with hundreds of signals)
+    │
+    ▼
+Snippet generator (fetches doc text, builds preview)
+    │
+    ▼
+Response
+
+Parallel: crawlers continuously feed new documents into the indexer
+```
+
+## 6. Deep Dives
+
+### 6.1 The inverted index: heart of the system
+
+A forward index says: `doc_5 contains ["fox", "quick", "brown"]`. Useless for search.
+
+An **inverted index** says: `"fox" -> [doc_5, doc_42, doc_999]`. The lookup table for queries.
+
+For the query "best pizza berlin":
+1. Lookup "best" -> posting list of doc IDs.
+2. Lookup "pizza" -> posting list.
+3. Lookup "berlin" -> posting list.
+4. Intersect (AND): docs matching all three terms.
+5. Rank and return top results.
+
+Each entry in a posting list stores: doc ID, term frequency in the document, positions (for phrase queries like "best pizza" needing adjacent terms), and which field the term appeared in (title vs body vs anchor text - title matches outweigh body matches).
+
+**Compression:** posting lists compress 5-10x using delta encoding plus variable-byte coding. Store deltas between consecutive doc IDs rather than absolute IDs.
+
+### 6.2 Sharding: doc-sharded is the only answer at scale
+
+**Term-sharded (global index):** the full posting list for each term lives on one shard. Simple per-term lookups. Problem: hot terms ("the", "a", "best") create devastating load imbalances on a few shards.
+
+**Doc-sharded (local index):** each shard owns 1/N of all documents and maintains a local inverted index over just those documents. Every query hits every shard in parallel.
+
+Doc-sharding wins at scale because:
+- Load is evenly distributed: every shard sees roughly equal traffic.
+- Adding shards scales linearly with corpus size.
+- The scatter-gather cost is manageable with the right architecture.
+
+Google's index has thousands of shards. This is the only model that works at 100 billion documents.
+
+### 6.3 Query path: scatter-gather with tail latency management
+
+Each query fans out to all 2,000+ shards in parallel. Each shard returns its top-100 local results. The mixer takes the top-1,000 from all of these, runs the re-ranker, and returns top-10 to the user.
+
+**Tail latency is the critical problem:** even if each shard responds in under 100ms 99.9% of the time, the probability that ALL 2,000 shards respond fast is `0.999^2000 = 13%`. The query is as slow as the slowest shard.
+
+Fixes:
+- **Hedged requests:** send to two replicas of each shard, take whichever responds first. Doubles compute cost, drops P99 dramatically.
+- **Replica hot-swapping:** if one replica is slow (garbage collection pause, hardware issue), quickly switch to a peer replica.
+- **Timeout with what you have:** mixer waits a deadline, then aggregates results from however many shards responded.
+
+### 6.4 Ranking: from string match to relevance
+
+Classical approach: **BM25** scoring (TF-IDF with document length normalization). Rare terms that appear frequently in the document get high scores.
+
+Modern approach: multi-stage ML funnel.
+
+```
+Stage 1: candidate generation
+  BM25 + PageRank narrows 100B docs to ~50K candidates per query
+
+Stage 2: feature hydration
+  For top-5K candidates: load hundreds of signals (freshness,
+  click-through history, page quality, anchor text, author authority)
+
+Stage 3: ML scoring
+  Gradient-boosted trees or transformer ranker
+  Top-500 candidates -> final scores
+
+Stage 4: re-ranking
+  Personalization (user history, location, language)
+  Diversity (no 5 results from the same domain)
+  Top-10 -> response
+```
+
+**Key insight:** ranking is a funnel. Cheap signals at the top cull the candidate set. Expensive signals at the bottom operate only on the few hundred remaining candidates.
+
+### 6.5 PageRank: one signal among hundreds
+
+Pages are nodes; hyperlinks are edges. PageRank approximates the probability that a random web surfer lands on each page, capturing the concept of authority (a page linked to by the New York Times is more authoritative than one linked to by a random blog).
+
+Computed as a sparse matrix iteration over the entire web graph, run as an offline batch job weekly.
+
+By itself, PageRank is now a small part of Google's ranking. But historically it was the breakthrough that made early Google dramatically better than competitors.
+
+### 6.6 Index freshness: static base plus delta
+
+You cannot rebuild a 10 petabyte index for every page update.
+
+**Static base index:** rebuilt every few days from the full corpus. Contains the bulk of documents.
+
+**Delta index:** small, fast in-memory index containing changes since the last base rebuild. Updated continuously as the crawler finds new or changed pages.
+
+**Breaking news tier:** a hot-path indexer that can make pages searchable within seconds of crawling, for news articles and time-sensitive content.
+
+Query path hits both base and delta shards, merges results. Periodically, deltas merge into the base. This is the same log-structured merge idea behind LSM trees in databases like Cassandra.
+
+<Callout type="tip" title="The 30-second summary">
+Web search is **doc-sharded inverted index serving with scatter-gather queries, multi-stage ML ranking, and continuous incremental indexing**. Queries fan out to thousands of shards in parallel; tail latency is managed with hedged requests. Ranking is a funnel: BM25 plus PageRank generates candidates; feature hydration and ML scoring produce the final order. Freshness uses static base plus delta indexes in an LSM-like pattern.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Web Crawler](/blog/system-design/design-web-crawler), feeds the indexer
+- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete), query completion
+- [Design a CDN](/blog/system-design/design-cdn), for static result caching at the edge
+</Callout>

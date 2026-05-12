@@ -1,0 +1,201 @@
+---
+title: "Design a Distributed Locking Service (ZooKeeper / etcd / Consul-class)"
+slug: "design-distributed-locking-service"
+category: "system-design"
+tags: ["consensus", "raft", "leader-election", "fencing", "distributed-locks"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Why 'just use Redis SETNX' is wrong, what fencing tokens are, and how a real distributed lock service works: leader election, lease semantics, and the consensus protocols that make ZooKeeper, etcd and Consul reliable."
+---
+
+Distributed locks are the system design question candidates are most likely to think they understand and actually get wrong. "Just use Redis `SETNX`" passes a phone screen and fails a staff interview. The right answer involves consensus, leases with fencing tokens, and understanding exactly where Redis-based locks are unsafe.
+
+## 1. Clarifying Scope First
+
+- What are we protecting with the lock: making sure only one worker processes a job, only one server is the leader, or only one request modifies a shared resource?
+- How long does the lock need to be held? A fraction of a second, a few seconds for a job, or hours for a long-running task?
+- If there is a network split and some machines cannot reach the lock service, is it safer to let the work proceed with the risk of two machines both thinking they hold the lock, or to stop everything until the network heals?
+- How many lock operations per second do we expect? A few thousand or millions?
+- Does this need to work across multiple data centers?
+
+For this article: a general-purpose lock service for leader election, job execution, and mutual exclusion. About 10,000 lock operations per second, sub-second latency, single region with read replicas in other regions, consistency over availability (stop work rather than risk two holders).
+
+## 2. Requirements
+
+**Functional:**
+1. Acquire a named lock with a maximum hold time (lease). Return success or failure.
+2. Release a lock early when the holder is done.
+3. Locks auto-expire if the holder crashes without releasing.
+4. Watch for a lock to become available (for leader election: notify when current leader releases).
+5. Renew a lock before it expires if the holder is still working.
+
+**Non-Functional:**
+1. A lock is never held by two clients simultaneously (mutual exclusion guaranteed).
+2. A client always gets a fresh view of who holds a lock (linearizable reads).
+3. If the lock service has a brief outage, locks held before the outage continue to be valid until their TTL expires.
+4. Lock acquisition latency under 10ms at p99.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Lock** | lock_name, holder_id, fencing_token, acquired_at, expires_at |
+| **Client** | client_id, service_name, host |
+| **Session** | session_id, client_id, heartbeat_at, ttl_s |
+| **Watch** | watch_id, lock_name, client_id, registered_at |
+
+## 4. APIs
+
+```http
+-- Acquire a lock
+POST /v1/locks/:lock_name/acquire
+{ "client_id": "worker_42", "ttl_s": 30 }
+→ 200 { "acquired": true, "fencing_token": 857, "expires_at": "..." }
+→ 409 { "acquired": false, "holder": "worker_37", "expires_at": "..." }
+
+-- Release a lock (must include fencing token to prevent stale release)
+DELETE /v1/locks/:lock_name
+{ "client_id": "worker_42", "fencing_token": 857 }
+→ 204
+
+-- Renew a lock before expiry
+PUT /v1/locks/:lock_name/renew
+{ "client_id": "worker_42", "fencing_token": 857, "ttl_s": 30 }
+→ 200 { "expires_at": "..." }
+
+-- Watch for a lock to be released (long-polling or SSE)
+GET /v1/locks/:lock_name/watch
+→ 200 event: lock_released, data: { "lock_name": "...", "timestamp": "..." }
+```
+
+## 5. High Level Design
+
+```
+Lock Service Cluster (3 or 5 nodes running Raft consensus)
+    Node A (current leader): handles all writes
+    Node B, Node C (followers): replicate writes, can serve linearizable reads
+
+Client acquires lock:
+    Request → any node (followers proxy to leader)
+    Leader writes to Raft log
+    Majority of nodes acknowledge (2 of 3 nodes)
+    Leader commits, returns fencing_token to client
+
+Session heartbeat:
+    Client sends heartbeat every TTL/3 seconds
+    If no heartbeat arrives before TTL expires: lock is released automatically
+
+Watch:
+    Client registers a watch on lock_name
+    When lock is released: lock service notifies all watchers via long-poll response or SSE
+
+Storage:
+    In-memory with WAL (write-ahead log) for durability
+    Snapshots to disk periodically to speed up recovery
+```
+
+## 6. Deep Dives
+
+### 6.1 Why Redis SETNX is not safe for all use cases
+
+Redis `SET lock_name client_id NX PX 30000` is a common first answer. It works in many practical scenarios but has a well-known failure case:
+
+```
+Client A: acquires lock, gets 30-second lease
+Client A: hits a long GC pause (40 seconds, common in Java)
+  → 30-second lease expires
+Client B: acquires the same lock (correctly, since A's lease expired)
+Client B: starts modifying shared resource
+Client A: GC pause ends, resumes work
+  → A and B are now both working on the same resource simultaneously
+```
+
+The lease expired, but client A does not know this. It happily continues. Two clients hold the lock.
+
+This is not a Redis bug. It is a fundamental problem with lease-based locks: time passes and the holder may not notice.
+
+Mitigation: fencing tokens. The lock service returns a monotonically increasing token with each grant. The shared resource rejects requests with a token lower than the highest it has seen.
+
+### 6.2 Fencing tokens: the correct solution
+
+```
+Client A acquires lock, gets token=5
+Client B acquires lock (after A's lease expires), gets token=6
+
+Client A (still alive after GC pause) sends request to database:
+  WRITE data WHERE fencing_token = 5
+Database: "I have already seen token=6. Token 5 is stale. Rejected."
+
+Client B sends request to database:
+  WRITE data WHERE fencing_token = 6
+Database: "Token 6 is current. Accepted."
+```
+
+For fencing tokens to work, the shared resource (database, file system, external service) must participate: check and enforce that the token is not stale. This requires modifying the resource itself. Not all resources support this, which is why distributed locks are inherently tricky.
+
+### 6.3 Consensus: why you need more than one server
+
+A single lock server is a single point of failure. If it crashes, all locks are lost (or stuck until recovery).
+
+Run the lock service on 3 or 5 nodes using the Raft consensus algorithm. Raft ensures:
+- Only one leader at a time handles writes.
+- A write is committed only when a majority of nodes (2 of 3, or 3 of 5) acknowledge it.
+- If the leader fails, the remaining nodes elect a new leader in under 500ms.
+
+```
+3-node cluster: tolerates 1 node failure
+5-node cluster: tolerates 2 node failures
+```
+
+Why majority matters: if the network splits into two groups (2 nodes and 1 node), only the group of 2 can elect a leader and commit writes. The group of 1 cannot form a majority. This prevents two leaders simultaneously committing conflicting writes.
+
+### 6.4 Redlock: why it does not solve the problem
+
+Martin Kleppmann's critique of Redlock (Redis's multi-node lock algorithm) is a classic read. Redlock says: acquire locks on 5 independent Redis nodes, consider yourself the holder if you got 3 of 5.
+
+Problems:
+- Even with 5 nodes, the GC-pause / clock-jump failure mode from section 6.1 still applies.
+- Redis's time-based expiry relies on wall clocks. Clocks on different machines can drift. A 30ms drift on a 30ms lock is a 100% timing error.
+- Redlock does not provide fencing tokens.
+
+Redlock is appropriate for: low-criticality best-effort coordination (like rate limiting or job scheduling) where occasional double execution is acceptable. It is not appropriate for: exclusive access to a database record, inventory deduction, payment processing.
+
+For critical mutual exclusion: use a consensus-based system (etcd, ZooKeeper) which provides linearizability by design.
+
+### 6.5 Leader election using a lock
+
+Leader election is just a durable lock with a watch:
+
+```
+All N nodes in a service try to acquire "service_leader" lock
+One wins (say, node A)
+Others watch the lock for its release
+
+Node A acts as leader: processes writes, coordinates work
+Node A sends a heartbeat every 10 seconds to renew its lock
+If Node A crashes: lock expires after 30 seconds
+All remaining nodes are notified (watch fires)
+All try to acquire the lock again
+One wins (say, node B)
+```
+
+The time between node A failing and node B becoming leader is up to 30 seconds (the lease TTL). Shorter TTL = faster failover but more heartbeat traffic and risk of false positives from network hiccups. 30 seconds is a common default.
+
+### 6.6 Watch semantics: ZooKeeper vs etcd
+
+**ZooKeeper ephemeral nodes:** create a ZooKeeper node when you acquire a lock. Node automatically deleted when client disconnects or session expires. Other clients use `exists(path, watch=true)` to watch for deletion. When the node is deleted, all watchers receive one notification, then the watch must be re-registered. This "one-shot watch" model requires careful handling in client code.
+
+**etcd leases and watches:** clients create a lease (TTL), then create a key tied to that lease. The key auto-deletes when the lease expires. Other clients use a continuous `Watch` on the key. Unlike ZooKeeper, etcd watches are persistent: you register once and receive all subsequent events without re-registering. Simpler client code.
+
+Both approaches achieve the same guarantee: the lock is released (key deleted / node deleted) when the holder's session expires or it explicitly releases.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed locking service needs **consensus (Raft)** for safety - not just replication. The core insight is that lease-based locks cannot prevent a GC-paused client from continuing after its lease expires; **fencing tokens** and resource-side enforcement are the real safety mechanism. Redis SETNX is fine for advisory coordination but not for critical mutual exclusion. For leader election, wrap the lock with a watch so followers can react immediately when the current leader's lock expires.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler), uses leader election to prevent double scheduling
+- [Design Distributed Queue](/blog/system-design/design-distributed-queue), Kafka also uses leader election for partition leadership
+</Callout>

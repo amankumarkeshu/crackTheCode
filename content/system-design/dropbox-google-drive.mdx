@@ -1,0 +1,189 @@
+---
+title: "Design Dropbox / Google Drive (file sync and storage)"
+slug: "design-dropbox-google-drive"
+category: "system-design"
+tags: ["chunking", "sync", "object-storage", "deduplication", "conflicts"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Chunked uploads with global deduplication, the metadata vs blob split, delta sync, conflict resolution and version history - the design that makes changing one byte sync in a second."
+---
+
+"Design Dropbox" looks like a storage question and is actually a sync question. The interesting part is not holding 50 petabytes of files - that is just object storage with extra steps. The interesting part is: when a user changes one byte in a 5 GB file, why does it sync in 2 seconds and not 200?
+
+## 1. Clarifying Scope First
+
+- How large are typical files? A few megabytes for documents? Several gigabytes for videos?
+- Does the same account work on multiple devices that stay in sync?
+- Can people share files and folders with others, with different permission levels?
+- How long do we keep old versions of files?
+- What happens if someone edits the same file on two devices while offline?
+- How much storage does an average active user have?
+
+For this article: 500 million users, multi-device sync, 30-day version history, file sharing with permissions, conflict detection for simultaneous offline edits, about 10 TB average per active user.
+
+## 2. Requirements
+
+**Functional:**
+1. Upload and download files from any device.
+2. Changes sync to all other devices within seconds.
+3. When the same file is edited on two offline devices, detect the conflict and surface it.
+4. Version history for the last 30 days.
+5. Share files and folders with per-user permission levels.
+
+**Non-Functional:**
+1. Never lose user data (11+ nines durability).
+2. A change on one device is visible on others within seconds.
+3. Changing one byte in a large file should sync just that changed portion, not the whole file.
+4. Global deduplication: if 10,000 users upload the same file, store it once.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **File** | file_id, owner_id, name, current_version_id, parent_folder_id |
+| **FileVersion** | version_id, file_id, chunk_hashes[], created_at, device_id |
+| **Chunk** | hash (SHA-256), size_bytes, storage_url, ref_count |
+| **UserChange** | user_id, cursor, change_type, file_id, version_id, timestamp |
+| **Share** | file_id, grantee_id, role (viewer/editor), granted_at |
+| **UploadSession** | session_id, file_id, missing_chunk_hashes[] |
+
+## 4. APIs
+
+```http
+-- Start upload: check which chunks already exist
+POST /api/v1/files/upload/init
+{ "name": "report.pdf", "chunk_hashes": ["sha256_1", "sha256_2", "sha256_3"] }
+→ 201 { "session_id": "s_81", "missing_hashes": ["sha256_2"] }
+
+-- Upload only the missing chunks (direct to object storage)
+PUT https://storage.../sha256_2  (pre-signed URL)
+
+-- Commit the new version
+POST /api/v1/files/upload/commit
+{ "session_id": "s_81", "all_hashes": ["sha256_1","sha256_2","sha256_3"] }
+→ 201 { "file_id": "f_99", "version_id": "v_12" }
+
+-- Poll for changes since last sync
+GET /api/v1/changes?cursor=891234
+→ 200 { "changes": [...], "new_cursor": 891237 }
+
+-- Download a file
+GET /api/v1/files/:id/download
+→ 302 Location: https://cdn.storage.com/sha256_1 (and other chunks)
+```
+
+## 5. High Level Design
+
+```
+           Metadata Service                 Block Service
+           ┌───────────────────────┐        ┌─────────────────────────┐
+           │ User, File, Version,  │        │ chunk_hash -> blob bytes │
+           │ Share, UserChange     │        │ global dedup            │
+           │ (sharded SQL/Spanner) │        │ (object storage: S3/GCS)│
+           └───────────┬───────────┘        └──────────────┬──────────┘
+                       │                                   │
+                       │ "file = ordered list of chunks"   │
+                       └───────────────────────────────────┘
+
+Sync protocol:
+  Device ─► GET /changes?cursor=N ─► server returns what changed since cursor N
+  Device ─► upload only NEW chunks ─► commit new version
+```
+
+The single most important design decision: **split metadata from blobs**. A file in the user's view is just a row in the metadata service pointing to an ordered list of chunk hashes. The actual bytes live in the block service, indexed by hash. This split enables both deduplication and delta sync.
+
+## 6. Deep Dives
+
+### 6.1 Content-defined chunking: why changing one byte does not re-upload everything
+
+**Fixed-size chunking (naive):** cut every 4 MB regardless of content. Simple. Problem: insert one byte at the beginning of a file and every chunk shifts, changing every chunk hash. Result: re-upload the entire file.
+
+**Content-defined chunking (Rabin/FastCDC):** cut at content boundaries determined by a rolling hash over the file content. The cut points follow the content. When you insert one byte in the middle, only the affected chunk changes. All other chunks retain their exact same hash and are already in the block service.
+
+Almost every sync product uses content-defined chunking. Mention it by name.
+
+### 6.2 Global deduplication
+
+Each chunk's content is hashed with SHA-256. The hash is the chunk's identity and storage key:
+
+```
+upload(chunk):
+  hash = sha256(chunk)
+  if exists(block_store, hash):
+      return hash   # already stored, skip upload
+  else:
+      put(block_store, hash, chunk)
+      return hash
+```
+
+This is global deduplication: if 1 million users uploaded the same Keynote installer, it is stored exactly once. The block service maintains a reference count per hash. When ref_count drops to zero, a garbage collection job can delete the blob.
+
+In practice, most uploads transfer only 10-20% of the actual bytes because most chunks are already in the block service.
+
+### 6.3 The sync protocol: per-user cursor
+
+Each device needs to know what changed since it last synced. The approach: a per-user monotonically-increasing cursor.
+
+Every metadata change (new file, edit, delete, rename) appends a row to `user_changes` and increments the user's cursor. Devices long-poll for changes:
+
+```
+Device A edits file → cursor: 891234 -> 891235 -> event pushed
+                                                         |
+Device B (long-polling with cursor=891234)
+  <-- "change 891235: file X, new chunks [h7, h2, h9]"
+  B fetches only missing chunks from block service
+  B updates the local file
+```
+
+This means sync traffic is proportional to what changed, not to the total file size.
+
+### 6.4 Conflict resolution
+
+Two devices edit the same file while offline. Both upload when they reconnect.
+
+The right answer: do not try to merge arbitrary binary content automatically. Detect the conflict and surface it.
+
+```
+File F at version v17.
+  Device A edits offline -> wants to commit as v18, parent_version=v17
+  Device B edits offline -> wants to commit as v18, parent_version=v17
+
+Server accepts A's commit first: v18 = A's version.
+Server sees B's commit: parent v17 is not the latest.
+Server rejects B's commit with 409.
+Client B saves its edit as "F (Device B conflicted copy)" at v18.
+Both versions appear in the user's drive.
+User resolves manually.
+```
+
+For text files, Google Docs uses operational transforms or CRDTs for true real-time multi-user editing. That is a different design ("Design Google Docs").
+
+### 6.5 Version history
+
+Each commit creates a new FileVersion row pointing to its chunk hashes. Old versions remain for 30 days and hold references to their chunks. The GC reclaims chunks only when no version references them and the retention window has passed.
+
+Storage efficiency: small edits keep most chunks shared with old versions. A 5 GB file with one chunk changed per version uses only 5 GB + 4 MB x N_versions in the block service.
+
+### 6.6 Storage tiering
+
+Not all chunks need the same storage class:
+
+| Tier | When | Cost |
+|---|---|---|
+| Hot (S3 Standard) | Last 30 days or recently accessed | High |
+| Warm (S3 Infrequent Access) | 30-365 days | Medium |
+| Cold (Glacier) | Over 1 year, rarely accessed | Low |
+
+Lifecycle policies move chunks down automatically. Most users never notice the increased restore latency for old files.
+
+<Callout type="tip" title="The 30-second summary">
+Dropbox is a **metadata service plus content-addressed block store**. Files are ordered lists of content-defined chunks. Global dedup means most uploads transfer 10-20% of the bytes. Sync is a per-user change cursor: devices long-poll for new events and pull only the affected chunks. Conflicts are detected via parent-version check, never silently merged for binary files.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube), chunked upload and object storage pattern
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the per-user change log
+- [Design a Notification System](/blog/system-design/design-notification-system), "your file was shared with you" alerts
+</Callout>

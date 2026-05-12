@@ -1,0 +1,185 @@
+---
+title: "Design a CDN (Content Delivery Network)"
+slug: "design-cdn"
+category: "system-design"
+tags: ["cdn", "edge", "caching", "anycast", "tls"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Build a Cloudflare/Akamai/Fastly-class CDN: anycast routing, tiered edge caches, origin shielding, purge propagation in seconds, and TLS termination at the edge."
+---
+
+A CDN is the layer between your origin servers and the rest of the world. It is how Netflix serves hundreds of terabits per second, how news sites survive viral spikes, and why Google.com loads in under 100ms from anywhere. If you are interviewing at Cloudflare, Fastly, Akamai, or any infrastructure company, this question will come up.
+
+## 1. Clarifying Scope First
+
+- What kind of content are we caching: static files (images, videos), dynamic HTML, or API responses?
+- Do we pull content from the origin only when someone requests it, or do we pre-push it to edge servers?
+- Is this for a single customer or a multi-tenant platform serving millions of domains?
+- Do we terminate TLS at the edge or pass through to origin?
+- Do we need to run customer code at the edge (like Cloudflare Workers)?
+- How quickly must a cache invalidation (purge) propagate to all edge servers?
+
+For this article: multi-tenant global CDN, both static and dynamic content, pull-on-miss model, TLS termination at edge, basic edge compute, purge propagation under 5 seconds, roughly 300 edge locations globally.
+
+## 2. Requirements
+
+**Functional:**
+1. User requests `https://customer.example.com/asset.jpg` and CDN serves it from the nearest edge.
+2. On cache miss, edge pulls from the customer's origin.
+3. Customers configure cache rules (TTL, what to cache by).
+4. Customers can purge specific URLs or wildcard paths instantly.
+5. Customers see analytics: hit ratio, bandwidth, error rate.
+6. TLS certificates managed for customer domains.
+
+**Non-Functional:**
+1. Under 50ms time-to-first-byte from any populated continent.
+2. Over 90% cache hit ratio for most customers.
+3. 99.99% availability: each PoP (point of presence) fails independently.
+4. Total egress capacity in the terabits per second range.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **CachedObject** | cache_key, content, ttl, etag, last_modified, hit_count |
+| **EdgePoP** | pop_id, location, anycast_prefix, edge_servers[], mid_tier_id |
+| **Customer** | customer_id, domains[], origin_url, cache_rules[], shield_pop_id |
+| **Certificate** | domain, cert_pem, key_pem, expires_at, managed_by (customer/cdn) |
+| **PurgeEvent** | purge_id, customer_id, url_pattern, created_at, propagated_at |
+| **CacheTag** | tag_name, customer_id, object_keys[] |
+
+## 4. APIs
+
+```http
+-- (Customer API) Purge a URL
+POST /api/v1/purge
+{ "urls": ["https://example.com/homepage.html"] }
+→ 202 { "purge_id": "p_882", "estimated_propagation_s": 5 }
+
+-- Purge by tag
+POST /api/v1/purge/tag
+{ "tag": "homepage" }
+→ 202
+
+-- Get cache analytics
+GET /api/v1/analytics?domain=example.com&from=2026-05-01&to=2026-05-07
+→ 200 { "hit_ratio": 0.94, "requests": 142000000, "bandwidth_gb": 8420 }
+
+-- (Content request, automatic)
+GET https://example.com/image.jpg
+  → Edge serves from cache or fetches from origin
+  → Response headers include: X-Cache: HIT, Age: 3600
+```
+
+## 5. High Level Design
+
+```
+                User                       User
+                  │                          │
+                  ▼                          ▼
+       ┌──────────────────┐       ┌──────────────────┐
+       │  Edge PoP        │       │  Edge PoP        │
+       │  (e.g. Bangalore)│       │  (e.g. Tokyo)    │
+       │  RAM + SSD cache │       │  RAM + SSD cache │
+       └────────┬─────────┘       └────────┬─────────┘
+                │ miss                      │ miss
+                └──────────┬────────────────┘
+                           ▼
+               ┌───────────────────────┐
+               │  Mid-tier / Shield    │
+               │  (one per continent)  │
+               │  larger HDD cache     │
+               └──────────┬────────────┘
+                          │ miss
+                          ▼
+                   Customer Origin
+```
+
+Three tiers: **edge** closest to users, **mid-tier shield** absorbing misses from many edges, **origin** the customer's actual servers. This is the key structure.
+
+## 6. Deep Dives
+
+### 6.1 Routing: how requests reach the nearest edge
+
+**DNS-based routing:** CDN's DNS server returns different IP addresses based on the location of the DNS resolver. Works with any client. Limitation: DNS resolver location does not always equal user location.
+
+**Anycast routing (modern CDNs like Cloudflare and Fastly):** the same IP address is announced from every edge PoP via BGP. Internet routing protocols automatically deliver the packet to the nearest PoP. No DNS indirection. Fast failover: if a PoP dies, BGP withdraws its route within seconds and traffic flows to the next nearest PoP.
+
+Anycast has won at modern CDNs for latency-sensitive scenarios.
+
+### 6.2 Origin shielding: the most important scale technique
+
+Without shielding: a popular file gets evicted from an edge. All 300 edge servers simultaneously request it from origin. Origin serves 300 requests at once for every popular file that expires. Origin dies on any traffic spike.
+
+With shielding: designate one "shield" PoP per customer (ideally the one closest to the customer's origin). All edge misses for that customer go to the shield, not directly to origin. Origin sees at most one request per unique file per shield, regardless of how many edges are served by that shield.
+
+This is why CDNs can claim to "protect your origin" - the shield absorbs all the fan-in.
+
+### 6.3 Cache key design
+
+Cache key is typically `host + path + normalized query string`. But with rules:
+- Strip irrelevant query params (analytics tags like `utm_*`) to improve hit ratio.
+- Vary on `Accept-Encoding` (gzip vs br give different cached objects).
+- Vary on language for localized content.
+
+For dynamic content with auth cookies: bypass the cache entirely, but still benefit from TLS pre-warming and connection pooling.
+
+### 6.4 Cache invalidation: the purge problem
+
+A customer deploys new homepage HTML and wants all 300 edges to forget the old version immediately.
+
+```
+Customer ─► Purge API ─► Purge Service
+                               │
+                               ▼
+                     Global pub-sub (replicated log)
+                               │
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+          Edge PoP A      Edge PoP B      Edge PoP C
+         (evict key)     (evict key)     (evict key)
+```
+
+Latency target: under 5 seconds to all 300+ PoPs.
+
+**Cache tags** make wildcard purge practical: every cached object can have multiple tags (set via response header: `Cache-Tag: homepage,hero-image`). Purging tag "homepage" marks all objects with that tag as invalid in O(1), using lazy eviction rather than scanning the entire cache. The next request for a tagged object finds the invalidation marker and fetches fresh from origin.
+
+### 6.5 TLS at edge
+
+Each customer domain needs a valid TLS certificate served at the edge. Two cases:
+
+**Customer-managed:** customer uploads their certificate and private key. Stored in the CDN's secret store and distributed to edges on demand.
+
+**CDN-managed (auto-provisioned):** for customers using the CDN's domain or for managed certificates, the CDN uses Let's Encrypt or its own ACME CA to automatically provision and renew certificates.
+
+**SNI (Server Name Indication):** essential for multi-tenant TLS. One IP address serves thousands of customer domains. The certificate is selected from the TLS ClientHello based on the hostname the client is connecting to.
+
+### 6.6 Edge compute
+
+Modern CDNs run customer code at edge for:
+- Header rewriting and geo-based redirects.
+- JWT validation at edge (reject unauthenticated requests before hitting origin).
+- A/B test routing without a round trip to origin.
+- Assembling personalized HTML from cached fragments.
+
+Implementation: V8 isolates (Cloudflare Workers) or WASM runtimes. Each isolate is one tenant. Cold start is under 5ms vs hundreds of milliseconds for containers.
+
+### 6.7 DDoS protection
+
+CDNs absorb attacks by distributing them:
+- Anycast spreads a volumetric attack across hundreds of PoPs: a 1 Gbps attack becomes 3 Mbps per PoP.
+- Rate limiting per (IP, domain) at edge.
+- Layer 7 challenges: JavaScript challenges, CAPTCHA for suspicious traffic patterns.
+- Anomaly detection on sudden traffic spikes per customer.
+
+<Callout type="tip" title="The 30-second summary">
+A CDN is **anycast-routed tiered edge caches with origin shielding**. Users hit the nearest of ~300 PoPs; misses go to a regional shield (which absorbs the fan-in to origin); purges propagate via a globally-replicated log plus cache tags. TLS terminates at edge via SNI. Modern CDNs add edge compute for sub-10ms execution near users.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube), heavy CDN consumer
+- [Design Twitch / Live Streaming](/blog/system-design/design-twitch-live-streaming), CDN with second-scale TTLs
+- [Design Netflix](/blog/system-design/design-netflix), Open Connect: CDN inside ISP datacenters
+</Callout>

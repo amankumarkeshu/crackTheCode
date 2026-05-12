@@ -1,0 +1,192 @@
+---
+title: "Design Twitch / a Live Streaming System"
+slug: "design-twitch-live-streaming"
+category: "system-design"
+tags: ["live-streaming", "rtmp", "hls", "low-latency", "webrtc"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Live is fundamentally different from VOD: ingest under tight CPU budgets, sub-second LL-HLS distribution, chat fan-out at millions of concurrent viewers, and the broadcaster vs viewer latency trade-off."
+---
+
+Live streaming looks like YouTube with a live button. It is not. Encoding in real time under a strict CPU budget, delivering to millions of viewers with under 3-second latency, and running a chat system where one message reaches a million viewers instantly are problems that do not exist in video-on-demand.
+
+## 1. Clarifying Scope First
+
+- How much delay between the broadcaster and the viewer is acceptable? Under 3 seconds (normal gaming), under 1 second (interactive auction), or under 100 milliseconds (two-way video call)?
+- How many viewers can one stream have? Ten thousand, one million, or fifty million for a major event?
+- How many people are broadcasting at the same time?
+- Is chat a first-class feature?
+- Should streams be saved so viewers can watch them later?
+- Do any streams have content protection (for sports rights, pay-per-view)?
+
+For this article: gaming-focused live platform, 5 million concurrent broadcasters, about 50 million concurrent viewers globally, 2 to 5 second target latency, integrated chat, streams saved as videos after they end.
+
+## 2. Requirements
+
+**Functional:**
+1. A broadcaster sends a live video stream; it reaches viewers around the world.
+2. Viewers receive the stream at multiple quality levels and their player picks the right one for their connection (adaptive bitrate).
+3. Chat messages sent by any viewer appear to all other viewers in that stream within a few seconds.
+4. Viewers can see how many people are watching.
+5. After the stream ends, the recording is available as a video on demand.
+
+**Non-Functional:**
+1. End-to-end latency under 5 seconds for 95% of viewers.
+2. Support for streams with up to 1 million simultaneous viewers.
+3. Chat messages delivered to all viewers within 3 seconds.
+4. System handles sudden spikes: a major event goes from 10,000 viewers to 1 million in minutes.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Stream** | stream_id, broadcaster_id, title, status (live/ended), started_at, ended_at |
+| **Broadcaster** | broadcaster_id, stream_key, preferred_region |
+| **Segment** | segment_id, stream_id, sequence_num, duration_ms, resolutions[], storage_url |
+| **Manifest** | stream_id, current_sequence, segment_urls[], updated_at |
+| **ChatMessage** | message_id, stream_id, user_id, text, sent_at |
+| **ViewerCount** | stream_id, count, updated_at |
+
+## 4. APIs
+
+```http
+-- Get stream ingest URL (broadcaster setup)
+POST /api/v1/streams/start
+{ "broadcaster_id": "b_42", "title": "Late Night Gaming" }
+→ 201 {
+  "stream_id": "s_9182",
+  "rtmp_url": "rtmps://ingest-us-east.example.com/live/sk_abc123"
+}
+
+-- Get HLS playlist for viewing
+GET /api/v1/streams/:stream_id/playlist.m3u8
+→ 200 Content-Type: application/vnd.apple.mpegurl
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION=1920x1080
+1080p/playlist.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720
+720p/playlist.m3u8
+
+-- Send a chat message
+POST /api/v1/streams/:stream_id/chat
+{ "user_id": "u_7", "text": "GG!" }
+→ 202
+
+-- Read recent chat messages (polling fallback)
+GET /api/v1/streams/:stream_id/chat?after=msg_900&limit=50
+→ 200 { "messages": [...] }
+```
+
+## 5. High Level Design
+
+```
+Broadcaster (OBS or similar)
+    │ RTMP over TCP → Ingest Server (closest by latency)
+    │
+Ingest Server
+    │ Transcoding: encode 1080p source to 720p, 480p, 360p segments
+    │ Segment length: 2 seconds (LL-HLS) or 10 seconds (standard HLS)
+    │ Upload segments to object storage (S3)
+    │ Update live playlist in Redis
+    │ Publish segment-ready event to Kafka
+    │
+CDN Edge (hundreds of Points of Presence globally)
+    │ Pull segments from origin (S3) on first request
+    │ Cache segments; 99% of viewer requests hit CDN, not origin
+    │
+Viewer App
+    │ Fetch playlist every 2 seconds (LL-HLS: HTTP/2 push)
+    │ Download segments from nearest CDN edge
+    │ Adaptive bitrate: switch quality based on download speed
+    │
+Chat Service
+    │ Messages written to Kafka partitioned by stream_id
+    │ Chat delivery workers fan out to viewer WebSocket connections
+    │ Messages persisted to Cassandra for replay
+    │
+VOD Archival (async)
+    After stream ends: concatenate all segments into full video file
+    Store in cheap cold storage, create VOD record
+```
+
+## 6. Deep Dives
+
+### 6.1 Why live encoding is hard
+
+For video on demand, you can spend minutes encoding a video. For live, you have 2 seconds to encode each 2-second segment or viewers stall.
+
+A 1080p60 stream at 6 Mbps requires:
+- H.264 or H.265 encoding (CPU or GPU intensive)
+- Simultaneously encoding 4 quality variants (1080p, 720p, 480p, 360p)
+- Finishing within the segment duration (2 seconds for LL-HLS)
+
+Modern ingest servers use GPU transcoding (NVIDIA NVENC). A single GPU server can handle around 50 concurrent streams. With 5 million broadcasters, that is 100,000 transcoding servers - a significant fleet. Scale with autoscaling: provision servers based on active stream count.
+
+Broadcaster streams at one quality to reduce their upload bandwidth. The ingest server transcodes to all variants. This is the Twitch/YouTube model. Giving broadcasters the option to send multiple qualities themselves (client-side encoding) reduces server cost but requires a better upload connection.
+
+### 6.2 HLS segment delivery and CDN
+
+HTTP Live Streaming (HLS) breaks the video into small files (segments) and a playlist file (.m3u8) that lists them.
+
+Standard HLS: 10-second segments, 30-second latency (3 segments buffered). Good for stable delivery but high latency.
+
+Low Latency HLS (LL-HLS): 0.5 to 2-second segments, 2 to 5-second latency. Apple's official extension, supported in iOS 14+ and modern browsers.
+
+The playlist file changes every few seconds. Viewers fetch it repeatedly. At 1 million viewers fetching every 2 seconds, that is 500,000 playlist requests per second. The CDN must cache playlist files aggressively with short TTLs (2 seconds) or use HTTP/2 server push to proactively send updated playlists to waiting viewers.
+
+Segments themselves are immutable once written: uploaded once to S3, cached indefinitely at the CDN edge. Cache hit ratio for segments is near 100% for popular streams - a million viewers all download the same file.
+
+### 6.3 Chat fan-out at scale
+
+One streamer has 1 million concurrent viewers. A viewer sends a chat message. It must reach all 1 million viewers within 3 seconds.
+
+Naive approach: message goes to a server, which sends to all 1 million WebSocket connections on all servers. Problem: no single server has 1 million connections, and broadcasting across servers is slow.
+
+Scaled approach:
+- Chat servers each handle 100,000 WebSocket connections (10 servers for 1 million viewers).
+- A message arrives at one server, goes to a Kafka topic partitioned by stream_id.
+- All 10 chat servers consume from that partition.
+- Each server sends the message to its local viewers.
+
+Kafka fan-out: 10 consumers each receive the message, total fan-out = 1 million viewers covered. Kafka throughput is not the limit; WebSocket delivery is.
+
+For super-popular streams, even this can be a bottleneck. Solution: throttle chat. Show only 3 messages per second in the viewer's chat window (randomly sampled from all messages). No viewer sees all 100 messages per second anyway.
+
+### 6.4 Viewer count approximation
+
+Exactly counting 1 million concurrent viewers requires tracking join and leave events. At scale:
+- Viewers join and leave constantly.
+- A viewer might watch in two browser tabs.
+- Viewers on mobile might disconnect and reconnect frequently.
+
+Exact count approach: maintain a set of active viewer IDs in Redis. Use a heartbeat (viewer pings every 30 seconds). Expire entries after 45 seconds. `SCARD` gives exact count. Works at millions of viewers but Redis memory scales linearly.
+
+Approximate count approach: use HyperLogLog per stream. `PFADD stream_id:viewers user_id` on join. `PFCOUNT` gives count with 0.81% error. Memory: 12 KB per stream regardless of viewer count.
+
+For display on stream pages, HyperLogLog is accurate enough and far more scalable.
+
+### 6.5 VOD recording after stream ends
+
+Streams are archived as full videos automatically.
+
+When a stream ends:
+1. Ingest server emits a "stream ended" event to Kafka.
+2. Archive job picks up the event.
+3. Job retrieves all segment URLs from the playlist history.
+4. Concatenates segments into one MP4 file (or leaves as HLS playlist for direct serving).
+5. Creates a VOD record in the database pointing to the stored file.
+6. The channel page now shows the VOD under "Past Broadcasts."
+
+Segment retention: keep individual segments for 7 days (re-watchable via live playlist replay). Keep the assembled VOD indefinitely (or until the broadcaster deletes it).
+
+<Callout type="tip" title="The 30-second summary">
+A live streaming platform is a **real-time transcoding and CDN distribution pipeline**: broadcaster sends RTMP to an ingest server, which transcodes to multiple qualities, uploads 2-second segments to S3, and updates a short-TTL playlist. CDN edges serve segments to viewers. Chat is fanned out via Kafka to chat servers holding viewer WebSocket connections. The hardest problems are keeping encoding latency under the segment duration and fanning out chat to millions of viewers per stream.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design YouTube](/blog/system-design/design-youtube), video-on-demand which is simpler than live
+- [Design CDN](/blog/system-design/design-cdn), the edge caching layer that makes segment delivery scalable
+- [Design Distributed Queue](/blog/system-design/design-distributed-queue), the Kafka backbone for chat fan-out
+</Callout>

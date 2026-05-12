@@ -1,0 +1,198 @@
+---
+title: "Design Twitter / News Feed: fan-out on write vs read, with real numbers"
+slug: "design-news-feed-twitter"
+category: "system-design"
+tags: ["fanout", "timeline", "caching", "celebrity-problem"]
+difficulty: "staff"
+readingTime: 18
+publishedAt: "2026-05-06"
+author: "Aman Kumar Cheshu"
+excerpt: "The most-asked system design question done properly. Fan-out on write vs read, the celebrity problem, capacity numbers that justify each choice, and the hybrid model real Twitter actually uses."
+---
+
+If you do exactly one system design problem before your next interview, do this one. News feed is the most-asked question across Google, Meta, Amazon, LinkedIn, and Atlassian loops - and the one candidates most often answer at a junior level. The issue is not that "fan-out on write" is hard. It is that most candidates pick one strategy and stop. The right answer is the hybrid, and you need real numbers to justify it.
+
+## 1. Clarifying Scope First
+
+- Do people mostly read or mostly post? (Almost always mostly read, around 100:1.)
+- When someone posts, do all their followers see it in time order, or ranked by relevance?
+- Can someone follow a celebrity with millions of followers, or is it more like Facebook friends?
+- If a celebrity posts, how quickly should their 600 million followers see it?
+- What does "scrolling the feed" involve - a single query or many?
+- Do we need to handle replies, retweets, and media?
+
+For this article: Twitter-style asymmetric follows (anyone can follow anyone), reverse-chronological feed (no ML ranking - that is a separate problem), visible within 5 seconds of posting, 500 million daily active users, median user follows 200 people, top celebrity followed by 600 million people.
+
+## 2. Requirements
+
+**Functional:**
+1. Post a tweet.
+2. Get the feed: most recent tweets from people you follow.
+3. Follow and unfollow other users.
+
+**Non-Functional:**
+1. Reading the feed should take under 200ms at p99.
+2. After posting, the poster sees it immediately. Best-effort propagation to followers.
+3. High availability for reads. Twitter being down is world news.
+4. Eventually consistent is fine: nobody expects real-time.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **User** | user_id, name, follower_count, is_celebrity |
+| **Tweet** | tweet_id (Snowflake), author_id, text, media_ids[], created_at |
+| **Follow** | follower_id, followee_id, created_at |
+| **Timeline** | user_id, tweet_id, author_id, ts (pre-built inbox, capped at ~800) |
+| **AuthorTimeline** | author_id, tweet_id, created_at (for celebrity pull-on-read) |
+
+## 4. APIs
+
+```http
+-- Post a tweet
+POST /api/v1/tweets
+{ "userId": "u_42", "text": "...", "mediaIds": [] }
+→ 201 { "tweetId": "t_91283412", "createdAt": "2026-05-06T07:30:00Z" }
+
+-- Get feed (cursor-based, never offset-based)
+GET /api/v1/feed?cursor=...
+→ 200 { "tweets": [...], "nextCursor": "..." }
+
+-- Follow
+POST /api/v1/follow { "targetUserId": "u_99" } → 204
+
+-- Unfollow
+DELETE /api/v1/follow/:targetUserId → 204
+```
+
+## 5. High Level Design
+
+```
+POST /tweet
+  → Tweet Service
+     a. write tweet to Tweets table (sharded by tweet_id)
+     b. write to AuthorTimeline[author_id]
+     c. publish to Kafka "tweet.created"
+     d. return 201 to user immediately
+
+Kafka → Fan-out Workers
+  if author.follower_count <= THRESHOLD:
+      bulk-INSERT tweet_id into Timeline[each follower]
+  else (celebrity):
+      skip fan-out; tweet stays in AuthorTimeline only
+
+GET /feed
+  → Feed Service
+     a. Read Timeline[user] for pre-built feed (cheap)
+     b. Read AuthorTimeline for each celebrity user follows (small set)
+     c. Merge by timestamp
+     d. Hydrate tweet objects: SELECT * WHERE tweet_id IN (...)
+     e. Cache and return
+```
+
+## 6. Deep Dives
+
+### 6.1 The capacity numbers that drive everything
+
+- 500M daily users × 5 feed reads per day = **2.5 billion feed reads per day** = 30,000 reads per second average.
+- 200M posts per day = 2,300 writes per second average.
+- Fan-out on write for a normal user with 200 followers = 200 inbox writes per post. Manageable.
+- Fan-out for a celebrity with 600M followers = 600 million inbox writes per post. **This number makes fan-out on write impossible as the whole answer.**
+
+### 6.2 Fan-out on write vs fan-out on read
+
+**Fan-out on write (push):** when A posts, immediately write A's tweet into every follower's inbox.
+- Reads are cheap: one indexed scan on the user's timeline table.
+- Writes are expensive: 200x amplification on average, 600M x for a celebrity.
+
+**Fan-out on read (pull):** when F reads the feed, fetch the last N tweets from each followee and merge.
+- Writes are cheap: one row inserted.
+- Reads are expensive: 200 fetches and a sort-merge per feed read.
+
+Neither alone works. One breaks on writes (celebrity post), the other breaks on reads (200 followees per read).
+
+### 6.3 The hybrid answer
+
+> Fan-out on write for normal users. Pull on read for celebrity tweets. Merge at read time.
+
+```
+On post:
+  if author.follower_count > 100K (celebrity):
+      skip fan-out; store only in AuthorTimeline
+  else:
+      fan out to all followers' Timeline tables
+
+On read:
+  normal_feed = read Timeline[user]         (pre-built, 1 query)
+  celebrity_tweets = read AuthorTimeline[each celebrity F follows]
+  merge by timestamp, return top 50
+```
+
+Why this works:
+- 99.9% of users have fewer than 1,000 followers. Fan-out on write is cheap for them.
+- A handful of accounts have millions of followers. Pull on read for those keeps the system stable.
+- The threshold around 100K followers is tunable. Too low means too many celebrities and heavy reads; too high means fan-out storms in the 100K-1M range.
+
+### 6.4 Data model and sharding
+
+```sql
+-- Sharded by tweet_id (Snowflake, time-sortable)
+tweets(tweet_id PK, author_id, text, media_ids[], created_at)
+
+-- Sharded by user_id (all of a user's inbox on one shard)
+timeline(user_id, tweet_id, author_id, ts, PRIMARY KEY(user_id, ts DESC))
+   -- capped at ~800 entries per user
+
+-- For celebrity pull-on-read
+timeline_authors(author_id, tweet_id, created_at, PRIMARY KEY(author_id, created_at DESC))
+```
+
+Capping the inbox at 800 entries bounds storage to `500M users × 800 entries × 16 bytes = 6.4 TB`. Deep scroll beyond 800 falls back to pull.
+
+Wide-column stores (Cassandra, DynamoDB) are the right storage choice: append-heavy, time-ordered range scans, no joins, easy multi-region replication.
+
+### 6.5 Snowflake ID design
+
+Tweet IDs are designed to be sortable, sharded, and globally unique without any central sequence:
+
+```
+ 1 bit sign | 41 bits timestamp (ms since epoch) | 10 bits machine ID | 12 bits sequence
+```
+
+- 41-bit timestamp covers 69 years before rollover.
+- 10-bit machine ID allows 1,024 ID generators with no coordination.
+- 12-bit sequence allows 4,096 IDs per millisecond per machine.
+
+Wins: sorted by ID means sorted by time; no central sequence service; range queries on tweet_id are cheap. Trade-off: IDs are roughly predictable (security consideration if you need to hide enumeration).
+
+### 6.6 Caching
+
+Two cache layers:
+- **Timeline cache:** ordered list of tweet IDs per user. Updated during fan-out. TTL a few minutes.
+- **Tweet cache:** `tweet_id → full tweet object`. Hot tweets live here indefinitely.
+
+This separation lets you invalidate one without the other. A tweet edit (or deletion) only invalidates the tweet cache. The timeline cache (which only holds IDs) stays untouched.
+
+### 6.7 Adding ranking on top
+
+The chronological feed is the candidate generation layer. If you want to add ML ranking:
+
+```
+Stage 1: Candidate generation (~5K posts, same as above, < 50ms)
+Stage 2: Feature hydration (item features + user features + cross-features, ~30ms)
+Stage 3: ML scoring (two-tower model, precomputed user embedding per session, ~20ms)
+Stage 4: Filtering (already-seen, blocklist, diversity cap, ~20ms)
+Total p99: ~150ms
+```
+
+The chronological design is preserved underneath. Ranking is a layer on top, not a replacement.
+
+<Callout type="tip" title="The 30-second summary">
+News feed is a **fan-out problem**. Pure push fails at the celebrity tail; pure pull fails on the common case. The right answer is **hybrid: push for normal users, pull for celebrities, merge at read time**. Storage is a wide-column store sharded by user_id for inboxes and by tweet_id for content. The capacity math (200 median followers vs 600M celebrity max) drives every architectural choice.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the fan-out workers run on it
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), the timeline cache layer
+- [Design Instagram](/blog/system-design/design-instagram), same feed core with ranked ML layer
+</Callout>

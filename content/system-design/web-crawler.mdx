@@ -1,0 +1,195 @@
+---
+title: "Design a Web Crawler"
+slug: "design-web-crawler"
+category: "system-design"
+tags: ["crawler", "bloom-filter", "url-frontier", "politeness"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "URL frontier with per-host politeness, duplicate detection at trillions-of-URLs scale, content dedup with SimHash, DNS caching and the hard parts that turn 'just fetch pages' into a real systems problem."
+---
+
+"Design a web crawler" sounds easy ("for url in urls: fetch(url)") and is brutally hard at scale. The internet has 50+ billion pages. You have to fetch them without getting banned, avoid storing the same page twice, parse links reliably, and feed the results to downstream systems - all sustainably.
+
+## 1. Clarifying Scope First
+
+- Is this a general web crawler like Googlebot, or something focused like a price tracker for one website?
+- How many pages total do we eventually want to index?
+- How often should we revisit pages? Some pages change every hour; others never change.
+- What will the crawled content feed into: a search index, an ML training dataset, an archive?
+- Should we be polite and respect when websites ask us not to crawl certain pages?
+
+For this article: general web crawler targeting about 10 billion pages, monthly recrawl for cold content plus hourly for hot/news pages, feeds a search index, full politeness (respects robots.txt and crawl delays).
+
+## 2. Requirements
+
+**Functional:**
+1. Fetch HTML from seed URLs.
+2. Extract new links from each page and enqueue them.
+3. Never visit the same URL twice (URL deduplication).
+4. Never store identical content twice (content deduplication).
+5. Honor robots.txt and per-domain crawl delay settings.
+
+**Non-Functional:**
+1. Sustained throughput of 10,000+ pages per second.
+2. Never overload any single website (politeness).
+3. Workers fail regularly; the system must be fault-tolerant.
+4. Extensible: adding new metadata extraction does not require a redesign.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **CrawlJob** | url, priority, host, scheduled_at, last_crawled_at, status |
+| **CrawledPage** | url_hash, url, content_hash, fetched_at, http_status, raw_html_path |
+| **ExtractedLink** | source_url, target_url, anchor_text, discovered_at |
+| **HostPolicy** | host, robots_txt, crawl_delay_ms, last_fetched_at |
+| **ContentFingerprint** | simhash, url_hash (for near-duplicate detection) |
+
+## 4. APIs
+
+```http
+-- Submit seed URLs (admin/internal)
+POST /internal/crawl/seed
+{ "urls": ["https://example.com", ...], "priority": "high" }
+→ 202
+
+-- Get crawl status for a URL
+GET /internal/crawl/status?url=https://example.com
+→ 200 { "last_crawled_at": "...", "status": "done", "http_status": 200 }
+
+-- Force recrawl of a URL
+POST /internal/crawl/recrawl
+{ "url": "https://example.com/news/article", "reason": "content_changed" }
+→ 202
+```
+
+## 5. High Level Design
+
+```
+Seed URLs ─► URL Frontier (priority queue per host)
+                   │
+                   ▼
+            DNS Resolver (LRU cache, own recursive resolver)
+                   │
+                   ▼
+            Fetcher Worker pool ─► HTTP GET ─► Object Storage (raw HTML)
+                   │
+                   ▼
+            Parser Workers ─► extract links + metadata
+                   │   └─► Content fingerprint (SimHash)
+                   │
+                   ▼
+            URL Extractor ─► Filter ─► back to URL Frontier
+                   │
+                   ▼
+            Indexer downstream (Kafka topic)
+```
+
+The hard parts are the URL Frontier (scheduling) and the dedup layers (both URL and content).
+
+## 6. Deep Dives
+
+### 6.1 The URL frontier: throughput plus politeness
+
+Two requirements fight each other:
+- **High throughput:** pull 10,000 URLs per second to fetch.
+- **Politeness:** never have more than one in-flight request to any single host at a time, and respect that host's crawl delay.
+
+A single FIFO queue fails because it would hammer popular hosts like github.com or wikipedia.org.
+
+**Multi-queue frontier (Mercator design):** one queue per host. A scheduler keeps a heap of "when is each host eligible to be crawled again?"
+
+```python
+class HostScheduler:
+    def pick():
+        when, host = eligible_heap.peek()
+        if when > now(): sleep(when - now())
+        url = host_queues[host].pop()
+        return url, host
+
+    def release(host, crawl_delay_ms):
+        eligible_heap.push((now() + crawl_delay_ms, host))
+```
+
+Distributed: shard host queues by `hash(host)`. All URLs for `example.com` go to the same worker, naturally enforcing the per-host limit without any global coordination.
+
+**Priority tiers:** not all pages are equal. News pages get crawled hourly. A static product description gets crawled monthly. Use multiple priority bands per host queue.
+
+### 6.2 URL deduplication at scale
+
+We will eventually see trillions of URLs. A naive `Set<String>` in memory does not fit.
+
+**Bloom filter (the right answer):** a probabilistic set that says "definitely not seen" or "probably seen."
+
+For 10 billion URLs at 1% false positive rate: roughly 12 GB of memory (about 1.2 bytes per URL with 7 hash functions). A false positive means occasionally skipping a URL we have not actually crawled. Acceptable for general web crawling.
+
+**Canonicalization before inserting:**
+- Lowercase the host.
+- Drop tracking parameters (`utm_*`, `gclid`, session IDs, fragment IDs).
+- Normalize paths (`/foo/` to `/foo`).
+
+Skipping canonicalization makes dedup useless: `EXAMPLE.com/x` and `example.com/x` look different but are the same page.
+
+### 6.3 Content deduplication: SimHash for near-duplicates
+
+Different URLs often serve nearly identical content: mirrors, syndicated articles, scrapers. Exact hash (SHA-256 of HTML) catches identical pages but misses "same article, different ads."
+
+**SimHash:** a 64-bit fingerprint where Hamming distance approximates content similarity. "Same article, different sidebar ads" produces a Hamming distance of less than 3.
+
+Pipeline:
+1. Compute SimHash of page body text (strip boilerplate HTML first).
+2. Check against a fingerprint store.
+3. If Hamming distance to any existing fingerprint is below threshold, mark as near-duplicate (do not index).
+4. Otherwise store fingerprint and send to indexer.
+
+### 6.4 DNS caching
+
+At 10,000 fetches per second, each requiring a DNS lookup, you hit the upstream DNS resolver's rate limits immediately.
+
+Solutions:
+- LRU DNS cache on each worker (TTL = response TTL).
+- Run your own recursive resolver (Unbound, BIND) in front of upstream DNS. Caches aggressively.
+- Pre-resolve the top N most-crawled hosts at startup.
+
+Without DNS caching, DNS is the bottleneck before anything else.
+
+### 6.5 Politeness: the part that gets you blocked or sued
+
+Beyond per-host concurrency:
+
+- **robots.txt:** fetch and cache per host with a 24-hour TTL. Honor `Disallow`, `Crawl-Delay`, and `Allow` directives.
+- **User-Agent:** set a clear one with a contact URL: `MyCrawler/1.0 (+https://mycompany.com/crawler)`. Anonymous crawlers get blocked.
+- **Backoff on 5xx and 429:** never hammer a struggling site. Exponential backoff.
+- **Sitemaps:** when `sitemap.xml` is available, prefer those URLs over discovered links. Sitemaps list exactly what the site wants crawled.
+
+### 6.6 Handling crawler traps and weird HTML
+
+Some sites have infinite calendars (every next-day link generates a new URL forever), or query-parameter explosions where `?sort=price&order=asc&page=1` multiplies into millions of URLs.
+
+Defenses:
+- Per-host URL limit (stop after crawling N thousand URLs from one host).
+- Depth limit (do not follow links more than D hops from the seed).
+- URL normalization and pattern blocklists.
+- Detect cycles and page-similar patterns.
+
+### 6.7 Failure handling
+
+| Failure | Behavior |
+|---|---|
+| Fetcher crashes mid-page | URL returns to frontier; retry with backoff |
+| HTTP 5xx or timeout | Exponential backoff; abandon after N attempts |
+| HTTP 4xx | Do not retry; record and move on |
+| Parser dies on malformed HTML | Log and continue; never lose queue position |
+| Dedup store unavailable | Fail-open (accept possible re-crawl) or pause that host queue |
+
+<Callout type="tip" title="The 30-second summary">
+A web crawler is a **multi-queue URL frontier with per-host politeness, a Bloom filter for URL deduplication, a SimHash layer for content deduplication, and an aggressive DNS cache**. The hard parts are frontier scheduling (throughput plus politeness), dedup at scale (10B+ URLs), and not getting blocked. Real crawlers are 80% queue management and 20% HTTP.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the URL frontier is essentially this
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), DNS and robots.txt cache layer
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), per-host crawl rate limiting
+</Callout>

@@ -1,0 +1,195 @@
+---
+title: "Design WhatsApp / a Real-Time Chat System"
+slug: "design-whatsapp-chat"
+category: "system-design"
+tags: ["websocket", "messaging", "presence", "fan-out", "encryption"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Long-lived connections at billions of users, per-conversation ordering, group fan-out, presence without melting the heartbeat layer, and offline delivery - the chat design that shows up in every senior+ loop."
+---
+
+"Design WhatsApp" looks like a simple chat app question. It is actually a deep distributed systems problem about long-lived connections at scale, message ordering, and what happens when someone goes offline for three days and then comes back.
+
+## 1. Clarifying Scope First
+
+- Are we building only one-to-one chat, or do we need group chats too?
+- If groups, how big can they get? A hundred people? A thousand?
+- Do senders get to know if the other person read their message?
+- Can people see when others were last active?
+- Do we need to store photos and videos, or just text?
+- Does every message need to be encrypted end-to-end so even we can't read them?
+- How long do we keep message history?
+
+For this article: one-to-one plus groups up to 1,000 people, read receipts, presence, text plus media references, persistent history, end-to-end encryption, about 3 billion users and 100 billion messages per day.
+
+## 2. Requirements
+
+**Functional:**
+1. Send and receive messages including media references.
+2. Group chats with up to 1,000 members.
+3. Online presence and last-seen timestamps.
+4. Delivery receipts: sent, delivered, read.
+5. Queue messages when the recipient is offline, deliver when they reconnect.
+6. Persistent message history.
+
+**Non-Functional:**
+1. Messages arrive in the order they were sent, within the same conversation.
+2. When both people are online, message should arrive in under 500ms (p99).
+3. 99.99% uptime for the messaging path.
+4. Messages that are sent must never be lost.
+5. The system must handle roughly 2 billion concurrent connections globally.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **User** | user_id, name, phone_number, last_seen |
+| **Message** | message_id, conversation_id, sender_id, content, created_at, client_msg_id |
+| **Conversation** | conversation_id, type (1:1 / group), participants[], created_at |
+| **DeliveryReceipt** | message_id, user_id, status (delivered / read), at |
+| **OfflineQueue** | user_id, message_id, queued_at, expires_at |
+| **Session** | user_id, connection_server_id, last_heartbeat |
+
+## 4. APIs
+
+```http
+-- Send a message
+POST /v1/messages
+{ "conversation_id": "c_42", "content": "hey", "client_msg_id": "uuid" }
+→ 201 { "message_id": "m_9182", "seq": 841 }
+
+-- Get history
+GET /v1/conversations/:id/messages?before=841&limit=50
+→ 200 { "messages": [...] }
+
+-- Mark as read
+POST /v1/messages/:id/read
+→ 204
+
+-- Create group
+POST /v1/groups
+{ "name": "Trip 2026", "members": ["u_1","u_2","u_3"] }
+→ 201 { "conversation_id": "c_99" }
+```
+
+## 5. High Level Design
+
+```
+Client App
+    │ WebSocket (long-lived)
+    ▼
+Connection Server  ←────── Session Registry (Redis)
+    │                       user_id → { server_id, last_heartbeat }
+    ▼
+Message Service
+    ├── writes to: Messages table (Cassandra, sharded by conversation_id)
+    ├── looks up: recipient's server in Session Registry
+    │       if online  → pushes to Connection Server → socket
+    │       if offline → writes to Offline Queue
+    └── returns ack to sender
+
+Offline Queue (Cassandra / Kafka)
+    └── drained on reconnect
+```
+
+There are two foundational components. The **Connection Server** is the stateful piece; it owns the live TCP socket for each user. Everything behind it - the Message Service, the database, the queues - is roughly stateless.
+
+## 6. Deep Dives
+
+### 6.1 Why long-lived connections, not polling
+
+Polling at 100ms intervals across 2 billion clients means 20 billion requests per second just to check for new messages. WebSockets give you a single TCP connection per client kept open for hours, with sub-second delivery and roughly 10x less server CPU.
+
+The cost: connection servers are stateful. A server knows which users are connected to it. If it dies, those users reconnect and might land on a different server. The Session Registry tracks this:
+
+```
+user_id → { connection_server_id, session_token, last_heartbeat }
+```
+
+When server X wants to deliver to user Y: look up Y in the registry, get server S, send via internal RPC to S, which finds Y's socket and pushes the message.
+
+### 6.2 Per-conversation ordering
+
+Total ordering across the whole system is impossible at this scale. You only need ordering within a single conversation.
+
+All messages for conversation C go to the same database shard. Each conversation maintains its own monotonic sequence counter. Clients sort by sequence number.
+
+```sql
+CREATE TABLE messages (
+  conversation_id  bigint,
+  seq              bigint,      -- monotonic per conversation
+  message_id       bigint,      -- globally unique (Snowflake)
+  sender_id        bigint,
+  content          blob,
+  PRIMARY KEY (conversation_id, seq)
+);
+```
+
+Two senders in the same conversation hit the same shard and serialize via a single-writer-per-shard pattern. Two senders in different conversations are fully parallel.
+
+### 6.3 Group chat fan-out
+
+For 1,000-member groups, when someone sends a message:
+- Look up all 1,000 members in the Session Registry.
+- For each online member: push via their Connection Server.
+- For each offline member: write to their Offline Queue.
+
+This is fan-out on write, which is fast for normal groups. For very large groups (10K+ members, like WhatsApp Communities), switch to fan-out on read: store the message once in the group log, members pull when they open the chat.
+
+### 6.4 Offline message delivery
+
+Each user has an inbox of undelivered messages stored in Cassandra with a 30-day TTL. When the user reconnects:
+1. Connection Server queries the inbox.
+2. Pulls messages in batches, paginated.
+3. Pushes to the client, waits for ack.
+4. On ack, marks as delivered.
+
+Never push 50,000 messages over a fresh socket in one frame. Pagination is mandatory.
+
+### 6.5 Presence without melting the heartbeat layer
+
+Naive approach: every client sends a heartbeat every 30 seconds. With 2 billion clients that is 70 million requests per second just for heartbeats.
+
+Better approach:
+- **Presence is implicit from the connection.** If the WebSocket is alive, the user is online. TCP keep-alive handles this automatically.
+- **Last-seen is written only on disconnect**, not periodically.
+- **Presence only fans out to interested parties**, the people you are actively chatting with right now, not your entire contact list.
+- Cache "is X online?" answers in Redis with a 30-second TTL.
+
+### 6.6 Idempotent delivery
+
+Clients send a `client_msg_id` (UUID generated on device) with every message. The server deduplicates: if the same `client_msg_id` arrives twice from the same sender, return the same `message_id`, do not double-store.
+
+This handles the "message sent, network dropped, retry" case without creating duplicate messages.
+
+### 6.7 End-to-end encryption
+
+WhatsApp uses the Signal Protocol. Each pair of users has a Double Ratchet of keys. Messages are encrypted client-to-client; the server never sees plaintext.
+
+Implications for the design:
+- Server cannot read, search, or index message content.
+- Search is client-side only.
+- Backups are encrypted with a key only the user holds.
+
+In an interview, mention E2E exists and note that it constrains the design, then move on unless asked to go deeper.
+
+### 6.8 Failure handling
+
+| Failure | Behavior |
+|---|---|
+| Connection server crashes | Sockets drop. Clients auto-reconnect via load balancer. Session Registry updated on new login. |
+| Message write fails mid-send | Sender retries with same `client_msg_id`. Server idempotently deduplicates. |
+| Recipient flaky | Push retries with backoff, then falls to offline queue. |
+| Network partition | Client sees "sending..." stuck. Messages queue locally and replay on reconnect. |
+
+<Callout type="tip" title="The 30-second summary">
+A chat system is a **fleet of stateful WebSocket servers behind a session registry, feeding messages into a per-conversation sharded log, with offline queues for users who are not connected.** The hard parts are connection scale, per-conversation ordering, and presence without melting the heartbeat layer. Group fan-out reuses the News Feed push/pull hybrid pattern for large groups.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the offline queue and group fan-out pipeline
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), the same fan-out problem at different latency requirements
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), backs the session registry and presence cache
+</Callout>

@@ -1,0 +1,223 @@
+---
+title: "Design an Ad Serving System (Real-Time Bidding)"
+slug: "design-ad-serving-system"
+category: "system-design"
+tags: ["ads", "rtb", "bidding", "latency", "attribution"]
+difficulty: "staff"
+readingTime: 13
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "An ad request must pick a winning ad in under 100 ms while running an auction across thousands of bidders, applying frequency caps, and recording attribution events at billions per day."
+---
+
+Ad serving sits at the most demanding intersection of latency, scale, and money in software. Every page load runs a real-time auction; the ad must render in under 100 ms; the platform handles billions of impressions a day; revenue depends on getting every step right.
+
+## 1. Clarifying Scope First
+
+- Are we building the system that publishers use to sell their ad space, the system advertisers use to buy it, or the exchange in the middle that runs the auction? Or all three?
+- What types of ads are we showing: display banners, video pre-rolls, or search ads?
+- How do advertisers target users: by age and location, by the content of the page, or by past behavior?
+- Is there a strict time budget for selecting and returning an ad, like 100 milliseconds?
+- How many ad requests do we handle per day: 10 billion or 1 trillion?
+- Do we need to cap how many times the same person sees the same ad?
+
+For this article: an end-to-end platform where publishers send ad requests, we match campaigns to that request, run a second-price auction, and return the winning ad. About 100 billion requests per day, 100ms hard time limit, frequency capping per user per campaign.
+
+## 2. Requirements
+
+**Functional:**
+1. Publisher sends an ad request with page context and an anonymized user ID.
+2. The system finds all active campaigns eligible for that request based on targeting rules.
+3. Each eligible campaign submits a bid; the highest bidder wins but pays the second-highest price.
+4. The winning ad creative is returned to the publisher within the time budget.
+5. Impression, click, and conversion events are recorded for billing and reporting.
+6. Each campaign respects a daily budget cap and a per-user frequency cap.
+
+**Non-Functional:**
+1. Total latency under 100ms from ad request to response, at p99.
+2. At least 100 billion ad requests per day.
+3. Click and impression events processed within 5 minutes for budget accounting.
+4. No ad shown after its campaign budget is exhausted.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **AdRequest** | request_id, publisher_id, user_id, page_url, user_agent, timestamp, geo |
+| **Campaign** | campaign_id, advertiser_id, budget_daily, targeting_rules{}, start_date, end_date, status |
+| **AdCreative** | creative_id, campaign_id, format, content_url, landing_url |
+| **Bid** | request_id, campaign_id, bid_price_cpm, creative_id |
+| **Impression** | impression_id, request_id, campaign_id, user_id, served_at, price_paid |
+| **Click** | click_id, impression_id, user_id, clicked_at |
+| **FrequencyCap** | user_id, campaign_id, impression_count, window_start |
+| **BudgetCounter** | campaign_id, date, spend_so_far |
+
+## 4. APIs
+
+```http
+-- Ad request from publisher (must respond in < 100ms)
+POST /v1/ads/request
+{
+  "publisher_id": "pub_77",
+  "user_id": "anon_8812",
+  "page_url": "https://news.example.com/sports/article-42",
+  "ad_slot": "banner_300x250",
+  "floor_price_cpm": 0.50,
+  "geo": { "country": "US", "city": "New York" }
+}
+→ 200 {
+  "creative_url": "https://cdn.ads.example.com/creative/abc.html",
+  "click_url": "https://track.ads.example.com/click/imp_92",
+  "impression_beacon": "https://track.ads.example.com/imp/imp_92"
+}
+
+-- Click tracking (from ad creative, fire-and-forget)
+GET /v1/track/click/:impression_id
+→ 302 Location: <advertiser landing page>
+
+-- Impression tracking (from publisher page, fire-and-forget)
+GET /v1/track/impression/:impression_id
+→ 204
+
+-- Campaign CRUD (advertiser API)
+POST /v1/campaigns
+{ "name": "Summer Sale", "budget_daily": 50000, "targeting": {...} }
+→ 201 { "campaign_id": "c_441" }
+```
+
+## 5. High Level Design
+
+```
+Publisher page loads
+    │
+    POST /v1/ads/request  (must return in < 100ms)
+    │
+    ▼
+Ad Server
+    1. Targeting: query campaign index for eligible campaigns
+    2. Budget check: skip campaigns at daily limit
+    3. Frequency cap check: skip campaigns over per-user limit
+    4. Scoring: run auction (second-price)
+    5. Winner selection
+    6. Log impression async
+    └── Return creative to publisher
+
+Campaign Index (in-memory, preloaded)
+    All active campaigns with targeting rules
+    Refreshed every 60 seconds from Campaign DB
+
+Budget Service (Redis)
+    Per-campaign daily spend counter
+    Per-user per-campaign impression counter (short TTL)
+
+Tracking Service (async, high-throughput)
+    Receives impression/click events
+    Writes to Kafka -> aggregates -> updates Campaign DB spend
+
+Campaign DB (Postgres)
+    Campaigns, creatives, targeting, billing reports
+```
+
+## 6. Deep Dives
+
+### 6.1 The 100ms budget breakdown
+
+The total time from publisher HTTP request to response is 100ms. Inside that budget:
+
+```
+Network to ad server:          ~5ms
+Targeting lookup:              ~10ms
+Budget / frequency check:      ~5ms
+Auction:                       ~5ms
+Network back to publisher:     ~5ms
+Total used:                    ~30ms
+Safety buffer for slow paths:  ~70ms
+```
+
+The key insight: every step must be in-memory or low-latency cache. No synchronous database queries on the critical path.
+
+### 6.2 Targeting in-memory
+
+Active campaigns (there may be millions) have targeting rules: show only to users in the US, only on sports pages, only between 8 AM and 10 PM, only to users 25-34 years old.
+
+Evaluating all campaigns for every request from a database would take seconds. The solution: load all active campaigns into memory on each ad server at startup. Refresh every 60 seconds from the campaign database.
+
+```
+in-memory campaign index:
+  country_index["US"] -> [c_1, c_5, c_12, ...]
+  category_index["sports"] -> [c_1, c_3, c_8, ...]
+  
+eligible_campaigns = country_index[user.country] 
+                     INTERSECT category_index[page.category]
+                     INTERSECT time_index[current_hour]
+```
+
+For millions of active campaigns, this is a set intersection on sorted integer arrays: very fast. Intersection can reduce candidates from 1 million to hundreds in microseconds.
+
+### 6.3 Budget control without a central lock
+
+A campaign with a $1,000 daily budget must not spend $10,000 by running ads on 1,000 servers simultaneously. But checking and decrementing a central database on every request would be a bottleneck.
+
+**Distributed token bucket approach:**
+- Each ad server is given a local budget slice: $1,000 budget / 1,000 servers = $1 per server.
+- Server spends from its local slice without any remote call.
+- Every 10 seconds, servers report actual spend to a central budget service (Redis).
+- Central service redistributes remaining budget evenly.
+- If budget runs out, central service sets a "paused" flag; servers check this flag on their 10-second sync.
+
+Trade-off: a campaign can overspend by up to (10 seconds of spending * all servers). For a $1 million campaign, a brief overspend of a few hundred dollars is acceptable. For a $10 campaign, you need tighter controls.
+
+### 6.4 Frequency capping
+
+"Show this ad to each user at most 5 times per day" is called a frequency cap. Without it, you show the same banner to someone 500 times. Users hate this; brand damage follows.
+
+Implementation:
+```
+Redis key: "freq:{user_id}:{campaign_id}:{date}"
+Value: impression count
+TTL: 48 hours
+
+On each ad request:
+  count = INCR "freq:{user_id}:{campaign_id}:{date}"
+  if count > cap: skip this campaign
+```
+
+At 100 billion requests per day with 1 billion users and 10,000 campaigns, naively that is 10 trillion Redis keys. In practice: only store the counter for campaigns where the user has seen at least one impression, and only for active campaigns. Most users have seen only a handful of campaigns on any given day. Redis memory usage is manageable.
+
+### 6.5 Second-price auction mechanics
+
+The auction is a Vickrey auction (second-price sealed-bid): the winner pays the second-highest bid (or the floor price, whichever is higher). This gives advertisers an incentive to bid their true value because overbidding does not help.
+
+```
+Campaign A bids $5.00 CPM
+Campaign B bids $3.50 CPM
+Campaign C bids $2.00 CPM
+Floor price: $1.00 CPM
+
+Winner: Campaign A
+Price paid: $3.50 CPM (second-highest bid)
+```
+
+Why does this matter for system design? The auction happens in-process on the ad server with no network call. It is a simple sort across eligible bids. The only external calls are for frequency cap checks (Redis) and budget reads (Redis, cached locally).
+
+### 6.6 Click attribution and billing
+
+When a user converts (buys a product after clicking an ad), the advertiser expects to be charged and the publisher expects to be paid. This is attribution.
+
+The event chain:
+1. Impression served: record `(impression_id, campaign_id, user_id, creative_id, timestamp, price)`.
+2. Click: user clicks the ad. Record `(click_id, impression_id, user_id, clicked_at)`. Redirect to advertiser's page.
+3. Conversion: advertiser fires a conversion pixel from their page. Record `(conversion_id, click_id, value)`.
+
+Attribution window: if the conversion happens within 7 days of the click, credit that campaign. Outside the window: no credit.
+
+All three events flow through Kafka. A streaming job (Flink) joins clicks to impressions (easy, same session) and conversions to clicks (harder, 7-day window). Budget deductions happen on impressions for CPM billing, or on conversions for CPA billing.
+
+<Callout type="tip" title="The 30-second summary">
+An ad serving system is a **sub-100ms real-time auction** backed by in-memory campaign targeting, Redis-based distributed budget and frequency controls, and async event tracking through a queue for billing. The critical path never touches a database. The hardest problems are controlling budget spend across thousands of servers without a central lock and attributing conversions back to the original impression.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Distributed Counter](/blog/system-design/design-distributed-counter), impression and click counting
+- [Design Top-K Trending](/blog/system-design/design-top-k-trending), finding top-performing campaigns
+</Callout>

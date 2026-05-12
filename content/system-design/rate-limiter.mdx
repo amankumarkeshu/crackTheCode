@@ -1,0 +1,197 @@
+---
+title: "Design a Distributed Rate Limiter"
+slug: "design-rate-limiter"
+category: "system-design"
+tags: ["rate-limiting", "redis", "algorithms", "api-gateway"]
+difficulty: "senior"
+readingTime: 16
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Token bucket vs sliding window vs leaky bucket - with the actual Redis Lua scripts, the distributed-coordination problem, and the trade-offs interviewers actually probe."
+---
+
+"Design a rate limiter" is deceptively layered. There is an algorithm question (which counter strategy?), a systems question (where do you store the state?), and a distributed-systems question (how do you make it consistent across 50 gateway nodes?). Strong candidates handle all three.
+
+## 1. Clarifying Scope First
+
+- Are we limiting per user, per IP address, per API key, per endpoint, or some combination?
+- What happens when the limit is hit: do we reject the request immediately, or queue it and delay it?
+- Can someone burst above the steady rate for a short period, or must they stay below the limit at every instant?
+- How many milliseconds can the rate limiter add to a request?
+- Where does this run: at the API gateway, inside individual services, or both?
+
+For this article: per (user, endpoint) limits, burstable (short bursts allowed), reject with 429 plus Retry-After header, runs at the API gateway, under 2ms p99 added latency, handles roughly 100,000 requests per second globally.
+
+## 2. Requirements
+
+**Functional:**
+1. `is_allowed(user_id, endpoint)` returns allowed or denied, with retry-after if denied.
+2. Rules are configurable: `(endpoint, scope, limit, window)`.
+3. HTTP response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.
+
+**Non-Functional:**
+1. Single-digit millisecond latency added to each request.
+2. Highly available: rate limiter failure must not break the whole API (fail-open).
+3. Small over or under-counts at window boundaries are acceptable.
+4. Horizontally scalable to handle 100K+ requests per second.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **RateLimitRule** | rule_id, scope (user/ip/key), endpoint, limit, window_s, algorithm, burst |
+| **TokenBucketState** | key (user:endpoint), tokens, last_refill_ts |
+| **WindowCounter** | key, window_start, count |
+| **AuditLog** | request_id, key, decision, limit_applied, remaining, ts |
+
+## 4. APIs
+
+```http
+-- Check rate limit (called internally by gateway middleware)
+POST /internal/ratelimit/check
+{ "userId": "u_42", "endpoint": "POST /api/v1/transactions", "cost": 1 }
+→ 200 { "allowed": true, "remaining": 47, "reset_at": 1717891234 }
+→ 429 { "allowed": false, "retry_after_seconds": 30 }
+
+-- Update rules (admin)
+PUT /admin/ratelimit/rules/:rule_id
+{ "limit": 200, "window": "1m" }
+→ 200
+
+-- Get user's current limit status
+GET /api/v1/ratelimit/status
+→ 200 { "limits": [{ "endpoint": "...", "used": 42, "limit": 100 }] }
+```
+
+## 5. High Level Design
+
+```
+Client
+  │
+  ▼
+API Gateway (middleware runs for every request)
+  │
+  ├── reads rule config from Config Service (cached, 30s TTL)
+  │
+  ├── calls Redis Lua script: check and update token bucket
+  │        (atomic, sub-ms in Redis)
+  │
+  ├── if allowed: forward to upstream service
+  │
+  └── if denied: return 429 with Retry-After header
+
+Redis Cluster (sharded by user+endpoint hash key)
+  └── stores token bucket state per (user, endpoint)
+
+Config Service (etcd / DynamoDB)
+  └── stores rate limit rules, reloaded by gateways every 30s
+```
+
+## 6. Deep Dives
+
+### 6.1 The four algorithms
+
+**Fixed window counter:** bucket time into windows (each minute). Increment a counter per `(user, window)`. Simple and O(1) memory, but has a boundary bug: a user can make the full limit of requests at 0:59 and another full limit at 1:00, getting double the intended rate in 2 seconds. Use only for soft daily or weekly quotas.
+
+**Sliding window log:** store the timestamp of every request. On each new request, drop timestamps older than the window, count the rest. Perfectly accurate but O(N) memory per user where N is the limit size. Only use when exact accuracy is required (billing, legal limits).
+
+**Sliding window counter (practical sweet spot):** approximate the sliding window using two adjacent fixed-window counters:
+
+```
+elapsed_fraction = (now mod window_size) / window_size
+estimated = prev_window_count * (1 - elapsed_fraction) + current_count
+```
+
+O(1) memory, smooths the boundary problem, roughly 99% accurate. **Use this as the default.**
+
+**Token bucket (right answer for burstable APIs):** a bucket holds at most `B` tokens (the burst capacity), refilling at rate `r` tokens per second. Each request consumes one token.
+
+```python
+refill = (now - last_refill) * refill_rate
+tokens = min(capacity, tokens + refill)
+if tokens >= 1:
+    tokens -= 1
+    return ALLOW
+else:
+    return DENY, retry_after = (1 - tokens) / refill_rate
+```
+
+Handles bursts naturally up to bucket size, then enforces the steady rate. Best choice for user-facing APIs.
+
+### 6.2 The distributed problem
+
+Your gateway runs on 50 nodes. A single user round-robins across them. Each node thinks the user has used 1/50 of the limit, so the effective global limit is 50x your config.
+
+**Option 1: Sticky routing.** Hash each user to a fixed gateway node. Trivial, no shared state. Problem: hot keys; one popular user kills one node.
+
+**Option 2: Centralized state in Redis.** Every gateway calls Redis on every request. Correct and simple. Redis at 150K ops/second per node across 5 nodes handles 750K requests per second comfortably. **The right default.**
+
+**Option 3: Local counters plus async sync.** Each gateway maintains a local counter, syncs to Redis every second. Zero hot-path latency, survives Redis outages. Trade-off: drifts above the limit during sync intervals by up to 10%. Use only for ultra-low-latency APIs where a small over-count is acceptable.
+
+### 6.3 Token bucket in Redis: atomic Lua script
+
+You must make the bucket update atomic. Two concurrent requests reading-then-writing will corrupt state. A Lua script runs atomically in Redis:
+
+```lua
+local capacity   = tonumber(ARGV[1])
+local refill     = tonumber(ARGV[2])
+local now        = tonumber(ARGV[3])
+
+local data   = redis.call('HMGET', KEYS[1], 'tokens', 'last')
+local tokens = tonumber(data[1]) or capacity
+local last   = tonumber(data[2]) or now
+
+tokens = math.min(capacity, tokens + (now - last) * refill)
+local allowed = 0
+if tokens >= 1 then
+  tokens = tokens - 1
+  allowed = 1
+end
+redis.call('HMSET', KEYS[1], 'tokens', tokens, 'last', now)
+redis.call('EXPIRE', KEYS[1], math.ceil(capacity / refill) * 2)
+return { allowed, tokens, capacity }
+```
+
+This runs in 50-100 microseconds in Redis. Total p99 from the gateway including network round-trip is under 1ms.
+
+Use Lua over WATCH/MULTI transactions: Lua is atomic by construction and performs consistently under load. WATCH/MULTI degrades badly under contention because each conflict requires a retry.
+
+### 6.4 Multi-region limits
+
+When gateways exist in 5 regions and one user can hit any of them, what does "100 requests per minute" mean globally?
+
+- **Per-region limits (pragmatic default):** each region enforces locally. The user's effective global limit is 5x the per-region config. Most APIs do this.
+- **Eventual cross-region sync:** each region keeps a local counter and periodically aggregates to a global counter. Worth it for billing-sensitive APIs with hard daily caps.
+- **Strong global consistency:** cross-region reads/writes for every request add 50-200ms. Almost always the wrong choice for user-facing rate limits.
+
+### 6.5 Fail-open vs fail-closed
+
+Redis goes down. What happens?
+
+| Choice | When to use |
+|---|---|
+| Fail-open (allow all requests) | Public APIs where availability matters more than limit accuracy. Usually the right call. |
+| Fail-closed (reject all requests) | Internal APIs where exceeding limits could cause downstream cascade failures. |
+
+Always state this explicitly in the interview. Most real systems fail open with aggressive monitoring.
+
+### 6.6 Rate limiters vs concurrency limiters
+
+These are different and candidates often confuse them:
+
+| Type | Limits | Example |
+|---|---|---|
+| Rate limiter | Requests per unit time | "100 requests per minute" |
+| Concurrency limiter | Simultaneous in-flight requests | "10 simultaneous downloads" |
+
+A rate limiter does not protect against one slow request tying up resources. A concurrency limiter does not protect against rapid bursts of cheap requests. Real systems use both: rate limit at the edge, concurrency limit per downstream service.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed rate limiter is **token bucket per (user, endpoint) stored in Redis, updated via an atomic Lua script, evaluated at the API gateway**. Handle bursts with bucket capacity. Fail open. Ship rate-limit headers in every response. Multi-region limits are usually per-region in practice. The layered model (CDN + gateway + application) is the staff signal - saying "add it at the API gateway" alone is the junior signal.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), Redis sits at the core of both
+- [Design a Notification System](/blog/system-design/design-notification-system), per-user notification rate limiting
+- [Design an Ad Serving System](/blog/system-design/design-ad-serving-system), budget pacing is rate-limiter-shaped
+</Callout>

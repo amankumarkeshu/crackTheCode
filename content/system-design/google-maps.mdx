@@ -1,0 +1,172 @@
+---
+title: "Design Google Maps (tiles, routing, real-time traffic)"
+slug: "design-google-maps"
+category: "system-design"
+tags: ["geospatial", "tiles", "routing", "graph-search", "traffic"]
+difficulty: "staff"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Tile pyramids and pre-rendering, fast routing on planet-scale graphs, real-time traffic from anonymized probe data, and the geocoding pipeline - all four subsystems of Google Maps explained."
+---
+
+"Design Google Maps" is one of the broadest system design questions you will see. It contains at least four subsystems: a map rendering pipeline, a geocoding service, a routing engine with sub-second latency on a planet-scale graph, and a real-time traffic layer. Junior candidates pick one and spend 45 minutes there. Staff candidates sketch all four at the right depth.
+
+## 1. Clarifying Scope First
+
+- Are we building just map display, or also turn-by-turn navigation?
+- What travel modes: driving, walking, transit, cycling?
+- Do we need real-time traffic that changes your route while you drive?
+- Is coverage worldwide or just one country?
+- Do we need "coffee shop near me" style search alongside navigation?
+
+For this article: world-scale maps, driving navigation with real-time traffic, geocoding and local search, about 1 billion monthly active users, 1 billion route queries per day.
+
+## 2. Requirements
+
+**Functional:**
+1. Display a map at any zoom level and pan to any location.
+2. Route from A to B with turn-by-turn directions.
+3. Update the route in real time as traffic conditions change.
+4. Search for places ("pizza near me", "1600 Amphitheatre Pkwy").
+
+**Non-Functional:**
+1. Map tiles load in under 100ms, globally.
+2. Route computation returns in under 1 second for any query worldwide.
+3. Traffic data is at most 1-2 minutes stale.
+4. Works offline on mobile for pre-downloaded regions.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Tile** | zoom, x, y, format (vector/raster), content, version |
+| **RoadNode** | node_id, lat, lng, type (intersection) |
+| **RoadEdge** | from_node, to_node, distance_m, speed_limit, road_type, restrictions |
+| **TrafficReading** | segment_id, speed_mps, measured_at, confidence |
+| **Place** | place_id, name, category, lat, lng, address, rating |
+| **Route** | origin, destination, waypoints[], steps[], eta_s, distance_m |
+
+## 4. APIs
+
+```http
+-- Get map tiles (static assets, CDN-served)
+GET /tiles/{z}/{x}/{y}.pbf
+→ 200 binary vector tile
+
+-- Get directions
+GET /api/v1/directions?origin=37.77,-122.41&dest=37.33,-122.03&mode=driving
+→ 200 {
+    "duration_s": 2820,
+    "distance_m": 72400,
+    "steps": [...],
+    "polyline": "..."
+  }
+
+-- Search places
+GET /api/v1/places/search?q=pizza&lat=37.77&lng=-122.41&radius=2000
+→ 200 { "places": [...] }
+
+-- Reverse geocode
+GET /api/v1/geocode/reverse?lat=37.77&lng=-122.41
+→ 200 { "address": "...", "place_id": "..." }
+```
+
+## 5. High Level Design
+
+```
+Mobile / Web ─► API Gateway ─►
+  ┌────────────────────────────────────────────────────┐
+  │  Tile Service      ──► CDN (static, cached forever) │
+  │  Routing Service   ──► Map Graph DB (road network)  │
+  │  Geocoding Service ──► Places Index (Elasticsearch) │
+  │  Traffic Service   ──► Probe Aggregation Pipeline   │
+  └────────────────────────────────────────────────────┘
+
+Road Graph: shared by Routing, Geocoding, and Traffic
+Traffic Pipeline: Flink reading 1M+ location pings/sec -> per-segment speeds -> routing weights
+```
+
+## 6. Deep Dives
+
+### 6.1 Map tiles: the display layer
+
+Maps are served as a pyramid of pre-rendered tiles:
+
+```
+Zoom 0:  1 tile  (whole world)
+Zoom 1:  4 tiles
+Zoom 10: ~1M tiles (city level)
+Zoom 18: ~70B tiles (street level)
+```
+
+URL pattern: `https://tiles.example/{z}/{x}/{y}.pbf`
+
+The key insight: tile URLs are deterministic from zoom level and coordinates. They are pure static assets that never change for given map data. This means they are **infinitely CDN-cacheable**. When map data updates, the version number changes, creating a new URL.
+
+Modern tiles are **vector tiles** (`.pbf` format), not raster images. Vector tiles are 5-10x smaller to download, re-renderable client-side at any rotation or theme, and smooth at any zoom level.
+
+The tile generation pipeline runs offline: raw map data (from OpenStreetMap or proprietary sources) is pre-rendered into tiles at every zoom level. Total tile data: roughly 100 TB compressed, serving roughly 100 Tbps at peak from CDN.
+
+### 6.2 The road graph
+
+The road network is a directed weighted graph:
+- **Nodes:** road intersections (lat/lng coordinates), about 10^9 globally.
+- **Edges:** road segments between intersections with weights (travel time), about 3x10^9 globally.
+- **Edge attributes:** speed limit, road type, one-way restrictions, turn costs.
+
+Stored in a custom on-disk format with spatial partitioning: one file per geographic region, memory-mapped for fast random access.
+
+### 6.3 Routing: why naive algorithms do not work
+
+Naive Dijkstra or A* on a 10^9-node graph for a cross-country route would take minutes. You need sub-second responses.
+
+**Contraction Hierarchies (CH):** precompute a hierarchy where "important" roads (highways) are contracted. Bidirectional Dijkstra on the contracted graph is roughly 1,000x faster than on the full graph. This preprocessing runs once and the query is fast forever.
+
+**Hub Labeling / ALT:** pre-pick ~20 global landmarks and store distance from every node to each landmark. A* uses landmark distances as a tighter heuristic, speeding up the search significantly.
+
+Combined result: cross-country queries return in 10-50ms.
+
+Real-time traffic adjusts edge weights (slow traffic increases a segment's travel time). The routing engine re-reads edge weights from the traffic layer when planning a route. Routes update every 30 seconds during active navigation.
+
+### 6.4 Real-time traffic: crowdsourced from phones
+
+Where does Google get its traffic data? From your phone. Every Android device with location services sends anonymized location pings to Google. Aggregating these gives a real-time map of speeds on every road segment.
+
+```
+Phone GPS pings (1M+ per second)
+  -> Anonymization layer (strip device IDs)
+  -> Map-matching: snap each ping to the nearest road segment
+  -> Per-segment speed aggregation (Flink, 1-minute windows)
+  -> Road segment speed table (Redis, ~1 minute freshness)
+  -> Routing service reads speeds when computing edge weights
+```
+
+When traffic slows on a segment, that edge's weight increases and A* re-routes around it. All within roughly 1 minute end-to-end.
+
+### 6.5 Geocoding: "near me" queries
+
+**Forward geocoding:** text address to coordinates. Backed by a Places index (Elasticsearch over businesses, addresses, landmarks). Fuzzy match for typos and abbreviations, ranked by popularity and proximity to the user.
+
+**Reverse geocoding:** coordinates to address. Backed by an address-to-location lookup table.
+
+**"Coffee shop near me":** query Places index with category filter plus geospatial filter using S2 cells around the user's location. Same indexing primitives as [Uber's location service](/blog/system-design/design-uber-ride-sharing#geospatial-indexing).
+
+### 6.6 Offline maps on mobile
+
+A large fraction of the world has unreliable connectivity. Maps and routing must work without network access. Strategy:
+
+- Users pre-download a city or region (typically 50-500 MB compressed).
+- Download includes: vector tiles for all zoom levels, a compact version of the road graph, and the places index for the region.
+- On-device routing uses a simplified version of the Contraction Hierarchies algorithm.
+- Offline tiles are served from the device's local storage; the display layer does not know the difference.
+
+<Callout type="tip" title="The 30-second summary">
+Google Maps is **four subsystems**: a tile pyramid served as static CDN assets, a planet-scale routing engine using Contraction Hierarchies for sub-second queries, a real-time traffic layer fed by anonymized phone GPS pings aggregated by Flink per road segment, and a geocoding service backed by a search index over places. The unifying primitive is the road graph. Everything else is layered on top.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design Uber / Ride-Sharing](/blog/system-design/design-uber-ride-sharing), geospatial indexing
+- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete), address suggestions
+- [Design YouTube](/blog/system-design/design-youtube), multi-tier CDN pattern for tile delivery
+</Callout>

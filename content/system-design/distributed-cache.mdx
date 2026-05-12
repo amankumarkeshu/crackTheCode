@@ -1,0 +1,167 @@
+---
+title: "Design a Distributed Cache"
+slug: "design-distributed-cache"
+category: "system-design"
+tags: ["caching", "consistent-hashing", "replication", "redis", "memcached"]
+difficulty: "staff"
+readingTime: 18
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "How to design a distributed cache from first principles - consistent hashing, replication, eviction, hot-key protection, and the consistency trade-offs nobody talks about."
+---
+
+If you have ever debugged a thundering herd at 2 AM, you already know that the cache is the system. "Design a distributed cache" looks innocent but is actually a deep test of partitioning, replication, eviction, and your understanding of what consistency really means in a distributed setting.
+
+## 1. Clarifying Scope First
+
+- Is this a look-aside cache for reads, a write-through cache, a session store, or something else?
+- How big are the values? Small session data, or large rendered HTML pages?
+- Do entries expire after a fixed time, or do we evict based on how recently they were used?
+- If two clients read the same key from different servers, is it okay if they see slightly different values for a few milliseconds?
+- Does the cache need to survive server restarts?
+- Do we need atomic operations like counters and lists, or just plain get and set?
+
+For this article: lookaside cache for a read-heavy web service, about 10 GB working set per node, 1ms p99 reads, eventual consistency across regions, TTL plus LRU eviction, survives single-node failure with sub-second failover.
+
+## 2. Requirements
+
+**Functional:**
+1. `GET key` returns value or cache miss.
+2. `SET key value [EX ttl]` stores with optional expiry.
+3. `DEL key` removes an entry.
+4. Optional: `INCR`, `EXPIRE`, `MGET`, pub-sub for richer data structures.
+
+**Non-Functional:**
+1. Sub-millisecond latency for GET (p99 under 1ms in the same datacenter).
+2. Over 1 million operations per second per cluster.
+3. Add nodes without downtime.
+4. Survive single node loss with no data loss for replicated keys.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **CacheEntry** | key, value, ttl, version, created_at |
+| **ShardNode** | node_id, host, port, slot_range, role (primary/replica) |
+| **ClusterTopology** | nodes[], slot_assignments, config_epoch |
+| **EvictionPolicy** | allkeys-lru, allkeys-lfu, volatile-ttl, noeviction |
+
+## 4. APIs
+
+```
+GET key
+→ value or null (miss)
+
+SET key value [EX seconds] [NX]
+→ OK or null (if NX and key exists)
+
+DEL key [key ...]
+→ number of keys deleted
+
+MGET key [key ...]
+→ list of values (null for misses)
+
+EXPIRE key seconds
+→ 1 if set, 0 if key does not exist
+```
+
+## 5. High Level Design
+
+```
+App Server
+    │ connection pool (persistent TCP)
+    ▼
+Client Library (cluster-aware or proxy)
+    │ hash(key) → shard ID
+    ▼
+Cache Node (primary for this shard)
+    ├── in-memory hash map  ← all hot-path reads/writes
+    ├── eviction policy (LRU/LFU)
+    └── async replication to replica nodes
+
+Metadata / Topology
+    └── gossip protocol between nodes (Redis Cluster)
+         or external coordination (etcd for Memcached)
+```
+
+## 6. Deep Dives
+
+### 6.1 Partitioning: why consistent hashing is non-negotiable
+
+The naive approach - `hash(key) % N` - is a trap. Add one node and nearly every key remaps to a different shard, dropping the cache hit rate to near zero during scaling events.
+
+**Consistent hashing:** place nodes on a virtual ring from 0 to 2^64. A key is owned by the next node clockwise from its hash. When you add a node, only the keys between the new node and its predecessor move. Roughly `1/N` of keys are affected, not all of them.
+
+**Virtual nodes (vnodes):** each physical node is placed at hundreds of positions on the ring. This smooths out load imbalance and spreads recovery load when a node dies across many other nodes rather than piling it all on one neighbor.
+
+Redis Cluster uses 16,384 fixed hash slots instead of a continuous ring. Same idea: each node owns a range of slots, resharding moves slots not individual keys.
+
+### 6.2 Replication: primary-replica per shard
+
+Each shard has one primary and N replicas. Two modes:
+
+| Mode | Latency | Durability | Use case |
+|---|---|---|---|
+| Async replication (default) | Fast, ack on primary write | Tiny data loss on primary failure | Most caches |
+| Sync replication (`WAIT 1`) | Slower, waits for replica ack | No data loss on single failure | Session stores, feature flags |
+
+For a cache where data is regenerable from the database, async is almost always right. Pay for latency only when you genuinely need it.
+
+**Failover:** when a primary dies, sentinels or the cluster protocol detects via missed heartbeats, picks the most-up-to-date replica via leader election, promotes it, and updates the topology. Total failover time: 5-30 seconds. During this window, requests for keys on the failing shard fail. Mitigate with client retries and exponential backoff.
+
+### 6.3 Eviction policies
+
+When a node hits its memory limit:
+
+| Policy | When to use |
+|---|---|
+| allkeys-lru | General-purpose cache (most common) |
+| allkeys-lfu | Workloads with a stable hot set; resists full table scans |
+| volatile-ttl | Mixed cache plus persistent data |
+| noeviction | When you must not lose data (not typical for a cache) |
+
+LFU beats LRU when there is a stable hot set. A single full table scan can flush your hot keys from an LRU cache. LFU resists this because it tracks frequency, not just recency.
+
+### 6.4 The thundering herd problem
+
+**Scenario:** a hot key expires. 10,000 clients hit the cache simultaneously, all miss, all stampede the database with the same query.
+
+Three mitigations in order of preference:
+
+**Request coalescing (singleflight):** only one request per key goes to the database; the other 9,999 wait for that result. Within one process, an in-memory lock per key handles this. Cross-process: a Redis lock with `SETNX` plus a short timeout.
+
+**Probabilistic early refresh:** before the key expires, refresh it asynchronously with increasing probability as the TTL approaches. The cliff disappears.
+
+**Soft + hard TTL:** store two TTLs in the value. Between the soft (e.g. 5min) and hard (e.g. 10min) expiry, return the stale value immediately AND fire an async refresh in the background. The old value keeps serving until the refresh completes.
+
+### 6.5 Hot-key protection
+
+A single viral key (a celebrity profile, a flash sale product) can drive 500K requests per second to one shard. Solutions:
+
+1. **Replicate the hot key to N shards.** Clients pick one at random. Trades consistency for throughput.
+2. **Local L1 cache on the app server** with a 1-second TTL. 90% of reads never leave the app server.
+3. **Detect and broadcast:** tag the key as hot on first detection, broadcast to all clients to start local caching.
+
+### 6.6 Write strategies: cache-aside, write-through, write-behind
+
+**Cache-aside (lazy loading):** app reads cache, on miss reads DB and warms cache. On write: update DB, invalidate cache key. Simplest and most common. Cache only holds what is actually needed. Cold-start penalty on misses. Has an invalidation race (see below).
+
+**Write-through:** app writes to cache, cache synchronously writes to DB. Cache always in sync. Writes are slower. Complicates the failure case where DB write fails after cache write succeeded.
+
+**Write-behind (write-back):** app writes to cache, cache batches and flushes to DB asynchronously. Fastest writes. Data loss window if cache crashes before flush. Use only for counters and best-effort data, never for money or audit trails.
+
+**The invalidation race in cache-aside:** client A reads from DB, client B writes to DB and invalidates cache, client A writes its stale value to cache. The cache now holds stale data until TTL expires. Fix: CDC-based invalidation. A Debezium connector reads the database's write-ahead log and emits cache invalidation events to Kafka, which workers consume. Cache invalidation becomes eventually consistent but always happens.
+
+### 6.7 Multi-region
+
+For cache workloads, the right answer is usually **per-region clusters with no cross-region replication**. Let each region warm itself from its own database read replica. Caches are regenerable. The complexity of cross-region cache coherence is not worth it.
+
+<Callout type="tip" title="The 30-second summary">
+A distributed cache is **consistent-hashed shards, each with async replication, doing in-memory KV ops with LRU/LFU eviction**. The interesting design is not the storage, it is the operational concerns: thundering herds, hot keys, failover behavior, eviction policy, and being honest about consistency. Get those five right and the rest is choosing between Redis and Memcached based on the data structures you need.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a URL Shortener](/blog/system-design/design-url-shortener), the read path is basically a cache
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the partitioning and replication concepts overlap heavily
+- [CAP and PACELC, finally explained](/blog/concepts/cap-pacelc-explained), the consistency model frame
+</Callout>

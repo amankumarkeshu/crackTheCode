@@ -1,0 +1,181 @@
+---
+title: "Design a Multi-Channel Notification System"
+slug: "design-notification-system"
+category: "system-design"
+tags: ["push", "email", "sms", "fan-out", "delivery-guarantees"]
+difficulty: "senior"
+readingTime: 12
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Push, email, SMS, in-app - with provider failover, per-user rate limits, idempotent delivery, template management, and the at-least-once guarantee that does not accidentally spam your users."
+---
+
+Every product needs notifications. Almost no product builds them well. The question seems trivial ("we will just call SES") but the production-grade design must answer: how do you avoid spam? What if a provider goes down? How do you honor quiet hours and opt-outs? How do you prove a notification was delivered for compliance?
+
+## 1. Clarifying Scope First
+
+- Which channels do we support: push notifications, email, SMS, in-app banners, or all of them?
+- How many users are we sending to, and how many notifications per day?
+- Do some notifications need to go out right away (a payment alert) while others can wait until morning?
+- Can users turn off certain types of notifications, or notifications on certain channels?
+- Do we need to respect "do not disturb" windows at night?
+- Do we need to send personalized content in different languages?
+
+For this article: all four channels (push, email, SMS, in-app), 100 million users, 500 million notifications per day, real-time and scheduled, full template and preference management, localization.
+
+## 2. Requirements
+
+**Functional:**
+1. Any service triggers a notification: `notify(user_id, template, data, channels)`.
+2. System renders the content, checks preferences, and dispatches via the right provider.
+3. Tracks delivery status: sent, delivered, opened, clicked, bounced.
+4. Respects per-user opt-in/out, quiet hours, and per-channel rate limits.
+5. Supports scheduled and recurring notifications.
+
+**Non-Functional:**
+1. At-least-once delivery with idempotent deduplication so users never see the same notification twice.
+2. Real-time alerts delivered in under 5 seconds end-to-end.
+3. If one email provider goes down, email should not stop globally.
+4. Every dispatch is auditable for compliance and debugging.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Notification** | notification_id, user_id, template_id, data, channels[], status, created_at |
+| **Template** | template_id, name, channel_variants (push, email, sms), locales (en, es, ...) |
+| **UserPreference** | user_id, channel, notification_type, opted_in, quiet_start, quiet_end |
+| **DeliveryLog** | notification_id, channel, provider, status, attempted_at, delivered_at |
+| **DeviceToken** | user_id, platform (ios/android), token, updated_at |
+| **ScheduledNotification** | notification_id, dispatch_at, status |
+
+## 4. APIs
+
+```http
+-- Trigger a notification
+POST /api/v1/notify
+{
+  "userId": "u_42",
+  "templateId": "order_shipped_v3",
+  "data": { "order_id": "ord_991", "eta": "Tomorrow 3pm" },
+  "channels": ["push", "email"]
+}
+→ 202 { "notification_id": "n_8821" }
+
+-- Schedule a notification
+POST /api/v1/notify/schedule
+{ ...same body..., "dispatch_at": "2026-05-13T08:00:00Z" }
+→ 202 { "notification_id": "n_9910" }
+
+-- Get delivery status
+GET /api/v1/notifications/:id
+→ 200 { "status": "delivered", "channels": { "push": "delivered", "email": "opened" } }
+
+-- Update user preferences
+PUT /api/v1/users/:id/notification-preferences
+{ "email": { "marketing": false }, "sms": { "all": false } }
+→ 200
+```
+
+## 5. High Level Design
+
+```
+App Service ─► Notification API ─► Rules Engine
+                                        │
+                             (apply preferences, rate limits, quiet hours)
+                                        │
+                                        ▼
+                              Template Renderer (i18n + personalization)
+                                        │
+                                        ▼
+                         Channel Routers → one Kafka queue per channel
+                                        │
+                       ┌────────────────┼──────────────────┐
+                       ▼                ▼                   ▼
+                    Push Worker    Email Worker         SMS Worker
+                 APNs / FCM        SES / SendGrid      Twilio / Vonage
+                                        │
+                                        ▼
+                                Delivery Tracking DB
+```
+
+Each channel has its own queue, so they scale independently and provider outages are isolated.
+
+## 6. Deep Dives
+
+### 6.1 The rules engine: the part that prevents lawsuits
+
+Before any notification sends, a chain of filters runs in order:
+
+1. **User preference check:** has this user opted out of this notification type or this channel?
+2. **Rate limit:** has this user received more than N notifications of this type in the last hour?
+3. **Quiet hours:** is it currently the user's "do not disturb" window in their timezone? If so, suppress or queue for morning.
+4. **Compliance gate:** SMS to US users requires explicit TCPA consent. Email must honor CAN-SPAM unsubscribes.
+5. **Dedup window:** has the same `(user_id, dedup_key)` been notified in the last X hours?
+
+Each filter can suppress, delay, or downgrade (for example, push to in-app if quiet hours are active). A notification system without a rules engine is a spam system.
+
+### 6.2 Template management
+
+Notifications are templates plus data, not hand-built strings. Templates are versioned, localized, and pre-compiled:
+
+```yaml
+- id: order_shipped_v3
+  channels: [push, email]
+  versions:
+    en:
+      push: "Your order #{{order_id}} is on its way! ETA: {{eta}}."
+      email:
+        subject: "{{order_id}} shipped"
+        body_html: "..."
+    es:
+      push: "Tu pedido #{{order_id}} esta en camino..."
+```
+
+Versioned so changes are tracked for A/B testing and compliance audits. Locale is chosen based on the user's language preference at render time.
+
+### 6.3 Idempotent delivery
+
+The promise: at-least-once delivery with deduplication so users see exactly one notification.
+
+- Each notification gets a `notification_id` (Snowflake) assigned at API-receive time.
+- Before dispatch, check `(user_id, dedup_key)` against a Redis dedup window.
+- The provider call includes a request-id for retry safety.
+- On 5xx or timeout, retry with exponential backoff up to N times.
+- After max retries, route to dead-letter queue and alert.
+
+### 6.4 Provider failover
+
+Each channel has two or more providers behind a unified interface. The router picks based on:
+- **Provider health:** circuit-breaker per provider. If SES bounce rate spikes, route email through SendGrid.
+- **Platform:** iOS push goes to APNs, Android to FCM.
+- **Cost:** some providers are cheaper for low-priority bulk traffic.
+
+### 6.5 Scheduled notifications
+
+For scheduled notifications (daily digest at 8 AM, trial expiry reminder):
+- Persist to a `scheduled_notifications` table with `dispatch_at` timestamp.
+- A small fleet of workers polls `WHERE dispatch_at < now() ORDER BY dispatch_at LIMIT 1000` every few seconds.
+- Move to the live channel queue when due.
+
+For high volumes of scheduled jobs, see [Design a Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler).
+
+### 6.6 Channel-specific considerations
+
+**Push (APNs / FCM):** token rotation is a real headache. Tokens expire and are invalidated on app uninstall. Update tokens on every login and handle `InvalidToken` responses from the provider.
+
+**Email:** hard bounces must be handled immediately. Mark the address invalid and never retry. Too many bounces and your sending domain gets blocklisted by Gmail. Track unsubscribe links per template version.
+
+**SMS:** the most expensive channel by roughly 100x. Reserve for critical messages like OTP and fraud alerts. Country-specific compliance windows (quiet hours are legally mandated in some regions).
+
+**In-app:** persisted in a per-user inbox table. Delivered in real time via WebSocket if the user is connected, otherwise read on next app open.
+
+<Callout type="tip" title="The 30-second summary">
+A notification system is a **fan-out pipeline with a rules engine in front and per-channel provider abstraction at the back**. Idempotency keys plus dedup windows give at-least-once delivery without duplicates. Each channel has its own queue and concurrency budget. Compliance and observability are first-class concerns. Real failure modes are spam complaints and provider blocklisting, not throughput.
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the per-channel queue tier
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), per-user notification limits
+- [Design a Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler), scheduled and recurring notifications
+</Callout>

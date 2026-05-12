@@ -1,0 +1,209 @@
+---
+title: "Design a Payment System (the Stripe-class answer)"
+slug: "design-payment-system"
+category: "system-design"
+tags: ["idempotency", "saga", "ledger", "consistency", "transactions"]
+difficulty: "staff"
+readingTime: 14
+publishedAt: "2026-05-06"
+author: "Aman Kumar Keshu"
+excerpt: "Idempotency, double-entry ledgers, saga vs 2PC, fraud detection, webhook delivery and the consistency story behind every dollar that flows through a Stripe-class system."
+---
+
+Payments are the system design question with the highest correctness bar. Lose a tweet: annoying. Lose a payment: someone's rent does not get paid, you get sued, and your company is in the news. Junior candidates hand-wave. Senior candidates obsess about idempotency, double-entry bookkeeping, and exactly-one-state-transition.
+
+## 1. Clarifying Scope First
+
+- Are we receiving money from customers, sending money to merchants, or both?
+- What payment methods: cards only, bank transfers, mobile wallets, buy-now-pay-later?
+- Is this a local product or global? Different countries have different payment rails.
+- When does the merchant actually get the money in their bank account?
+- Do we need to be PCI-DSS compliant so we can store card data?
+- What happens when a customer disputes a charge?
+
+For this article: card payment platform (Stripe-style), global, peak 10,000 transactions per second, full PCI scope, disputes and refunds in scope.
+
+## 2. Requirements
+
+**Functional:**
+1. Authorize, capture, and refund a card payment.
+2. Settle funds to the merchant's bank account.
+3. Send webhook events to merchants on every state change.
+4. Handle disputes and chargebacks.
+
+**Non-Functional:**
+1. A charge must never happen twice for the same customer action (no double-charge).
+2. Every API is idempotent: retrying a failed request is always safe.
+3. Every cent must have a paper trail for compliance and auditing.
+4. Payment authorization must complete in under 3 seconds end-to-end.
+5. 99.99% uptime because payment downtime directly means revenue loss.
+
+## 3. Entities
+
+| Entity | Key Fields |
+|---|---|
+| **Payment** | payment_id, merchant_id, customer_id, amount_minor, currency, status, created_at |
+| **LedgerEntry** | entry_id, txn_id, account_id, amount_minor, direction (DEBIT/CREDIT), posted_at |
+| **Card** | token (never raw PAN), last4, brand, exp_month, exp_year, customer_id |
+| **Merchant** | merchant_id, name, bank_account_id, settlement_schedule |
+| **Webhook** | webhook_id, payment_id, event_type, payload, attempts, next_retry_at |
+| **IdempotencyKey** | key, request_hash, response, created_at |
+
+## 4. APIs
+
+```http
+-- Create a charge
+POST /v1/charges
+Idempotency-Key: pay_xyz_123
+{ "amount": 5000, "currency": "USD", "card_token": "tok_xxx", "customer_id": "cus_42" }
+→ 201 { "payment_id": "py_881", "status": "succeeded" }
+
+-- Capture a pre-authorized charge
+POST /v1/charges/:id/capture
+Idempotency-Key: cap_xyz_123
+→ 200 { "status": "captured" }
+
+-- Refund
+POST /v1/refunds
+Idempotency-Key: ref_xyz_123
+{ "payment_id": "py_881", "amount": 5000 }
+→ 201 { "refund_id": "re_52", "status": "pending" }
+
+-- Get payment
+GET /v1/charges/:id
+→ 200 { "payment_id": "...", "status": "...", "ledger_entries": [...] }
+```
+
+## 5. High Level Design
+
+```
+Client (merchant's server)
+    │ POST /v1/charges + Idempotency-Key header
+    ▼
+Payment API
+    │
+    ├── Idempotency check (Redis / DB) ─► if seen: return cached response
+    │
+    ├── Fraud check (real-time ML, < 50ms)
+    │
+    ├── Card Network Gateway (Visa/MC, synchronous, ~1-3s)
+    │       gets auth_code back
+    │
+    ├── Ledger Service: write double-entry entries atomically
+    │
+    ├── Webhook Queue (Kafka): enqueue "payment.succeeded" event
+    │
+    └── Return response to merchant
+
+Webhook Dispatcher (separate workers)
+    → reads Kafka
+    → POST to merchant's webhook URL
+    → retry with backoff up to 3 days
+```
+
+## 6. Deep Dives
+
+### 6.1 Idempotency: the foundation
+
+Every write API requires an `Idempotency-Key` header. Same key plus same body always returns the same result, no matter how many times retried.
+
+```
+on receive:
+  if key exists in idempotency_store:
+      if request_hash matches: return stored_response  (safe replay)
+      else:                    return 422              (client changed the body - bug)
+  else:
+      acquire row-level lock on this key
+      execute the charge logic
+      store (key, hash, response)
+      release lock
+      return response
+```
+
+Without this, every network blip that causes a client retry is a potential double-charge.
+
+### 6.2 Double-entry ledger: the heart of the system
+
+A payment system is not a row that says "user X paid $50." It is a double-entry ledger where every transaction is two (or more) entries that sum to zero:
+
+```
+Transaction T1: Customer pays merchant $50, $1.45 fee.
+
+  account                       debit    credit
+  ---------------------------  ------   ------
+  customer:user_42                       50.00
+  merchant_holding:merch_99    48.55
+  stripe_revenue:fees           1.45
+                               ------   ------
+                               50.00    50.00  <- always balances
+```
+
+Why double-entry?
+- **Auditability:** every balance change has a paired entry. No phantom changes.
+- **Reconciliation:** sum all entries to any account and you get its balance. Derivable from the log.
+- **Reversibility:** refunds and chargebacks are just opposite entries.
+
+Constraint enforced at write time: `SUM(debit) - SUM(credit) = 0` per transaction ID.
+
+### 6.3 Payment lifecycle state machine
+
+```
+INIT -> AUTHORIZED -> CAPTURED -> SETTLED
+            |            |
+            |         REFUNDED
+            |
+         DECLINED
+
+CAPTURED -> DISPUTED -> CHARGEBACK
+```
+
+Every transition is durable and idempotent keyed on `(payment_id, target_state)`. Each transition produces ledger entries. The state machine is the anchor of correctness.
+
+### 6.4 Sagas over 2PC for multi-step flows
+
+A capture touches multiple services: fraud check, ledger update, webhook dispatch, settlement queue. Use sagas, not 2PC.
+
+**Why not 2PC:** two-phase commit holds locks across all involved services for the entire duration. It is slow, fragile, and a distributed systems nightmare.
+
+**Saga approach:** each step commits locally. On failure, compensating actions run in reverse order.
+
+```
+1. fraud_check.run()         -> "fraud_passed"
+2. ledger.post(entries)      -> "ledger_posted"
+3. webhook_queue.enqueue()   -> "webhook_queued"
+4. settlement_queue.push()   -> "settlement_queued"
+
+On failure at step 2:
+   compensate: reverse ledger entries
+   compensate: refund fraud_check credit
+   mark payment CAPTURE_FAILED
+```
+
+### 6.5 Webhook delivery
+
+Merchants receive webhooks on every state change. The promise: at-least-once delivery with the merchant's responsibility to deduplicate.
+
+- Each event has a globally unique `event_id`.
+- Retry schedule: 1min, 5min, 30min, 2hr, 6hr, 12hr, 24hr, then dead-letter.
+- After max retries, the merchant has a "missed events" feed they can replay manually.
+- Sign every webhook with HMAC-SHA256 so merchants can verify authenticity.
+
+### 6.6 Fraud detection
+
+**Real-time (in the authorization path, under 50ms):** velocity checks (too many cards per IP, too many attempts on one card), geo mismatch (card BIN says US, IP says Russia), amount pattern matching. Decline if score exceeds threshold.
+
+**Batch offline:** heavier ML model on the firehose of authorized payments. Marks suspicious clusters for human review. Can reverse recent settlements via compensating ledger entries.
+
+### 6.7 PCI compliance and card storage
+
+Never store raw card numbers (Primary Account Numbers). Store tokens issued by a PCI-compliant vault. Every other system references the token. Only the vault and a handful of gateway services live inside the PCI-DSS audit scope. This dramatically reduces the compliance surface area.
+
+<Callout type="tip" title="The 30-second summary">
+A payment system is a **double-entry ledger fronted by an idempotent API, orchestrated through sagas, talking to card networks via a single synchronous external call**. Every state transition is durable, idempotent, and audited. Webhooks guarantee at-least-once delivery. Fraud is layered real-time plus batch. Settlement is a separate batch system reconciled against bank confirmations. The whole system is engineered around "never lose a cent, never double-charge, always be auditable."
+</Callout>
+
+<Callout type="tip" title="Related reading">
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), webhook and settlement queues
+- [Design a Distributed Locking Service](/blog/system-design/design-distributed-locking-service), for idempotency-key locks at scale
+- [Design a Notification System](/blog/system-design/design-notification-system), payment-success notifications
+</Callout>
