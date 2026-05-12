@@ -5,9 +5,11 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 
 import { Callout } from "./callout";
+import { Excalidraw } from "./excalidraw";
 
 const components = {
   Callout,
+  Excalidraw,
 };
 
 export function MDXContent({ source }: { source: string }) {

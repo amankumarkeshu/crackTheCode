@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Clock, ArrowRight } from "lucide-react";
 import type { Post } from "@/lib/content";
 import { Badge } from "@/components/ui/badge";
-import { PostLockBadge } from "@/components/post-lock-badge";
 import { formatDate } from "@/lib/utils";
 import { getCategory } from "@/lib/categories";
 import { cn } from "@/lib/utils";
@@ -72,7 +71,6 @@ export function PostCard({ post }: { post: Post }) {
         )}
         {fm.isPremium && <Badge variant="accent">Vault</Badge>}
         {fm.company && <Badge variant="outline">{fm.company}</Badge>}
-        <PostLockBadge category={fm.category} />
       </div>
 
       <h3 className={cn("mt-3 text-lg font-semibold leading-snug transition-colors", hover.text)}>

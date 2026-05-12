@@ -1,30 +1,12 @@
-import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-/**
- * Auth gate for individual blog posts in the protected categories
- * (System Design, LLD, DSA).
- *
- * Listing pages (/blog, /blog/system-design, /blog/lld, /blog/dsa) stay
- * public so visitors can browse titles + excerpts as a teaser. Only the
- * full article body is gated.
- *
- * Phase 2 (paid-only): change the `authorized` callback below to also
- * require a `token.isPremium === true` (or whatever entitlement claim
- * we put on the JWT). The matcher list itself does not need to change.
- */
-export default withAuth({
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    authorized: ({ token }) => Boolean(token),
-  },
-});
+// Reading is fully public. No category requires sign-in anymore.
+// This file is kept (instead of deleted) so future paid-only gating
+// can be re-introduced by adding routes to the `matcher` below.
+export function middleware() {
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: [
-    "/blog/system-design/:slug+",
-    "/blog/lld/:slug+",
-    "/blog/dsa/:slug+",
-  ],
+  matcher: [],
 };

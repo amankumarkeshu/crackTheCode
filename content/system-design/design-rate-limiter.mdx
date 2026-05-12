@@ -94,6 +94,9 @@ estimated_count = prev_count * (1 - elapsed_in_current) + current_count
 
 A bucket holds at most `B` tokens. Tokens refill at rate `r` per second. Each request consumes 1 token. Empty bucket → request denied (or queued).
 
+<Excalidraw src="/diagrams/token-bucket.svg" caption="Token bucket: a refill drip fills a capped bucket; each request takes one token, otherwise gets 429." alt="Token bucket diagram" />
+
+
 ```
 state per user: { tokens: float, last_refill: timestamp }
 
