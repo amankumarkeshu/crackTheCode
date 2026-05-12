@@ -37,12 +37,12 @@ For this post we commit to:
 3. Headers in response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.
 
 **Non-functional:**
-1. **Low latency** — single-digit ms.
-2. **Highly available** — limiter outage must not break the whole API. Fail-open vs fail-closed is a deliberate choice.
-3. **Accurate enough** — small over/under-counts at boundaries are OK.
-4. **Horizontally scalable** — handle 100K+ req/sec.
+1. **Low latency**, single-digit ms.
+2. **Highly available**, limiter outage must not break the whole API. Fail-open vs fail-closed is a deliberate choice.
+3. **Accurate enough**, small over/under-counts at boundaries are OK.
+4. **Horizontally scalable**, handle 100K+ req/sec.
 
-## 3. The four algorithms — pick the right one
+## 3. The four algorithms, pick the right one
 
 ### A. Fixed window counter
 
@@ -57,7 +57,7 @@ if count > LIMIT: deny
 ```
 
 - **Pros:** trivial. O(1) memory per user.
-- **Cons:** *boundary problem* — a user can do `LIMIT` requests at 0:59 and another `LIMIT` at 1:00 → 2× the intended rate over a 2-second window.
+- **Cons:** *boundary problem*, a user can do `LIMIT` requests at 0:59 and another `LIMIT` at 1:00 → 2× the intended rate over a 2-second window.
 - **Verdict:** use for **soft** limits (per-day quotas), never for **burst protection**.
 
 ### B. Sliding window log
@@ -147,7 +147,7 @@ class TokenBucket:
         return False
 ```
 
-This is a 20-line interview-friendly answer. But it doesn't survive multiple gateway nodes — they each track their own state and effectively multiply the user's limit by N.
+This is a 20-line interview-friendly answer. But it doesn't survive multiple gateway nodes, they each track their own state and effectively multiply the user's limit by N.
 
 ## 5. The distributed problem
 
@@ -167,7 +167,7 @@ Every gateway calls Redis on every request to check/update the user's state.
 
 - **Pros:** correct, simple to reason about.
 - **Cons:** Redis is on the hot path; +1 RTT per request; Redis must scale.
-- **Verdict:** **the right default**. Redis at 150K ops/sec/node × 5 nodes handles 750K req/sec — comfortable for most APIs.
+- **Verdict:** **the right default**. Redis at 150K ops/sec/node × 5 nodes handles 750K req/sec, comfortable for most APIs.
 
 ### Option 3: Local approximate counters + async sync
 
@@ -177,7 +177,7 @@ Each gateway maintains a local counter, periodically syncs to Redis.
 - **Cons:** drifts above the limit during the sync interval.
 - **Verdict:** for ultra-low-latency APIs (&lt;1 ms budget) where ~5–10% over-count is acceptable.
 
-### Concurrency limiters vs rate limiters — they're different
+### Concurrency limiters vs rate limiters, they're different
 
 Almost every senior+ candidate confuses the two. Get this right:
 
@@ -192,7 +192,7 @@ Why the distinction matters:
 - A concurrency limiter doesn't protect against rapid bursts of cheap requests.
 - **Real systems use both**: rate limit at the edge (cheap requests can flood you), concurrency limit per downstream (expensive requests can saturate you).
 
-Implementation note: a concurrency limiter is essentially a semaphore — `INCR` on entry, `DECR` on exit, reject if count > N. Use Redis `SETNX` with a TTL (so crashed clients don't permanently hold a slot) or a service-mesh primitive (Envoy's `concurrency_limit` filter).
+Implementation note: a concurrency limiter is essentially a semaphore, `INCR` on entry, `DECR` on exit, reject if count > N. Use Redis `SETNX` with a TTL (so crashed clients don't permanently hold a slot) or a service-mesh primitive (Envoy's `concurrency_limit` filter).
 
 ### The "request coupon" pattern for distributed limits
 
@@ -245,7 +245,7 @@ return { allowed, tokens, capacity }
 Two things to call out:
 
 - **Atomicity** comes from Lua's single-threaded execution in Redis. No locks needed.
-- **TTL** auto-expires inactive users — keeps memory bounded.
+- **TTL** auto-expires inactive users, keeps memory bounded.
 
 This script runs in ~50–100 µs in Redis. Total p99 from the gateway, including network round-trip in-DC, is usually under 1 ms.
 
@@ -341,7 +341,7 @@ Rules schema:
 }
 ```
 
-Reload happens on TTL expiry — no restart needed.
+Reload happens on TTL expiry, no restart needed.
 
 ## 11. Response semantics
 
@@ -368,10 +368,10 @@ A rate limiter isn't only "deny the 101st request." Real production systems use 
 
 ### Spike arrest (a.k.a. burst protection)
 
-You publish a "10 req/sec" limit and expect users to stay near it. A misbehaving client suddenly fires 100 req in 200 ms — well under the per-second average, but it'll punch a hole in your downstream. Fix:
+You publish a "10 req/sec" limit and expect users to stay near it. A misbehaving client suddenly fires 100 req in 200 ms, well under the per-second average, but it'll punch a hole in your downstream. Fix:
 
 - **Layered limits:** "10 req/sec **and** 20 req/100ms **and** 1000 req/hour." A client must satisfy all three. Implement as multiple token buckets with different `(B, r)` pairs.
-- **Apigee and AWS API Gateway both call this exactly "spike arrest"** — bonus point for using the term.
+- **Apigee and AWS API Gateway both call this exactly "spike arrest"**, bonus point for using the term.
 
 ### Traffic smoothing
 
@@ -387,11 +387,11 @@ if not allowed:
        return 429
 ```
 
-Trade-off: smoother downstream load, but you tie up a connection on every smoothed request. Only viable for non-interactive workloads (batch jobs, async workers) — never for user-facing APIs.
+Trade-off: smoother downstream load, but you tie up a connection on every smoothed request. Only viable for non-interactive workloads (batch jobs, async workers), never for user-facing APIs.
 
 ### Graceful drain
 
-When you're rolling out a new deploy or shedding load during an incident, you don't want to slam the door — you want to **squeeze**: existing users see degraded service, new traffic stops entirely, in-flight requests complete.
+When you're rolling out a new deploy or shedding load during an incident, you don't want to slam the door, you want to **squeeze**: existing users see degraded service, new traffic stops entirely, in-flight requests complete.
 
 Implement as a **dynamic limit knob**:
 
@@ -414,15 +414,15 @@ elif downstream.p99 < SLO * 0.7 and limit < ceiling:
     limit += 1              # additive increase
 ```
 
-This is the same AIMD (additive-increase / multiplicative-decrease) algorithm TCP uses for congestion control. Netflix's "concurrency-limits" library and Envoy's adaptive concurrency filter implement variants. **Mention AIMD by name** in the interview — it's a precise, recognizable answer.
+This is the same AIMD (additive-increase / multiplicative-decrease) algorithm TCP uses for congestion control. Netflix's "concurrency-limits" library and Envoy's adaptive concurrency filter implement variants. **Mention AIMD by name** in the interview, it's a precise, recognizable answer.
 
 ### Per-tenant fairness and the noisy-neighbor problem
 
 If your multi-tenant platform has one user generating 10K req/sec, the queue/CPU contention can break service for everyone else, even if no individual limit is breached. Three mitigations:
 
-1. **Weighted fair queuing** at the gateway — round-robin between tenants when load is high, regardless of their individual limits.
-2. **Per-tenant connection pools** to downstream services — one tenant exhausting their pool doesn't starve others.
-3. **Cost-based limits** — large or expensive requests "cost" more tokens than small/cheap ones. Stripe's API uses this; the response header tells you how many cost units a request consumed.
+1. **Weighted fair queuing** at the gateway, round-robin between tenants when load is high, regardless of their individual limits.
+2. **Per-tenant connection pools** to downstream services, one tenant exhausting their pool doesn't starve others.
+3. **Cost-based limits**, large or expensive requests "cost" more tokens than small/cheap ones. Stripe's API uses this; the response header tells you how many cost units a request consumed.
 
 ## 13. The trade-offs interviewers will probe
 
@@ -462,16 +462,16 @@ The second one alone eliminates ~95% of clock-related rate-limit bugs. Mention i
 └────────────────┘
 ```
 
-Mentioning the layered model is a senior+ signal. Saying "we'd add it at the API gateway" is a junior signal — the right answer is *almost always layered*.
+Mentioning the layered model is a senior+ signal. Saying "we'd add it at the API gateway" is a junior signal, the right answer is *almost always layered*.
 
 ## 16. The 30-second summary
 
 > A distributed rate limiter is **token bucket per (user, endpoint) stored in Redis, updated via an atomic Lua script, evaluated at the API gateway**. Handle bursts with bucket capacity; handle bursts-of-burst with layered limits at CDN + gateway + app. Fail open, ship rate-limit headers in every response, and accept that multi-region "global" limits are usually per-region in disguise.
 
-That's the strong-hire answer. Bonus points if you draw the gateway → Redis → response-headers diagram and quote the Lua script's 50-100 µs runtime — that level of specificity is what staff-level interviewers reward.
+That's the strong-hire answer. Bonus points if you draw the gateway → Redis → response-headers diagram and quote the Lua script's 50-100 µs runtime, that level of specificity is what staff-level interviewers reward.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — Redis sits at the core of both
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — also uses Redis or Kafka for coordination
-- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — heavily rate-limited at the post and follow paths
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), Redis sits at the core of both
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), also uses Redis or Kafka for coordination
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), heavily rate-limited at the post and follow paths
 </Callout>

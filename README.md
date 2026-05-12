@@ -121,7 +121,7 @@ To migrate from "logged-in only" → "paid only" later, change the `authorized`
 callback in `middleware.ts` (e.g. `({ token }) => token?.isPremium === true`)
 and update the badge copy. The route matcher itself does not need to change.
 
-## Roadmap (Phase 2 — not built yet)
+## Roadmap (Phase 2, not built yet)
 
 - Magic-link auth (NextAuth + Resend)
 - Postgres + Drizzle/Prisma schema for users, purchases, entitlements

@@ -7,7 +7,7 @@ difficulty: "staff"
 readingTime: 12
 publishedAt: "2026-05-02"
 author: "Aman Kumar Keshu"
-excerpt: "Social Feed is the Observer pattern at its most practical. The design decision is push vs pull fanout — and the LLD must model posts, follows, likes, and feed generation cleanly."
+excerpt: "Social Feed is the Observer pattern at its most practical. The design decision is push vs pull fanout, and the LLD must model posts, follows, likes, and feed generation cleanly."
 isPremium: true
 ---
 
@@ -109,7 +109,7 @@ public class FollowService {
 }
 ```
 
-## 5. Feed service — push fanout model
+## 5. Feed service, push fanout model
 
 ```java
 public class FeedService {
@@ -120,7 +120,7 @@ public class FeedService {
   public void fanout(Post post) {
     List<String> followerIds = followService.getFollowerIds(post.getAuthor().getId());
     if (followerIds.size() > MAX_FANOUT) {
-      // Pull model for celebrities — skip fanout
+      // Pull model for celebrities, skip fanout
       return;
     }
     followerIds.forEach(followerId ->
@@ -186,7 +186,7 @@ public class CommentService {
 }
 ```
 
-## 8. Feed generation — hybrid model
+## 8. Feed generation, hybrid model
 
 | Model | When to use |
 |---|---|
@@ -231,4 +231,4 @@ public List<FeedItem> getHybridFeed(String userId, String cursor, int limit) {
 
 ## 11. The 30-second summary
 
-> Push fanout writes new posts to all follower feeds at post creation time. For celebrity accounts (>1000 followers), skip push — pull and merge at read time. Likes and comments are idempotent operations that increment denormalized counters on `Post`. Feed pagination uses a cursor (timestamp) for consistent ordering.
+> Push fanout writes new posts to all follower feeds at post creation time. For celebrity accounts (>1000 followers), skip push, pull and merge at read time. Likes and comments are idempotent operations that increment denormalized counters on `Post`. Feed pagination uses a cursor (timestamp) for consistent ordering.

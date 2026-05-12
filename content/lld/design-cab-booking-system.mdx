@@ -98,7 +98,7 @@ public class NearestDriverStrategy implements MatchingStrategy {
   }
 
   private double haversineDistance(Location a, Location b) {
-    // Standard Haversine formula — returns km
+    // Standard Haversine formula, returns km
     double R = 6371;
     double dLat = Math.toRadians(b.getLat() - a.getLat());
     double dLng = Math.toRadians(b.getLng() - a.getLng());
@@ -242,4 +242,4 @@ public class RatingService {
 
 ## 10. The 30-second summary
 
-> Two injected strategies: `MatchingStrategy` (nearest driver) and `FareStrategy` (base + distance + time × surge). `RideService` enforces the state machine — each method validates the current state before transitioning. OTP confirms the driver-rider match. Driver availability is updated at assignment and release.
+> Two injected strategies: `MatchingStrategy` (nearest driver) and `FareStrategy` (base + distance + time × surge). `RideService` enforces the state machine, each method validates the current state before transitioning. OTP confirms the driver-rider match. Driver availability is updated at assignment and release.

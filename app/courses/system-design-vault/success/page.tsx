@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Payment Successful — System Design Vault",
+  title: "Payment Successful, System Design Vault",
   description: "You now have full lifetime access to the System Design Vault.",
 };
 
@@ -31,7 +31,7 @@ export default function PaymentSuccessPage({
         </h1>
 
         <p className="mt-4 text-lg text-muted-foreground">
-          You now have <strong>full lifetime access</strong> to the System Design Vault — all 90+
+          You now have <strong>full lifetime access</strong> to the System Design Vault, all 90+
           deep-dive questions, worked answers, and trade-off analyses.
         </p>
 

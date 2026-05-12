@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "Sub-100ms autocomplete suggestions across billions of queries: trie design, top-K storage, distributed sharding, real-time updates and personalization \u2014 the design behind Google Search and Amazon's search box."
 ---
 
-Type "yo" into Google. In 30 milliseconds you see "youtube," "yoga," "yo mama jokes." That speed is not accidental — it's a carefully designed system tuned for **prefix queries with top-K answers in single-digit milliseconds**, distributed across the world. Here's how to design it.
+Type "yo" into Google. In 30 milliseconds you see "youtube," "yoga," "yo mama jokes." That speed is not accidental, it's a carefully designed system tuned for **prefix queries with top-K answers in single-digit milliseconds**, distributed across the world. Here's how to design it.
 
 ## 1. Clarify before you draw
 
@@ -32,9 +32,9 @@ For this post: top-5 suggestions from query history, ~5B searches/day, 100 ms p9
 
 **Non-functional:**
 1. **Sub-100ms p99** server-side.
-2. **Read-heavy** — 100:1 vs writes.
-3. **Eventually consistent** — new trends visible within minutes, not seconds.
-4. **Highly available** — autocomplete is the front door of search.
+2. **Read-heavy**, 100:1 vs writes.
+3. **Eventually consistent**, new trends visible within minutes, not seconds.
+4. **Highly available**, autocomplete is the front door of search.
 
 ## 3. Capacity numbers
 
@@ -44,7 +44,7 @@ For this post: top-5 suggestions from query history, ~5B searches/day, 100 ms p9
 
 ## 4. The core data structure: a trie of prefixes
 
-A **trie** stores prefixes naturally — every node is a character, every path from root spells a prefix.
+A **trie** stores prefixes naturally, every node is a character, every path from root spells a prefix.
 
 ```
                 root
@@ -66,7 +66,7 @@ A **trie** stores prefixes naturally — every node is a character, every path f
 
 Naive trie: walk from root following input chars; at the deepest node matching the prefix, do a tree traversal to find top-K completions. **Tree traversal is too slow** at 100ms budget.
 
-The fix: **at each node, precompute and cache the top-K completions for that prefix**. Then a lookup is O(prefix_length) — single-digit microseconds in memory.
+The fix: **at each node, precompute and cache the top-K completions for that prefix**. Then a lookup is O(prefix_length), single-digit microseconds in memory.
 
 ```
 node "yo" → ["youtube", "yoga", "yoga poses", "yo mama", "yom kippur"]
@@ -104,8 +104,8 @@ Memory cost: O(distinct_prefixes × K × avg_completion_size). For K=5, ~50 GB t
 ```
 
 **Two timescales:**
-- **Daily / hourly batch** — the bulk of suggestions, computed offline from query logs over the last 30 days.
-- **Real-time hot updates** — emerging trends ("breaking news event") merged into the trie within minutes via a streaming layer.
+- **Daily / hourly batch**, the bulk of suggestions, computed offline from query logs over the last 30 days.
+- **Real-time hot updates**, emerging trends ("breaking news event") merged into the trie within minutes via a streaming layer.
 
 This is the same pattern as [Top-K / Trending](/blog/system-design/design-top-k-trending). Cross-link.
 
@@ -143,11 +143,11 @@ The actual server work is microseconds. Most of the latency is network.
 
 Top-K by raw frequency is naive. Better signal mix:
 
-- **Frequency** — how often the query is searched.
-- **Recency** — last week's spike beats last year's spike.
-- **Personalization** — the user's own search history, language, location.
-- **Click-through rate** — did people *click* a result for this query, or did they reformulate?
-- **Penalize spam** — long, bot-like queries get downweighted.
+- **Frequency**, how often the query is searched.
+- **Recency**, last week's spike beats last year's spike.
+- **Personalization**, the user's own search history, language, location.
+- **Click-through rate**, did people *click* a result for this query, or did they reformulate?
+- **Penalize spam**, long, bot-like queries get downweighted.
 
 Compute a single `score = log(freq) × decay(age) × CTR^α` and sort by that. Per-prefix top-K is then the top by `score`, not raw count.
 
@@ -156,7 +156,7 @@ Compute a single `score = log(freq) × decay(age) × CTR^α` and sort by that. P
 Two-stage approach:
 
 1. **Global top-K** from the trie (the lion's share of relevance).
-2. **User-personalized rerank** of those K candidates — fetch the user's last 100 queries, boost candidates that look like queries they've issued before.
+2. **User-personalized rerank** of those K candidates, fetch the user's last 100 queries, boost candidates that look like queries they've issued before.
 
 The rerank is cheap (K is small, e.g. 20 candidates → top 5). The global trie still does the heavy lifting.
 
@@ -175,7 +175,7 @@ This is the same machinery as [Top-K trending](/blog/system-design/design-top-k-
 
 - **Blocklist** of explicit / hateful terms applied as a filter at trie-build time and at query time.
 - **Per-region rules** (some terms blocked in one country, allowed in another).
-- **De-duplication** — "youtube" and "you tube" might compete; canonicalize on build.
+- **De-duplication**, "youtube" and "you tube" might compete; canonicalize on build.
 
 ## 12. Failure handling
 
@@ -205,6 +205,6 @@ This is the same machinery as [Top-K trending](/blog/system-design/design-top-k-
 Land that, plus the precomputation explanation in section 4, and you've answered the staff version of this question.
 
 <Callout type="tip" title="Related reading">
-- [Design Top-K / Trending](/blog/system-design/design-top-k-trending) — the streaming layer
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — replicated per-region cache pattern
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending), the streaming layer
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), replicated per-region cache pattern
 </Callout>

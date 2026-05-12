@@ -35,7 +35,7 @@ export default function HomePage() {
         </div>
 
         {latestPosts.length === 0 ? (
-          <p className="text-muted-foreground">No posts yet — check back soon.</p>
+          <p className="text-muted-foreground">No posts yet, check back soon.</p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {latestPosts.map((post) => (

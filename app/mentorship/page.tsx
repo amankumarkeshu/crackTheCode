@@ -20,7 +20,7 @@ const OFFERINGS = [
   {
     icon: Trophy,
     title: "Monthly Mock Interview Bundle",
-    desc: "4 sessions over 4 weeks — system design + behavioral + tactical follow-ups. Best for active candidates in a loop.",
+    desc: "4 sessions over 4 weeks, system design + behavioral + tactical follow-ups. Best for active candidates in a loop.",
     cta: "Get the bundle",
   },
   {
@@ -77,7 +77,7 @@ export default function MentorshipPage() {
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
           Send a quick note describing where you are in your prep, and I&apos;ll suggest the right
-          starting point — no obligation.
+          starting point, no obligation.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <LinkButton href={`mailto:${siteConfig.email}?subject=Mentorship%20question`}>

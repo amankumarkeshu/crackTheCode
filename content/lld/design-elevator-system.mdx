@@ -7,7 +7,7 @@ difficulty: "senior"
 readingTime: 13
 publishedAt: "2026-04-03"
 author: "Aman Kumar Keshu"
-excerpt: "Elevator is the scheduling question disguised as an OOP question. The classes are easy — the hard part is the dispatch algorithm. Here's how to design both and talk about them confidently."
+excerpt: "Elevator is the scheduling question disguised as an OOP question. The classes are easy, the hard part is the dispatch algorithm. Here's how to design both and talk about them confidently."
 isPremium: false
 ---
 
@@ -119,9 +119,9 @@ public class Elevator {
 }
 ```
 
-Using separate `upQueue` and `downQueue` implements the **LOOK algorithm** (a variant of SCAN) — serving all stops in one direction before reversing. This is what real elevators do.
+Using separate `upQueue` and `downQueue` implements the **LOOK algorithm** (a variant of SCAN), serving all stops in one direction before reversing. This is what real elevators do.
 
-## 4. Dispatcher — choosing the right elevator
+## 4. Dispatcher, choosing the right elevator
 
 ```java
 public interface Dispatcher {
@@ -149,7 +149,7 @@ public class NearestElevatorDispatcher implements Dispatcher {
 
 The `+100` penalty is a simple heuristic. Mention it as a tunable weight.
 
-## 5. ElevatorSystem — thin orchestrator
+## 5. ElevatorSystem, thin orchestrator
 
 ```java
 public class ElevatorSystem {
@@ -179,10 +179,10 @@ public class ElevatorSystem {
 
 ## 7. Concurrency
 
-Passengers press buttons concurrently — the `synchronized` on `Elevator.addRequest` and `step` handles single-elevator thread safety. For multiple threads (one per elevator + one dispatcher):
+Passengers press buttons concurrently, the `synchronized` on `Elevator.addRequest` and `step` handles single-elevator thread safety. For multiple threads (one per elevator + one dispatcher):
 
 - Use `ReentrantLock` instead of `synchronized` for finer control.
-- The dispatcher reads elevator state — use a volatile `currentFloor` or a read lock.
+- The dispatcher reads elevator state, use a volatile `currentFloor` or a read lock.
 
 ## 8. Follow-ups
 
@@ -195,4 +195,4 @@ Passengers press buttons concurrently — the `synchronized` on `Elevator.addReq
 
 ## 9. The 30-second summary
 
-> Two queues per elevator (up/down) implement the LOOK algorithm naturally. The dispatcher is a pluggable strategy that scores each elevator by distance and direction alignment. The system class is 10 lines — it just routes requests. State transitions drive everything.
+> Two queues per elevator (up/down) implement the LOOK algorithm naturally. The dispatcher is a pluggable strategy that scores each elevator by distance and direction alignment. The system class is 10 lines, it just routes requests. State transitions drive everything.

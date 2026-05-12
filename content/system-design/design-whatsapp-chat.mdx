@@ -35,10 +35,10 @@ For this post: 1:1 + groups up to 1,000, read receipts, presence, persistent his
 6. Message history.
 
 **Non-functional:**
-1. **Per-conversation ordering** — messages arrive in send order.
-2. **Low send-to-deliver latency** — p99 &lt; 500 ms when recipient is online.
-3. **High availability** — 99.99% for the messaging path.
-4. **Durability** — never lose a sent message.
+1. **Per-conversation ordering**, messages arrive in send order.
+2. **Low send-to-deliver latency**, p99 &lt; 500 ms when recipient is online.
+3. **High availability**, 99.99% for the messaging path.
+4. **Durability**, never lose a sent message.
 5. **Scale to 3B concurrent connections globally**.
 
 ## 3. Capacity numbers
@@ -87,7 +87,7 @@ If Y isn't online, the message goes to Y's offline queue (section 9).
 
 ### Connection server sharding
 
-By user_id hash, with consistent hashing (see [Distributed Cache](/blog/system-design/design-distributed-cache#5-partitioning-consistent-hashing-is-non-negotiable)). Adding/removing connection servers reshuffles ~1/N of users — they reconnect within seconds.
+By user_id hash, with consistent hashing (see [Distributed Cache](/blog/system-design/design-distributed-cache#5-partitioning-consistent-hashing-is-non-negotiable)). Adding/removing connection servers reshuffles ~1/N of users, they reconnect within seconds.
 
 ## 6. Message send path
 
@@ -95,7 +95,7 @@ By user_id hash, with consistent hashing (see [Distributed Cache](/blog/system-d
 1. User A's app emits SendMessage(conversation_id, text) over its WebSocket.
 2. Connection server receives, forwards to Message Service.
 3. Message Service:
-   a. Generates message_id (Snowflake — see the URL Shortener post for the anatomy).
+   a. Generates message_id (Snowflake, see the URL Shortener post for the anatomy).
    b. Persists to messages table (sharded by conversation_id, sorted by message_id).
    c. For each recipient in the conversation:
       - Look up their connection in session registry.
@@ -107,7 +107,7 @@ By user_id hash, with consistent hashing (see [Distributed Cache](/blog/system-d
 
 End-to-end latency for two online users: typically ~50–200 ms.
 
-## 7. Per-conversation ordering — the trickiest part
+## 7. Per-conversation ordering, the trickiest part
 
 Total ordering across the whole system is impossible at this scale. You need ordering **within a single conversation only**.
 
@@ -136,7 +136,7 @@ For 1,000-member groups, you have two options (just like [News Feed](/blog/syste
 | **Push to every member's offline queue + push to online sockets** | Default. Cheap at 1K members. |
 | **Pull at read time** (members fetch from group log) | Required for huge groups (10K+ members, "communities" / channels). |
 
-WhatsApp uses fan-out-on-write up to ~256K members in Communities by *batching* the writes — one Kafka message per group post that downstream workers expand into per-recipient writes. A single group post still fans out to 256K rows; the work is just async.
+WhatsApp uses fan-out-on-write up to ~256K members in Communities by *batching* the writes, one Kafka message per group post that downstream workers expand into per-recipient writes. A single group post still fans out to 256K rows; the work is just async.
 
 ## 9. Offline queue
 
@@ -147,7 +147,7 @@ Each user has a per-user "inbox" of messages they haven't received yet:
 - After client ack, messages are removed from the inbox (or marked delivered).
 - TTL of ~30 days on undelivered messages (configurable).
 
-For very large queues (long-offline users), pagination is mandatory — don't try to push 50K messages over a fresh socket in one frame.
+For very large queues (long-offline users), pagination is mandatory, don't try to push 50K messages over a fresh socket in one frame.
 
 ## 10. Presence (the hidden monster)
 
@@ -155,20 +155,20 @@ Naive presence: every client publishes a heartbeat every 30 s. With 2B clients =
 
 Smarter approach:
 
-- **Connection presence is implicit** — if the WebSocket is connected, the user is "online." No extra heartbeat needed at the application layer; TCP keep-alive (every 60–120 s) does the job.
+- **Connection presence is implicit**, if the WebSocket is connected, the user is "online." No extra heartbeat needed at the application layer; TCP keep-alive (every 60–120 s) does the job.
 - **Last-seen** is updated on disconnect, not periodically.
-- **Presence updates fan out only to "interested" parties** — your contacts, group members you're chatting with right now. Not the whole graph.
+- **Presence updates fan out only to "interested" parties**, your contacts, group members you're chatting with right now. Not the whole graph.
 - For "is X online?" lookups: cache in Redis with a 30s TTL, derived from the session registry.
 
-WhatsApp went one step further: it shows last-seen *only* to chats you've actually messaged — drastically cutting the fan-out.
+WhatsApp went one step further: it shows last-seen *only* to chats you've actually messaged, drastically cutting the fan-out.
 
 ## 11. Read receipts and typing indicators
 
 Both are just **lightweight messages** on the same connection layer:
 
-- `typing_start` / `typing_stop` — ephemeral, not persisted, only forwarded to currently-online conversation participants.
-- `delivery_receipt` — when client receives a message, it sends back a tiny ack frame; written to the message row's `delivered_at`. Echoed to sender.
-- `read_receipt` — when client renders the message on screen, sends back another ack; updates `read_at`. Echoed.
+- `typing_start` / `typing_stop`, ephemeral, not persisted, only forwarded to currently-online conversation participants.
+- `delivery_receipt`, when client receives a message, it sends back a tiny ack frame; written to the message row's `delivered_at`. Echoed to sender.
+- `read_receipt`, when client renders the message on screen, sends back another ack; updates `read_at`. Echoed.
 
 Don't persist typing indicators. They're noise within seconds.
 
@@ -180,7 +180,7 @@ Implications for the design:
 - Server can't read or index message content.
 - Search and full-text features are client-side only.
 - Backups are encrypted with a user-held key (or written to client's iCloud/Drive in plaintext, depending on settings).
-- Group encryption uses Sender Keys — each member maintains a key per group; new joiners trigger a key refresh.
+- Group encryption uses Sender Keys, each member maintains a key per group; new joiners trigger a key refresh.
 
 In an interview, **mention E2E exists and skip the crypto deep-dive** unless asked. Show that you know it constrains the design.
 
@@ -193,7 +193,7 @@ In an interview, **mention E2E exists and skip the crypto deep-dive** unless ask
 | **Recipient flaky** | Repeated push retries with backoff; eventually goes to offline queue. |
 | **Network partition** | Senders see "sending..." stuck; messages queue locally and replay on reconnect. |
 
-Idempotency is critical: clients send a `client_msg_id` (UUID) with every message. Server dedups: if the same `client_msg_id` arrives twice, return the same `message_id` — don't double-store.
+Idempotency is critical: clients send a `client_msg_id` (UUID) with every message. Server dedups: if the same `client_msg_id` arrives twice, return the same `message_id`, don't double-store.
 
 ## 14. The trade-offs interviewers will probe
 
@@ -214,7 +214,7 @@ Idempotency is critical: clients send a `client_msg_id` (UUID) with every messag
 Land that summary plus the connection-layer depth from section 5, and you've answered the question at a staff bar.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — backs the offline-queue and group-fanout pipeline
-- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — the same fan-out problem at different latency requirements
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — backs the session registry and presence cache
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the offline-queue and group-fanout pipeline
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), the same fan-out problem at different latency requirements
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), backs the session registry and presence cache
 </Callout>

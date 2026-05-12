@@ -7,7 +7,7 @@ difficulty: "senior"
 readingTime: 14
 publishedAt: "2026-04-29"
 author: "Aman Kumar Keshu"
-excerpt: "Food Delivery has three actors — customer, restaurant, delivery partner — each with their own state machine. Designing the order lifecycle cleanly across all three actors is the interview challenge."
+excerpt: "Food Delivery has three actors, customer, restaurant, delivery partner, each with their own state machine. Designing the order lifecycle cleanly across all three actors is the interview challenge."
 isPremium: true
 ---
 
@@ -47,7 +47,7 @@ OUT_FOR_DELIVERY
 DELIVERED
 
 From PLACED → CANCELLED (customer cancels before acceptance)
-From ACCEPTED → CANCELLED (restaurant rejects after acceptance — edge case)
+From ACCEPTED → CANCELLED (restaurant rejects after acceptance, edge case)
 ```
 
 ## 3. Core entities
@@ -126,7 +126,7 @@ public class OrderService {
 }
 ```
 
-## 5. Restaurant service — accept / reject / ready
+## 5. Restaurant service, accept / reject / ready
 
 ```java
 public class RestaurantService {
@@ -160,7 +160,7 @@ public class RestaurantService {
 }
 ```
 
-## 6. Delivery service — partner assignment
+## 6. Delivery service, partner assignment
 
 ```java
 public class DeliveryService {

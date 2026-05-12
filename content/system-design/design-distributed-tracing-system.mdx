@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "Track a single request across hundreds of microservices: span model, head- vs tail-based sampling, ingestion at millions of spans/sec, time-bounded queries, and the cost-vs-fidelity trade-off."
 ---
 
-In a microservices world, a single user request fans out to dozens of services. When something is slow or wrong, you need to **trace** that request across all hops to see where the time went. Building a system that does this at scale (millions of spans/sec, queries returning in seconds) is its own design problem. Jaeger, Tempo, AWS X-Ray, Datadog APM, Honeycomb, Lightstep — they all solved this in slightly different ways.
+In a microservices world, a single user request fans out to dozens of services. When something is slow or wrong, you need to **trace** that request across all hops to see where the time went. Building a system that does this at scale (millions of spans/sec, queries returning in seconds) is its own design problem. Jaeger, Tempo, AWS X-Ray, Datadog APM, Honeycomb, Lightstep, they all solved this in slightly different ways.
 
 ## 1. Clarify before you draw
 
@@ -37,13 +37,13 @@ Trace 7a3f...
 ```
 
 Each span has:
-- `trace_id` (128-bit) — same for all spans in this request.
-- `span_id` (64-bit) — unique per span.
-- `parent_span_id` — defines the tree structure.
-- `service`, `operation` — what was being done.
-- `start_ts`, `duration` — timing.
-- `attributes` (tags) — arbitrary key-values: `http.status=200`, `db.query=SELECT...`.
-- `events` (logs) — timestamped messages within the span.
+- `trace_id` (128-bit), same for all spans in this request.
+- `span_id` (64-bit), unique per span.
+- `parent_span_id`, defines the tree structure.
+- `service`, `operation`, what was being done.
+- `start_ts`, `duration`, timing.
+- `attributes` (tags), arbitrary key-values: `http.status=200`, `db.query=SELECT...`.
+- `events` (logs), timestamped messages within the span.
 
 Trace-id is propagated via HTTP headers (`traceparent`) or message headers (Kafka). When service A calls B, A's outgoing request carries the trace-id; B reads it and emits its own spans under that trace.
 
@@ -58,10 +58,10 @@ Trace-id is propagated via HTTP headers (`traceparent`) or message headers (Kafk
 6. Alerting: error-rate spike, latency P99 spike on a service.
 
 **Non-functional:**
-1. **Low overhead in instrumented services** — adding tracing must not slow the app.
-2. **High ingestion rate** — millions of spans/sec.
-3. **Query latency** — &lt;5 sec for trace-id lookup; &lt;30 sec for search.
-4. **Cost-efficient storage** — spans are voluminous and mostly useless after 7 days.
+1. **Low overhead in instrumented services**, adding tracing must not slow the app.
+2. **High ingestion rate**, millions of spans/sec.
+3. **Query latency**, &lt;5 sec for trace-id lookup; &lt;30 sec for search.
+4. **Cost-efficient storage**, spans are voluminous and mostly useless after 7 days.
 
 ## 4. Capacity numbers
 
@@ -100,19 +100,19 @@ Storage Storage Builder      Aggregator
 
 ## 6. Sampling: the cost vs fidelity decision
 
-You can't store every span. At 10M spans/sec for 7 days, that's literally petabytes of data — most of which is repetitive normal-case traces.
+You can't store every span. At 10M spans/sec for 7 days, that's literally petabytes of data, most of which is repetitive normal-case traces.
 
 ### Head-based sampling
 At trace start, flip a coin (e.g. 1% probability) → if "heads," emit all spans for this trace; otherwise drop them all.
 - **Pro:** simple, cheap (no storage even for dropped traces).
-- **Pro:** consistent — either you have the whole trace or none.
+- **Pro:** consistent, either you have the whole trace or none.
 - **Con:** decision happens before knowing if the trace is interesting (errors, slow). 99% of errors get dropped.
 
 ### Tail-based sampling
 Spans buffered for ~30 sec; once trace finishes (or times out), decision is made: keep if interesting (error, slow, sampled), drop otherwise.
 - **Pro:** can keep all error/slow traces.
 - **Con:** must buffer 30 sec of spans → memory-heavy.
-- **Con:** spans of a trace might span multiple machines — buffer must be partitioned by trace_id.
+- **Con:** spans of a trace might span multiple machines, buffer must be partitioned by trace_id.
 
 ### Adaptive / probabilistic sampling
 Sample more aggressively for healthy services; sample everything for services with elevated error rate.
@@ -125,14 +125,14 @@ Each span is small (~500 bytes) but with billions per day, you need:
 
 ### Trace-id index
 Lookup by trace_id must be sub-second. Index spans by `trace_id` → list of spans.
-- Cassandra / DynamoDB / Bigtable — keyed by trace_id, partitioned for write throughput.
+- Cassandra / DynamoDB / Bigtable, keyed by trace_id, partitioned for write throughput.
 - Tempo (Grafana) and Jaeger use object storage (S3) with a smart blob format (e.g. all spans of a trace stored together by trace-id prefix).
 
 ### Search index
 "Find all traces where `service=payment-svc AND error=true AND duration > 1s` in the last hour."
 - Build inverted index (Elasticsearch / OpenSearch) on each span's tags + service + duration buckets.
 - Index size: ~10–20% of raw span data.
-- Costly — many tracing systems index only a subset of attributes.
+- Costly, many tracing systems index only a subset of attributes.
 
 ### Service graph
 Derived metric: the call-graph between services (which calls which, with what error rate / latency).
@@ -153,7 +153,7 @@ Warm (1–7 days)    → S3 in Parquet
 
 Cold (7+ days)     → Glacier / object archive
                      - Compliance only; not queryable cheaply
-                     - Or just delete — depends on retention policy
+                     - Or just delete, depends on retention policy
 ```
 
 Tempo and similar modern tracers go S3-only + an object-storage-friendly index format. Jaeger originally used Cassandra; later versions added S3 backend.
@@ -181,7 +181,7 @@ Pre-aggregated; just query Druid/ClickHouse.
 
 Most spans aren't queried individually. Pattern: aggregate similar spans into RED metrics.
 
-- **R**ate, **E**rrors, **D**uration — per (service, operation) per minute.
+- **R**ate, **E**rrors, **D**uration, per (service, operation) per minute.
 - Stream from raw spans into a metrics service.
 - These metrics are queryable forever cheaply.
 - Raw spans dropped after retention.
@@ -196,7 +196,7 @@ Pros: zero app code changes for basic tracing. Cons: doesn't capture in-process 
 
 ## 12. Cardinality: the hidden killer
 
-Every unique combination of `(service, operation, status, ...)` is a metric "series." If your URL is `/users/{id}/orders` and you tag the span with `path=/users/12345/orders`, you've created a series per user — billions of series. Storage explodes.
+Every unique combination of `(service, operation, status, ...)` is a metric "series." If your URL is `/users/{id}/orders` and you tag the span with `path=/users/12345/orders`, you've created a series per user, billions of series. Storage explodes.
 
 Discipline:
 - **Don't** put high-cardinality values (user IDs, request IDs, session tokens) as **tags**.
@@ -214,7 +214,7 @@ This is one of the top things distinguishing senior from junior in observability
 | **Search index down** | Trace-by-id still works (different store); search degraded |
 | **Storage full** | Reject new spans; alert; raise sampling rate to recover |
 
-Tracing is "best-effort" — never block production traffic for tracing.
+Tracing is "best-effort", never block production traffic for tracing.
 
 ## 14. The trade-offs interviewers will probe
 
@@ -230,13 +230,13 @@ Tracing is "best-effort" — never block production traffic for tracing.
 
 ## 15. The 30-second summary
 
-> A distributed tracing system is **OpenTelemetry SDKs emitting spans → collector pipeline with head- and tail-based sampling → trace-id-keyed storage (often S3 with smart layout) plus search index (Elasticsearch) plus stream-processed service graph (Flink → Druid)**. Key trade-offs: cost vs fidelity (sampling), cardinality discipline (don't index user IDs), and storage tiering (hot DB + warm S3 + cold delete). Tracing must be **best-effort** — never block production traffic.
+> A distributed tracing system is **OpenTelemetry SDKs emitting spans → collector pipeline with head- and tail-based sampling → trace-id-keyed storage (often S3 with smart layout) plus search index (Elasticsearch) plus stream-processed service graph (Flink → Druid)**. Key trade-offs: cost vs fidelity (sampling), cardinality discipline (don't index user IDs), and storage tiering (hot DB + warm S3 + cold delete). Tracing must be **best-effort**, never block production traffic.
 
 Lead with the span model + propagation. Show head vs tail sampling explicitly. Explain trace-id-keyed lookup vs search-index lookup as two distinct paths. Mention cardinality. That's the staff-level answer.
 
 <Callout type="tip" title="Related reading">
-- [Design Top-K / Trending](/blog/system-design/design-top-k-trending) — same Flink-style stream aggregation
-- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — same RED-metric aggregation pattern
-- [Design Google Search](/blog/system-design/design-google-search) — Elasticsearch / inverted-index sibling
-- [CAP and PACELC explained](/blog/concepts/cap-pacelc-explained) — best-effort tracing chooses availability over consistency
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending), same Flink-style stream aggregation
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), same RED-metric aggregation pattern
+- [Design Google Search](/blog/system-design/design-google-search), Elasticsearch / inverted-index sibling
+- [CAP and PACELC explained](/blog/concepts/cap-pacelc-explained), best-effort tracing chooses availability over consistency
 </Callout>

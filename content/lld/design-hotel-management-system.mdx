@@ -139,7 +139,7 @@ public class ReservationService {
 }
 ```
 
-## 5. Billing — add services during stay
+## 5. Billing, add services during stay
 
 ```java
 public class BillingService {
@@ -204,7 +204,7 @@ public class FullRefundBefore24h implements CancellationPolicy {
 
 - **SRP:** `ReservationService` handles booking flow; `BillingService` handles charges; `HousekeepingService` handles room readiness.
 - **OCP:** New cancellation policy = new `CancellationPolicy` class.
-- **DIP:** Services inject repositories and other services — no `new` on concrete implementations.
+- **DIP:** Services inject repositories and other services, no `new` on concrete implementations.
 
 ## 9. Follow-ups
 

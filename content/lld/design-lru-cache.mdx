@@ -11,7 +11,7 @@ excerpt: "LRU Cache combines a HashMap with a doubly-linked list to achieve O(1)
 isPremium: false
 ---
 
-LRU Cache is asked at Google, Meta, and Amazon — often as a warm-up before a harder design question. The combination of two data structures (`HashMap` + doubly linked list) for O(1) operations is the expected insight.
+LRU Cache is asked at Google, Meta, and Amazon, often as a warm-up before a harder design question. The combination of two data structures (`HashMap` + doubly linked list) for O(1) operations is the expected insight.
 
 ## 1. Clarify requirements
 
@@ -125,15 +125,15 @@ Dummy sentinel nodes eliminate null checks in `addToFront` and `remove`. Without
 | Approach | Trade-off |
 |---|---|
 | `synchronized` on all methods | Simple, but serialises reads unnecessarily |
-| `ReentrantReadWriteLock` | Reads concurrent, writes exclusive — but `get` still needs write lock (it mutates order) |
+| `ReentrantReadWriteLock` | Reads concurrent, writes exclusive, but `get` still needs write lock (it mutates order) |
 | `ConcurrentHashMap` + lock-striping | Complex; hard to maintain LRU ordering correctly |
-| Approximate LRU (`ConcurrentLinkedQueue`) | Relaxed ordering — used in Caffeine cache |
+| Approximate LRU (`ConcurrentLinkedQueue`) | Relaxed ordering, used in Caffeine cache |
 
 In an interview, `ReentrantReadWriteLock` is the right answer. Mention that production caches (Caffeine) use approximate LRU to avoid write-lock contention on reads.
 
 ## 5. LRU with TTL (follow-up)
 
-Add an `expiresAt: Instant` field to `Node`. On `get`, check if `Instant.now().isAfter(expiresAt)` — if so, remove and return empty. Run a background thread to periodically evict expired entries.
+Add an `expiresAt: Instant` field to `Node`. On `get`, check if `Instant.now().isAfter(expiresAt)`, if so, remove and return empty. Run a background thread to periodically evict expired entries.
 
 ## 6. Extending to different eviction policies
 
@@ -145,7 +145,7 @@ public interface EvictionPolicy<K, V> {
 }
 ```
 
-Implement `LRUPolicy`, `LFUPolicy`, `FIFOPolicy` — inject into a generic `Cache<K, V>` context. This is the Strategy pattern again.
+Implement `LRUPolicy`, `LFUPolicy`, `FIFOPolicy`, inject into a generic `Cache<K, V>` context. This is the Strategy pattern again.
 
 ## 7. Follow-ups
 
@@ -158,4 +158,4 @@ Implement `LRUPolicy`, `LFUPolicy`, `FIFOPolicy` — inject into a generic `Cach
 
 ## 8. The 30-second summary
 
-> HashMap gives O(1) lookup; doubly linked list gives O(1) eviction and promotion. Dummy sentinels remove boundary checks. `ReentrantReadWriteLock` protects concurrent access — but note that even `get` needs a write lock because it reorders the list. Production caches use approximate LRU to avoid this bottleneck.
+> HashMap gives O(1) lookup; doubly linked list gives O(1) eviction and promotion. Dummy sentinels remove boundary checks. `ReentrantReadWriteLock` protects concurrent access, but note that even `get` needs a write lock because it reorders the list. Production caches use approximate LRU to avoid this bottleneck.

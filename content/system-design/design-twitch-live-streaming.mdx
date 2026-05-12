@@ -18,7 +18,7 @@ Live streaming looks like YouTube with a live button. It absolutely is not. **Li
 - **Concurrent viewers?** ~10K (small streamer), 1M (e-sports event), 50M (Super Bowl on YouTube TV)?
 - **Concurrent broadcasters?** ~5M on Twitch peak.
 - **Chat?** First-class feature with high fan-out.
-- **VOD recording?** Yes — replay after stream ends.
+- **VOD recording?** Yes, replay after stream ends.
 - **DRM?** For premium content (sports rights).
 
 For this post: gaming-focused live platform, 5M concurrent broadcasters, ~50M concurrent viewers globally, 2–5 sec target latency, integrated chat, VOD on stream end.
@@ -33,10 +33,10 @@ For this post: gaming-focused live platform, 5M concurrent broadcasters, ~50M co
 5. Discovery (browse live streams, categories).
 
 **Non-functional:**
-1. **Low end-to-end latency** — broadcaster's keystrokes visible in viewer chat within seconds.
-2. **Huge fan-out** — 1 broadcaster → millions of viewers.
-3. **High availability** — outage during a tournament finals = front-page news.
-4. **Cost-efficient** — live streaming is bandwidth-heavy.
+1. **Low end-to-end latency**, broadcaster's keystrokes visible in viewer chat within seconds.
+2. **Huge fan-out**, 1 broadcaster → millions of viewers.
+3. **High availability**, outage during a tournament finals = front-page news.
+4. **Cost-efficient**, live streaming is bandwidth-heavy.
 
 ## 3. Capacity numbers
 
@@ -45,7 +45,7 @@ For this post: gaming-focused live platform, 5M concurrent broadcasters, ~50M co
 - Chat: ~50M viewers × peak 2 messages/sec on a hot stream = **millions of chat msgs/sec**, fan-out to all viewers.
 - VOD storage: 5M concurrent × 4 hr avg session = ~20M new VODs/day; total catalog grows by petabytes/week.
 
-The 150 Tbps number forces every distribution decision — CDN is the design.
+The 150 Tbps number forces every distribution decision, CDN is the design.
 
 ## 4. Live vs VOD: the architectural difference
 
@@ -87,7 +87,7 @@ Broadcaster's PC ──RTMP/SRT──► Ingest Server (closest geographically)
                   Viewers' players
 ```
 
-Plus a **chat system** running in parallel (cross-link to [WhatsApp/Chat](/blog/system-design/design-whatsapp-chat) — same long-lived-connection pattern).
+Plus a **chat system** running in parallel (cross-link to [WhatsApp/Chat](/blog/system-design/design-whatsapp-chat), same long-lived-connection pattern).
 
 ## 6. Ingest protocols
 
@@ -95,10 +95,10 @@ The broadcaster software (OBS, XSplit) pushes video to your ingest:
 
 | Protocol | Latency | Pros | Cons |
 |---|---|---|---|
-| **RTMP** | ~3 sec | Universal — every encoder supports it | TCP-based; doesn't tolerate packet loss; deprecated |
+| **RTMP** | ~3 sec | Universal, every encoder supports it | TCP-based; doesn't tolerate packet loss; deprecated |
 | **SRT** (Secure Reliable Transport) | ~1 sec | UDP-based with FEC; great over flaky networks | Newer; not all encoders support |
 | **WebRTC** | &lt;500 ms | Browser-native; sub-second | Designed for 1:1, not 1:many; complex transcode |
-| **WHIP / WHEP** | &lt;500 ms | WebRTC over HTTP — simpler integration | Still emerging |
+| **WHIP / WHEP** | &lt;500 ms | WebRTC over HTTP, simpler integration | Still emerging |
 
 **Default:** RTMP for compatibility, SRT for premium broadcasters who care about quality, WebRTC for ultra-low-latency (interview shows, auctions).
 
@@ -106,12 +106,12 @@ The broadcaster software (OBS, XSplit) pushes video to your ingest:
 
 The ingest server receives one bitrate (e.g. 1080p60 6 Mbps). Transcode to multiple ABR variants:
 
-- 1080p60 — passthrough (already at this resolution).
-- 720p60, 720p30, 480p, 360p, 160p — re-encode each, in real time.
+- 1080p60, passthrough (already at this resolution).
+- 720p60, 720p30, 480p, 360p, 160p, re-encode each, in real time.
 
-Hardware: GPU encoders (NVENC) or FPGAs. CPU encoding (x264) at 1080p60 is ~5 cores per stream — economically infeasible at 5M concurrent broadcasters.
+Hardware: GPU encoders (NVENC) or FPGAs. CPU encoding (x264) at 1080p60 is ~5 cores per stream, economically infeasible at 5M concurrent broadcasters.
 
-Each variant is sliced into **2-second segments** (vs 10-second for VOD — shorter = lower latency, more overhead). Manifest + segments sit on origin for ~30 sec, then evicted (live, not stored).
+Each variant is sliced into **2-second segments** (vs 10-second for VOD, shorter = lower latency, more overhead). Manifest + segments sit on origin for ~30 sec, then evicted (live, not stored).
 
 ## 8. Distribution: HLS vs LL-HLS vs WebRTC
 
@@ -120,9 +120,9 @@ Player polls manifest, fetches segments. Latency = N segments × segment duratio
 
 ### Low-Latency HLS / LL-DASH (~2 sec)
 Innovations:
-- **CMAF chunked encoding** — segments are streamed in sub-segments (250-500 ms chunks) before the segment is complete.
+- **CMAF chunked encoding**, segments are streamed in sub-segments (250-500 ms chunks) before the segment is complete.
 - **HTTP/2 push or Server-Sent Events** for manifest updates.
-- **Preload hints** — manifest tells player about future segments before they exist.
+- **Preload hints**, manifest tells player about future segments before they exist.
 
 This is the modern default for sports + e-sports. Twitch uses a variant they call "Low-Latency Mode."
 
@@ -138,7 +138,7 @@ For Twitch-class gaming (where 2–3 sec is fine), LL-HLS is the sweet spot.
 
 ## 9. CDN strategy for live
 
-Live segments are **time-critical** — a viewer 30 sec behind misses the actual moment. The CDN tier must absorb the fan-out without adding much delay.
+Live segments are **time-critical**, a viewer 30 sec behind misses the actual moment. The CDN tier must absorb the fan-out without adding much delay.
 
 ```
 Origin (1 stream) ─► Mid-tier (regional, 100s of streams)
@@ -149,7 +149,7 @@ Origin (1 stream) ─► Mid-tier (regional, 100s of streams)
 Two specifics for live:
 - **Pull-on-demand from origin**, not pre-push. The first viewer in a region triggers pull; subsequent viewers hit edge cache.
 - **Cache TTLs are tiny** (seconds, not days). The whole content set turns over constantly.
-- **Origin shielding** — only one mid-tier per region pulls from origin, then fans out to N edges. Otherwise origin can't survive a viral event.
+- **Origin shielding**, only one mid-tier per region pulls from origin, then fans out to N edges. Otherwise origin can't survive a viral event.
 
 ## 10. Chat fan-out (the hidden monster)
 
@@ -162,7 +162,7 @@ Design:
 - For huge streams: chat room is split across multiple shards; messages cross-replicated via Redis pub-sub.
 - **Slow mode** + **moderation** (per-channel filters, ML-based hate-speech detection) reduce volume *and* protect the platform.
 
-For very large streams (1M+ concurrent), chat is **sampled** — a viewer sees only a subset of messages randomly chosen from the firehose, displayed as if they were the full chat. Twitch does this.
+For very large streams (1M+ concurrent), chat is **sampled**, a viewer sees only a subset of messages randomly chosen from the firehose, displayed as if they were the full chat. Twitch does this.
 
 ## 11. Stream → VOD recording
 
@@ -199,7 +199,7 @@ Pre-aggregate viewer counts per channel in Redis (incremented when WebSocket con
 |---|---|
 | "Live vs VOD differences?" | Encode budget, segment size, ephemerality, cost shape |
 | "How do you achieve sub-3-sec latency?" | LL-HLS with CMAF chunked encoding |
-| "RTMP, SRT, WebRTC — when each?" | Compatibility / quality / interactivity trade-off |
+| "RTMP, SRT, WebRTC, when each?" | Compatibility / quality / interactivity trade-off |
 | "How does chat scale to 1M+ viewers?" | Per-stream sharded WebSocket fleet; sampling for hot streams |
 | "How do you serve 150 Tbps?" | Tiered CDN; origin shielding; pull-on-demand |
 | "How does VOD recording happen alongside live?" | Parallel pipeline; re-encode quality-optimized after end |
@@ -207,12 +207,12 @@ Pre-aggregate viewer counts per channel in Redis (incremented when WebSocket con
 
 ## 15. The 30-second summary
 
-> Live streaming is **ingest under a 1-second encode budget → tiered CDN with second-level cache TTLs → LL-HLS or WebRTC viewer playback → parallel chat fan-out**. It's not YouTube with a flag — it's an entirely different latency regime that ripples through every component. The hard parts are the ingest-to-glass latency budget, hot-stream fan-out (especially for chat), and surviving the bandwidth math at viral scale.
+> Live streaming is **ingest under a 1-second encode budget → tiered CDN with second-level cache TTLs → LL-HLS or WebRTC viewer playback → parallel chat fan-out**. It's not YouTube with a flag, it's an entirely different latency regime that ripples through every component. The hard parts are the ingest-to-glass latency budget, hot-stream fan-out (especially for chat), and surviving the bandwidth math at viral scale.
 
 Land that with the live-vs-VOD contrast from section 4 and the LL-HLS innovations from section 8, and you've answered the staff-level version.
 
 <Callout type="tip" title="Related reading">
-- [Design YouTube](/blog/system-design/design-youtube) — the VOD counterpart
-- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat) — same long-lived-connection pattern for chat
-- [Design a CDN](/blog/system-design/design-cdn) — the distribution layer
+- [Design YouTube](/blog/system-design/design-youtube), the VOD counterpart
+- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat), same long-lived-connection pattern for chat
+- [Design a CDN](/blog/system-design/design-cdn), the distribution layer
 </Callout>

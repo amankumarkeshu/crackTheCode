@@ -11,7 +11,7 @@ excerpt: "Shopping Cart is deceptively non-trivial. Pricing rules, coupon stacki
 isPremium: true
 ---
 
-Shopping Cart is a favourite because it hides complexity inside what feels like a simple problem. The follow-ups — coupon stacking, inventory reservation, cart expiry — are where the real design happens.
+Shopping Cart is a favourite because it hides complexity inside what feels like a simple problem. The follow-ups, coupon stacking, inventory reservation, cart expiry, are where the real design happens.
 
 ## 1. Clarify requirements
 
@@ -62,7 +62,7 @@ Order
  └─ status: OrderStatus
 ```
 
-## 3. Cart service — add / remove / update
+## 3. Cart service, add / remove / update
 
 ```java
 public class CartService {
@@ -111,7 +111,7 @@ public class CartService {
 }
 ```
 
-## 4. Pricing engine — Strategy pattern
+## 4. Pricing engine, Strategy pattern
 
 ```java
 public interface PricingStrategy {
@@ -152,7 +152,7 @@ public class PercentageDiscountStrategy implements DiscountStrategy {
 }
 ```
 
-## 6. Checkout — cart to order
+## 6. Checkout, cart to order
 
 ```java
 public class CheckoutService {

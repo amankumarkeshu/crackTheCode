@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "URL frontier with politeness, duplicate detection at trillions-of-URLs scale, content dedup with SimHash, DNS caching and the hidden hard parts that turn 'just fetch pages' into a real systems problem."
 ---
 
-"Design a web crawler" is one of those questions that sounds easy ("for url in urls: fetch(url)") and is brutally hard once you actually think about scale. The Internet has ~50B+ pages; you have to fetch them respectfully, dedup them, parse them, and feed downstream systems — all without getting banned.
+"Design a web crawler" is one of those questions that sounds easy ("for url in urls: fetch(url)") and is brutally hard once you actually think about scale. The Internet has ~50B+ pages; you have to fetch them respectfully, dedup them, parse them, and feed downstream systems, all without getting banned.
 
 ## 1. Clarify before you draw
 
@@ -32,10 +32,10 @@ For this post: general web, ~10B pages target, monthly recrawl for cold + hourly
 5. Honor `robots.txt` and per-domain rate limits.
 
 **Non-functional:**
-1. **High throughput** — sustained 10K+ pages/sec.
-2. **Politeness** — never overload a single host.
-3. **Fault-tolerant** — workers die routinely.
-4. **Extensible** — extract new metadata without redesigning the pipeline.
+1. **High throughput**, sustained 10K+ pages/sec.
+2. **Politeness**, never overload a single host.
+3. **Fault-tolerant**, workers die routinely.
+4. **Extensible**, extract new metadata without redesigning the pipeline.
 
 ## 3. Capacity numbers
 
@@ -70,10 +70,10 @@ Each box is independently scaled. The hard ones: URL frontier and dedup.
 ## 5. The URL frontier (the heart of the crawler)
 
 Two requirements that fight each other:
-- **High throughput** — pull 10K URLs/sec to fetch.
-- **Politeness** — never have more than 1 in-flight request per host.
+- **High throughput**, pull 10K URLs/sec to fetch.
+- **Politeness**, never have more than 1 in-flight request per host.
 
-Single FIFO queue won't work — you'd hammer popular hosts.
+Single FIFO queue won't work, you'd hammer popular hosts.
 
 ### Multi-queue frontier (Mercator design)
 
@@ -133,7 +133,7 @@ Before hashing/inserting:
 - Normalize path (`/foo/` → `/foo`).
 - Handle session IDs and `#fragment` (drop fragment).
 
-Skipping canonicalization makes your dedup useless — `example.com/x` and `EXAMPLE.com/x` look different.
+Skipping canonicalization makes your dedup useless, `example.com/x` and `EXAMPLE.com/x` look different.
 
 ## 7. Content deduplication
 
@@ -160,15 +160,15 @@ Solution:
 - Run **your own recursive resolver** (Unbound, BIND) in front of upstream. Caches aggressively.
 - For very large crawls: pre-resolve the top N hosts at startup.
 
-## 9. Politeness — the part that gets you sued
+## 9. Politeness, the part that gets you sued
 
 Beyond per-host concurrency:
 
-- **`robots.txt`** — fetch and cache per-host (24h TTL). Honor `Disallow` and `Crawl-Delay` directives. Most major crawlers also honor `Allow` and pattern wildcards.
-- **`<meta name="robots" content="noindex">`** — skip indexing.
-- **`User-Agent`** — set a clear one with a contact URL: `MyCrawler/1.0 (+https://mycompany.com/crawler)`. Some sites block unidentified crawlers.
+- **`robots.txt`**, fetch and cache per-host (24h TTL). Honor `Disallow` and `Crawl-Delay` directives. Most major crawlers also honor `Allow` and pattern wildcards.
+- **`<meta name="robots" content="noindex">`**, skip indexing.
+- **`User-Agent`**, set a clear one with a contact URL: `MyCrawler/1.0 (+https://mycompany.com/crawler)`. Some sites block unidentified crawlers.
 - **Backoff** on 5xx and 429 responses; never hammer a struggling site.
-- **Sitemaps** — when available, prefer URLs from `sitemap.xml` over discovery via link extraction.
+- **Sitemaps**, when available, prefer URLs from `sitemap.xml` over discovery via link extraction.
 
 ## 10. Failure handling
 
@@ -206,12 +206,12 @@ Raw HTML in object storage is canonical. Everything else is index / cache that c
 
 ## 13. The 30-second summary
 
-> A web crawler is fundamentally a **multi-queue URL frontier with per-host politeness, a Bloom-filter dedup layer for URLs, a SimHash dedup layer for content, and an aggressive DNS cache**. The hard parts aren't fetching — they're frontier scheduling, dedup at scale, and not getting banned. Real crawlers are 80% queue management and 20% HTTP.
+> A web crawler is fundamentally a **multi-queue URL frontier with per-host politeness, a Bloom-filter dedup layer for URLs, a SimHash dedup layer for content, and an aggressive DNS cache**. The hard parts aren't fetching, they're frontier scheduling, dedup at scale, and not getting banned. Real crawlers are 80% queue management and 20% HTTP.
 
 Land that with the host-scheduler design from section 5 and the dedup math from section 6, and you've answered the senior version of this question.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the frontier is essentially this
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — DNS + robots.txt cache layer
-- [Design a Rate Limiter](/blog/system-design/design-rate-limiter) — per-host politeness
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the frontier is essentially this
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), DNS + robots.txt cache layer
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), per-host politeness
 </Callout>

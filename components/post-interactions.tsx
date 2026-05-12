@@ -24,7 +24,7 @@ export function PostInteractions({ category, slug }: Props) {
     <div className="flex items-center gap-4">
       <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         <Eye className="h-4 w-4" />
-        {views === null ? "—" : views.toLocaleString()} views
+        {views === null ? "-" : views.toLocaleString()} views
       </span>
     </div>
   );

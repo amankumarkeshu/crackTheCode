@@ -55,7 +55,7 @@ export default function BlogIndexPage() {
             {posts.map((post, i) => (
               <>
                 <PostCard key={`${post.frontmatter.category}/${post.frontmatter.slug}`} post={post} />
-                {/* In-feed ad after every 6th card — high viewability, non-intrusive */}
+                {/* In-feed ad after every 6th card, high viewability, non-intrusive */}
                 {(i + 1) % 6 === 0 && (
                   <div key={`ad-${i}`} className="col-span-full">
                     <InFeedAd slot={process.env.NEXT_PUBLIC_ADSENSE_IN_FEED_SLOT ?? ""} />

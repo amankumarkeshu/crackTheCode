@@ -41,7 +41,7 @@ export function FlagshipCard() {
 
             <p className="mt-4 max-w-2xl text-muted-foreground">
               A comprehensive curriculum of 90+ foundational questions designed for Senior, Staff,
-              and Principal Engineer interviews — with worked answers, trade-offs, and the
+              and Principal Engineer interviews, with worked answers, trade-offs, and the
               follow-ups interviewers actually ask.
             </p>
 

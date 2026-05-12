@@ -60,7 +60,7 @@ ReorderAlert
  └─ triggeredAt: Instant
 ```
 
-## 3. InventoryItem — concurrent updates
+## 3. InventoryItem, concurrent updates
 
 ```java
 public class InventoryItem {
@@ -141,7 +141,7 @@ public class InventoryService {
 }
 ```
 
-## 5. Observer — reorder alerts
+## 5. Observer, reorder alerts
 
 ```java
 public interface InventoryObserver {
@@ -214,4 +214,4 @@ All `StockMovement` records form an immutable audit log. To reconstruct inventor
 
 ## 10. The 30-second summary
 
-> `InventoryItem` owns its own synchronized reserve/commit methods — no external locking needed. Observer fires when stock drops below reorder threshold. `StockMovement` records form an immutable event log (Event Sourcing). Aggregate available inventory = sum across all warehouses for the variant.
+> `InventoryItem` owns its own synchronized reserve/commit methods, no external locking needed. Observer fires when stock drops below reorder threshold. `StockMovement` records form an immutable event log (Event Sourcing). Aggregate available inventory = sum across all warehouses for the variant.

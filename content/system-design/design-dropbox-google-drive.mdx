@@ -10,13 +10,13 @@ author: "Aman Kumar Keshu"
 excerpt: "Chunked uploads with global deduplication, the metadata vs blob split, delta sync, conflict resolution and version history \u2014 the design that makes 'change one byte, sync in a second' actually possible."
 ---
 
-"Design Dropbox" looks like a storage question and is actually a **sync question**. The interesting part isn't holding 50 PB of files — that's just S3 with extra steps. The interesting part is: when a user changes one byte in a 5 GB file, why does it sync in 2 seconds and not 200?
+"Design Dropbox" looks like a storage question and is actually a **sync question**. The interesting part isn't holding 50 PB of files, that's just S3 with extra steps. The interesting part is: when a user changes one byte in a 5 GB file, why does it sync in 2 seconds and not 200?
 
 ## 1. Clarify before you draw
 
 - **File sizes?** Average ~MB, max ~GB or TB?
 - **Sync model?** Continuous (Dropbox), on-demand (Google Drive web), both?
-- **Multi-device per user?** (Yes — that's the whole point.)
+- **Multi-device per user?** (Yes, that's the whole point.)
 - **Versioning?** Last 30 days? 1 year? Forever?
 - **Sharing / permissions?** Per-file ACLs?
 - **Offline edits?** Conflict resolution required.
@@ -33,10 +33,10 @@ For this post: 500M users, ~10 TB avg per active user (mostly cold), multi-devic
 5. Sharing with permissions.
 
 **Non-functional:**
-1. **Durability** — never lose user data. 11+ nines.
-2. **Sync latency** — change visible on other devices within seconds.
-3. **Bandwidth-efficient** — small change to large file = small sync.
-4. **Storage-efficient** — global deduplication.
+1. **Durability**, never lose user data. 11+ nines.
+2. **Sync latency**, change visible on other devices within seconds.
+3. **Bandwidth-efficient**, small change to large file = small sync.
+4. **Storage-efficient**, global deduplication.
 
 ## 3. Capacity numbers
 
@@ -96,7 +96,7 @@ upload(chunk):
       return hash
 ```
 
-This is **global dedup** — if 1M users uploaded the same Apple Keynote installer, you store it once.
+This is **global dedup**, if 1M users uploaded the same Apple Keynote installer, you store it once.
 
 Add reference counting per hash so chunks can be GC'd when no file references them anymore. (Garbage collection itself is a separate background system.)
 
@@ -111,7 +111,7 @@ Add reference counting per hash so chunks can be GC'd when no file references th
 6. Server creates a new file_version row pointing at those hashes.
 ```
 
-Step 3 is the magic of dedup — most uploads transfer 10–20% of the actual file because most chunks already exist somewhere.
+Step 3 is the magic of dedup, most uploads transfer 10–20% of the actual file because most chunks already exist somewhere.
 
 ## 8. The sync protocol
 
@@ -154,7 +154,7 @@ Server detects parent collision.
   Both appear in the user's drive; user manually merges.
 ```
 
-For text files, Google Docs takes a different approach: **operational transforms (OT)** or **CRDTs** at the character level — true real-time multi-user editing with no conflicts. That's a wholly separate design (Design Google Docs is its own interview question).
+For text files, Google Docs takes a different approach: **operational transforms (OT)** or **CRDTs** at the character level, true real-time multi-user editing with no conflicts. That's a wholly separate design (Design Google Docs is its own interview question).
 
 ## 10. Versioning
 
@@ -166,7 +166,7 @@ Storage cost: small edits keep most chunks shared with old versions, so versioni
 
 - ACL stored per file or per folder: `(file_id, user_id, role)` rows.
 - Inherited permissions for folder hierarchies.
-- "Anyone with the link" creates a public, hashed token URL — no ACL check, just URL secrecy.
+- "Anyone with the link" creates a public, hashed token URL, no ACL check, just URL secrecy.
 - Permission changes are themselves changes in the user_changes log → propagate to all relevant devices.
 
 ## 12. Storage tier strategy
@@ -200,7 +200,7 @@ Lifecycle policies move chunks down the hierarchy automatically. Restore latency
 | "How does sync work?" | Per-user cursor, change log, long-poll / WebSocket |
 | "How do you resolve concurrent edits?" | Parent-version CAS; conflicted copy on collision |
 | "Why metadata + blob split?" | Independent scaling, dedup, fast metadata-only ops (rename, list, ACL) |
-| "How would you build Google Docs on top?" | Different problem — OT or CRDT at character level, not chunk |
+| "How would you build Google Docs on top?" | Different problem, OT or CRDT at character level, not chunk |
 | "How big is the metadata DB?" | ~50 TB; sharded by user_id; Spanner-class store |
 
 ## 15. The 30-second summary
@@ -210,7 +210,7 @@ Lifecycle policies move chunks down the hierarchy automatically. Restore latency
 Land that, plus the "single-byte edit syncs in seconds because of CDC + dedup" insight, and you've answered the staff version of the question.
 
 <Callout type="tip" title="Related reading">
-- [Design YouTube](/blog/system-design/design-youtube) — the chunked-upload + object-storage pattern
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — backs the per-user change log
-- [Design a Notification System](/blog/system-design/design-notification-system) — for "your file was shared with you" alerts
+- [Design YouTube](/blog/system-design/design-youtube), the chunked-upload + object-storage pattern
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the per-user change log
+- [Design a Notification System](/blog/system-design/design-notification-system), for "your file was shared with you" alerts
 </Callout>

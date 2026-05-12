@@ -11,18 +11,18 @@ excerpt: "Library Management is a deceptively rich LLD problem. It forces you to
 isPremium: false
 ---
 
-Library Management looks simple — until you realise it hides a state machine, multiple actor types, fine calculation logic, and a non-trivial search model. This makes it a favourite at companies like Atlassian and Adobe.
+Library Management looks simple, until you realise it hides a state machine, multiple actor types, fine calculation logic, and a non-trivial search model. This makes it a favourite at companies like Atlassian and Adobe.
 
 ## 1. Clarify requirements
 
 Before drawing a single class, ask:
 
 - How many copies of a book can exist?
-- Who can borrow — any member, or only specific tiers?
+- Who can borrow, any member, or only specific tiers?
 - What's the loan period? Can it be extended?
 - Late fee model: flat / per-day / tiered?
 - Reservation / waitlist when all copies are out?
-- Search by: title, author, ISBN, genre — or full-text?
+- Search by: title, author, ISBN, genre, or full-text?
 - Multiple library branches?
 
 Agreed scope for this design:
@@ -37,14 +37,14 @@ Walk the user journey:
 
 Entities:
 
-- `Book` — title, authors, ISBN, genre, publisher
-- `BookItem` — physical copy; has a barcode and `BookStatus`
-- `Member` — profile, tier, borrowed count
-- `Librarian` — can add/remove book items, manage members
-- `Loan` — links member ↔ bookItem + dates + fine
-- `Reservation` — waitlist entry
-- `Catalog` — search index over books
-- `FineStrategy` — computes late fees
+- `Book`, title, authors, ISBN, genre, publisher
+- `BookItem`, physical copy; has a barcode and `BookStatus`
+- `Member`, profile, tier, borrowed count
+- `Librarian`, can add/remove book items, manage members
+- `Loan`, links member ↔ bookItem + dates + fine
+- `Reservation`, waitlist entry
+- `Catalog`, search index over books
+- `FineStrategy`, computes late fees
 
 ## 3. Class diagram
 
@@ -88,7 +88,7 @@ FineStrategy (interface)
 
 ## 4. The state machine
 
-`BookItem.status` is a mini state machine — model it explicitly:
+`BookItem.status` is a mini state machine, model it explicitly:
 
 ```java
 public enum BookStatus { AVAILABLE, BORROWED, RESERVED, LOST }
@@ -115,9 +115,9 @@ public class BookItem {
 }
 ```
 
-State transitions on the board earn points — most candidates leave `status` as a naked field.
+State transitions on the board earn points, most candidates leave `status` as a naked field.
 
-## 5. Core service — LibraryService
+## 5. Core service, LibraryService
 
 ```java
 public class LibraryService {
@@ -209,7 +209,7 @@ For production: replace with Elasticsearch. But in an interview, this in-memory 
 ## 8. SOLID
 
 - **SRP:** `LibraryService` orchestrates; `FineStrategy` owns fine logic; `Catalog` owns search.
-- **OCP:** New fine model? New `FineStrategy` class — don't touch the service.
+- **OCP:** New fine model? New `FineStrategy` class, don't touch the service.
 - **DIP:** Service depends on interfaces (`FineStrategy`, `NotificationService`), not concrete classes.
 
 ## 9. Common follow-ups
@@ -217,10 +217,10 @@ For production: replace with Elasticsearch. But in an interview, this in-memory 
 | Follow-up | Addition |
 |---|---|
 | Multiple branches | `Branch` entity; `BookItem` belongs to a branch; loans can be inter-branch. |
-| Renewal / extension | `Loan.extend(int days)` — validate not overdue; cap extensions at 2. |
+| Renewal / extension | `Loan.extend(int days)`, validate not overdue; cap extensions at 2. |
 | E-book support | `DigitalBookItem extends BookItem`; no physical state, concurrent borrows allowed. |
-| Audit log | Domain events (`BookBorrowed`, `BookReturned`) — append-only log table. |
+| Audit log | Domain events (`BookBorrowed`, `BookReturned`), append-only log table. |
 
 ## 10. The 30-second summary
 
-> Model `BookItem` (not `Book`) as the borrowable unit with an explicit state machine. Keep `LibraryService` thin by injecting fine strategy and notifier. The waitlist is just a sorted reservation queue — notify on return. That's all the interviewer needs to see.
+> Model `BookItem` (not `Book`) as the borrowable unit with an explicit state machine. Keep `LibraryService` thin by injecting fine strategy and notifier. The waitlist is just a sorted reservation queue, notify on return. That's all the interviewer needs to see.

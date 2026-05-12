@@ -91,7 +91,7 @@ public class Rook extends Piece {
 }
 ```
 
-Each piece knows its own movement rules — pure polymorphism, no switch-case on type.
+Each piece knows its own movement rules, pure polymorphism, no switch-case on type.
 
 ## 4. Move validation and check detection
 
@@ -124,7 +124,7 @@ public class Board {
 }
 ```
 
-`wouldLeaveInCheck` is the key method — it speculatively applies a move, checks if the king is still attacked, then reverts. This cleanly filters illegal moves.
+`wouldLeaveInCheck` is the key method, it speculatively applies a move, checks if the king is still attacked, then reverts. This cleanly filters illegal moves.
 
 ## 5. Move history with undo (Command pattern)
 
@@ -196,7 +196,7 @@ public class Game {
 ## 8. SOLID
 
 - **SRP:** Each `Piece` subclass only knows its own movement rules.
-- **OCP:** Add a new piece (e.g., custom fairy chess piece) by extending `Piece` — no changes to `Board` or `Game`.
+- **OCP:** Add a new piece (e.g., custom fairy chess piece) by extending `Piece`, no changes to `Board` or `Game`.
 - **LSP:** Any `Piece` works wherever a `Piece` is expected.
 
 ## 9. Follow-ups
@@ -210,4 +210,4 @@ public class Game {
 
 ## 10. The 30-second summary
 
-> Each `Piece` subclass owns its movement logic — pure polymorphism. `Board.wouldLeaveInCheck` speculatively applies/reverts moves to filter illegal ones. `MoveHistory` is the Command pattern, enabling clean undo. The game loop is under 30 lines.
+> Each `Piece` subclass owns its movement logic, pure polymorphism. `Board.wouldLeaveInCheck` speculatively applies/reverts moves to filter illegal ones. `MoveHistory` is the Command pattern, enabling clean undo. The game loop is under 30 lines.

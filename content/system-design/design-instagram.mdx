@@ -16,9 +16,9 @@ Instagram is mostly **News Feed + WhatsApp + YouTube** stitched together with ph
 
 - **Scope?** Photos only, or videos and Reels?
 - **Feed scale?** ~2B users, asymmetric follows.
-- **Stories?** Yes — 24-hour ephemeral.
+- **Stories?** Yes, 24-hour ephemeral.
 - **Direct messages?** (Cross-link to chat.)
-- **Explore / discovery?** Yes — interest-based, not just from people you follow.
+- **Explore / discovery?** Yes, interest-based, not just from people you follow.
 
 For this post: photos + short videos, full feed + stories + explore, 2B MAU, 100M+ posts/day.
 
@@ -65,7 +65,7 @@ Each service owns its data and exposes APIs. Cross-service comms via gRPC.
 
 Why pre-generate vs on-the-fly? **At Instagram scale, pre-generation wins** by orders of magnitude on CDN cache hit rate and origin CPU. On-the-fly resize is great for bespoke workloads, terrible for 2B users.
 
-## 5. The feed — reuse News Feed
+## 5. The feed, reuse News Feed
 
 Instagram's home feed is the **hybrid push/pull** described in [News Feed (Twitter)](/blog/system-design/design-news-feed-twitter):
 - Normal users (median ~150 follows) → fan-out on write to followers' inboxes.
@@ -74,9 +74,9 @@ Instagram's home feed is the **hybrid push/pull** described in [News Feed (Twitt
 
 The major Instagram-specific difference: **the feed is ranked, not chronological** since 2016. So the inbox stores *candidates* (post IDs); a ranking layer produces the actual viewing order at read time. See section 9.
 
-## 6. Stories — different storage rules
+## 6. Stories, different storage rules
 
-Stories are **24-hour ephemeral** — fundamentally different from posts:
+Stories are **24-hour ephemeral**, fundamentally different from posts:
 
 ```sql
 stories(
@@ -91,7 +91,7 @@ stories(
 
 - TTL'd index: don't return rows with `expires_at < now()`.
 - A nightly GC job deletes the underlying media from object storage.
-- Stories are **fan-out on read** — when you open the app, Instagram queries "stories from people I follow where expires_at > now()." No inbox table.
+- Stories are **fan-out on read**, when you open the app, Instagram queries "stories from people I follow where expires_at > now()." No inbox table.
 
 Why different from feed?
 - Volume: Stories volume is huge but lifetime is tiny → fan-out-on-write would be all wasted writes.
@@ -100,7 +100,7 @@ Why different from feed?
 
 This contrast is a great staff-level point: same product, two completely different storage strategies based on data lifetime and access pattern.
 
-## 7. Explore — the discovery system
+## 7. Explore, the discovery system
 
 The "Explore" tab shows posts from people you *don't* follow but might like. Pure ranking problem:
 
@@ -133,7 +133,7 @@ Common pattern: each counter is sharded into N sub-counters; reads sum across sh
 
 ## 9. Direct Messages
 
-Reuse the [WhatsApp / Chat](/blog/system-design/design-whatsapp-chat) design wholesale. Instagram DM is essentially Messenger — long-lived connections, per-conversation sharded log, presence layer.
+Reuse the [WhatsApp / Chat](/blog/system-design/design-whatsapp-chat) design wholesale. Instagram DM is essentially Messenger, long-lived connections, per-conversation sharded log, presence layer.
 
 ## 10. CDN strategy
 
@@ -171,8 +171,8 @@ Same multi-tier CDN as YouTube:
 Land that, and the celebrity-vs-normal-user dichotomy from the feed (and now the *Stories ephemeral* contrast), and you've answered the staff version of this question.
 
 <Callout type="tip" title="Related reading">
-- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — the feed core
-- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat) — Instagram DM
-- [Design YouTube](/blog/system-design/design-youtube) — media pipeline + CDN
-- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — like / view counts
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), the feed core
+- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat), Instagram DM
+- [Design YouTube](/blog/system-design/design-youtube), media pipeline + CDN
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), like / view counts
 </Callout>

@@ -23,7 +23,7 @@ Don't reach for Redis immediately. Ask:
 - **TTL behavior:** strict expiry or LRU eviction?
 - **Consistency requirements:** stale reads OK? Cross-region same view?
 - **Persistence:** purely in-memory, or RDB/AOF for warm restarts?
-- **Atomic ops:** counters, lists, sets — or just `GET/SET`?
+- **Atomic ops:** counters, lists, sets, or just `GET/SET`?
 
 For this post we commit to:
 
@@ -39,17 +39,17 @@ For this post we commit to:
 
 **Non-functional:**
 1. **Sub-millisecond latency** for `GET` (p99 < 1 ms in-DC).
-2. **Throughput** — 1M+ ops/sec per cluster.
-3. **Horizontal scalability** — add nodes without downtime.
-4. **Availability** — survive single node loss with no data loss for replicated keys.
-5. **Predictability** — small variance in latency under load.
+2. **Throughput**, 1M+ ops/sec per cluster.
+3. **Horizontal scalability**, add nodes without downtime.
+4. **Availability**, survive single node loss with no data loss for replicated keys.
+5. **Predictability**, small variance in latency under load.
 
 ## 3. Capacity numbers
 
 - **1B keys × 200 bytes each** = 200 GB working set.
 - **At 10 GB/node** (pure RAM, leave headroom) → **20 nodes**, plus replicas → **~40 nodes**.
-- **Throughput:** 1M ops/sec / 20 shards = **50K ops/sec/node** average. A single Redis node can do ~150K ops/sec single-threaded — comfortable headroom.
-- **Network:** 50K ops/sec × 200 bytes = **10 MB/s/node** — trivial.
+- **Throughput:** 1M ops/sec / 20 shards = **50K ops/sec/node** average. A single Redis node can do ~150K ops/sec single-threaded, comfortable headroom.
+- **Network:** 50K ops/sec × 200 bytes = **10 MB/s/node**, trivial.
 - **Hot-key amplification:** if 1% of keys serve 50% of traffic, the *hot* shard sees 250K ops/sec. This number drives the whole design.
 
 ## 4. The two big architectural choices
@@ -77,7 +77,7 @@ Client ─→ proxy ─ hash(key) → picks node ─→ replies
 
 ## 5. Partitioning: consistent hashing is non-negotiable
 
-The naive approach — `hash(key) % N` — is a trap. Add or remove a node and **almost every key remaps**, blowing your cache hit rate to ~0% during scaling.
+The naive approach, `hash(key) % N`, is a trap. Add or remove a node and **almost every key remaps**, blowing your cache hit rate to ~0% during scaling.
 
 **Consistent hashing** solves this:
 
@@ -113,8 +113,8 @@ Each shard has 1 primary + N replicas. Two flavors:
 
 | Mode | Latency | Durability | Use case |
 |---|---|---|---|
-| **Async replication** (default) | Fast — ack on primary write | Replica may lag → tiny data loss on primary failure | Most caches |
-| **Sync replication** (WAIT 1) | Slower — wait for replica ack | No data loss on single failure | Session stores, paid-feature flags |
+| **Async replication** (default) | Fast, ack on primary write | Replica may lag → tiny data loss on primary failure | Most caches |
+| **Sync replication** (WAIT 1) | Slower, wait for replica ack | No data loss on single failure | Session stores, paid-feature flags |
 
 For a *cache*, async is almost always right. The data is regenerable; pay for latency, not durability.
 
@@ -131,7 +131,7 @@ Total failover time: usually 5–30 seconds. During that window, requests for ke
 - **Multi-shard commands degrade to per-shard** so an outage of one shard doesn't break the others.
 - **Hedged reads against replicas** for `GET`s.
 
-### Sentinel vs Cluster vs Managed — the topology choice
+### Sentinel vs Cluster vs Managed, the topology choice
 
 Three real-world ways to run Redis at scale:
 
@@ -141,15 +141,15 @@ Three real-world ways to run Redis at scale:
 | **Redis Cluster** | Built-in sharding across N primaries, each with replicas. 16,384 hash slots. Clients are cluster-aware. | Working set bigger than one box. Need horizontal scaling. Comfortable running stateful clusters. |
 | **Managed (ElastiCache, Memorystore, Upstash)** | Cloud provider runs Cluster or Sentinel for you. | You don't want a 24/7 ops rotation. Almost always the right answer for a startup or a non-platform team. |
 
-A subtlety candidates miss: **Redis Cluster doesn't support multi-key commands across shards out of the box**. `MGET key1 key2` only works if both keys hash to the same slot. The fix is **hash tags** — wrap part of the key in `{...}` and Redis hashes only that part:
+A subtlety candidates miss: **Redis Cluster doesn't support multi-key commands across shards out of the box**. `MGET key1 key2` only works if both keys hash to the same slot. The fix is **hash tags**, wrap part of the key in `{...}` and Redis hashes only that part:
 
 ```
 SET {user:42}:profile  ...
 SET {user:42}:settings ...
-MGET {user:42}:profile {user:42}:settings   # works — same slot
+MGET {user:42}:profile {user:42}:settings   # works, same slot
 ```
 
-Use sparingly — overuse creates hot slots.
+Use sparingly, overuse creates hot slots.
 
 ### Gossip protocol: how the cluster knows itself
 
@@ -158,11 +158,11 @@ Redis Cluster nodes exchange small "gossip" packets every ~1s on a separate clus
 - Health (PONG / PFAIL / FAIL flags).
 - Sometimes the configuration epoch (Raft-like term number for leader changes).
 
-Failure detection uses **PFAIL → FAIL escalation**: any node that hasn't heard from a peer in `cluster-node-timeout` (default 15s) marks it `PFAIL`. When a majority of primaries agree, the flag is promoted to `FAIL` cluster-wide and a replica election kicks in. This is Redis's distributed agreement protocol — simpler than Raft, sufficient for "is this node alive?"
+Failure detection uses **PFAIL → FAIL escalation**: any node that hasn't heard from a peer in `cluster-node-timeout` (default 15s) marks it `PFAIL`. When a majority of primaries agree, the flag is promoted to `FAIL` cluster-wide and a replica election kicks in. This is Redis's distributed agreement protocol, simpler than Raft, sufficient for "is this node alive?"
 
 Operational implication: keep `cluster-node-timeout` short enough for fast failover (5–15s) but long enough to survive transient network blips. Too short = false failovers; too long = user-visible outages.
 
-## 7. Eviction policies — pick the right one
+## 7. Eviction policies, pick the right one
 
 When a node hits its memory limit, it must evict. Common policies:
 
@@ -174,7 +174,7 @@ When a node hits its memory limit, it must evict. Common policies:
 | **volatile-ttl** | Evict keys with shortest remaining TTL | Mixed cache + persistent data |
 | **volatile-random** | Random eviction among TTL'd keys | Rare; LRU is almost always better |
 
-**LFU > LRU when there's a stable hot set** (most caches). LRU is a single-element-touch policy — one full table scan can flush your hot keys. LFU resists scans. Mention this if asked "LRU or LFU?" — it's a real distinguishing answer.
+**LFU > LRU when there's a stable hot set** (most caches). LRU is a single-element-touch policy, one full table scan can flush your hot keys. LFU resists scans. Mention this if asked "LRU or LFU?", it's a real distinguishing answer.
 
 ## 8. The thundering herd problem
 
@@ -222,10 +222,10 @@ A single viral key (a celebrity profile, a flash sale) can drive 500K req/s to o
 
 1. **Replicate the hot key to N shards.** Client picks one randomly. Trades consistency for throughput.
 2. **Local L1 cache** in the application (1-second TTL). 90% of reads never leave the app server.
-3. **Probabilistic sampling** — only some clients query the cache; others use stale local data.
+3. **Probabilistic sampling**, only some clients query the cache; others use stale local data.
 4. **Tag the key as hot** on read, broadcast to all clients to start L1-caching it.
 
-## 10. Consistency model — be honest about it
+## 10. Consistency model, be honest about it
 
 A distributed cache is **eventually consistent** by default, even within a single cluster:
 
@@ -235,9 +235,9 @@ A distributed cache is **eventually consistent** by default, even within a singl
 
 Pretending otherwise is what leads to bugs like "I just updated my profile but it shows the old version." Mitigations:
 
-- **Read-your-writes** — pin a user's reads to the primary for N seconds after a write.
-- **Write-through to DB + cache** — keep the cache the truth, accept higher write latency.
-- **Cache-aside with explicit invalidation** — DB is the truth, cache is a hint, invalidate on write. Most common pattern.
+- **Read-your-writes**, pin a user's reads to the primary for N seconds after a write.
+- **Write-through to DB + cache**, keep the cache the truth, accept higher write latency.
+- **Cache-aside with explicit invalidation**, DB is the truth, cache is a hint, invalidate on write. Most common pattern.
 
 <Callout type="warn" title="Cache-aside has a race">
 The classic race: two clients, A reads from DB, B writes to DB + invalidates cache, A writes its (stale) value to cache. Now the cache holds stale data forever (or until TTL). Mitigations: write-then-invalidate-then-sleep-then-invalidate-again, or use a versioned key.
@@ -247,11 +247,11 @@ The classic race: two clients, A reads from DB, B writes to DB + invalidates cac
 
 Pure in-memory caches are simplest, but you may want:
 
-- **RDB snapshots** — periodic memory dump to disk. Fast restart, may lose minutes of writes.
-- **AOF (append-only file)** — log every write. Durable but slower.
-- **Both** — Redis default. Use AOF for durability, RDB for fast initial load.
+- **RDB snapshots**, periodic memory dump to disk. Fast restart, may lose minutes of writes.
+- **AOF (append-only file)**, log every write. Durable but slower.
+- **Both**, Redis default. Use AOF for durability, RDB for fast initial load.
 
-For a *pure cache* (regenerable from DB), persistence is usually overhead — a cold start that hits the DB is acceptable. For a *session store*, you want at least RDB.
+For a *pure cache* (regenerable from DB), persistence is usually overhead, a cold start that hits the DB is acceptable. For a *session store*, you want at least RDB.
 
 ## 12. Multi-region
 
@@ -269,22 +269,22 @@ Two patterns:
 - Pros: low latency everywhere.
 - Cons: conflict resolution is application's problem.
 
-For *cache* workloads, the right answer is usually **per-region clusters with no cross-region replication** — let each region warm itself from its own DB read replica. Caches are regenerable; consistency complexity isn't worth it.
+For *cache* workloads, the right answer is usually **per-region clusters with no cross-region replication**, let each region warm itself from its own DB read replica. Caches are regenerable; consistency complexity isn't worth it.
 
 ## 13. Networking and the read path
 
 For sub-ms latency, every detail matters:
 
-- **Connection pooling** — TCP setup is more expensive than the actual request. Pool aggressively.
-- **Pipelining** — send multiple requests on one TCP round trip. 10× throughput at no latency cost.
-- **Binary protocol** — RESP2/3 (Redis) or binary memcached protocol. Don't use HTTP for the hot path.
-- **Same-AZ placement** — keep cache nodes in the same AZ as their primary clients. Cross-AZ adds 1-2 ms.
+- **Connection pooling**, TCP setup is more expensive than the actual request. Pool aggressively.
+- **Pipelining**, send multiple requests on one TCP round trip. 10× throughput at no latency cost.
+- **Binary protocol**, RESP2/3 (Redis) or binary memcached protocol. Don't use HTTP for the hot path.
+- **Same-AZ placement**, keep cache nodes in the same AZ as their primary clients. Cross-AZ adds 1-2 ms.
 
-## 14. Write strategies — the real decision matrix
+## 14. Write strategies, the real decision matrix
 
 Section 10 talked about consistency. This section is about the *mechanics* of how DB and cache stay coupled. Three patterns; pick exactly one per code path.
 
-### A. Cache-aside (lazy loading) — the default
+### A. Cache-aside (lazy loading), the default
 
 ```
 read:  app → cache?
@@ -328,7 +328,7 @@ read:  app → cache
 | Write throughput, can afford to lose seconds of writes | Write-behind |
 | Audit / compliance / money | Cache-aside (cache is a hint; DB is truth) |
 
-In an interview, **say which you're picking and why** — not just "we'll use a cache." A staff-level answer often layers them: cache-aside for user-generated content, write-through for config, write-behind for ephemeral counters. All in the same system.
+In an interview, **say which you're picking and why**, not just "we'll use a cache." A staff-level answer often layers them: cache-aside for user-generated content, write-through for config, write-behind for ephemeral counters. All in the same system.
 
 ### The dual-write problem (and why it's harder than it looks)
 
@@ -339,7 +339,7 @@ Both cache-aside-on-write and write-through have a hidden two-phase commit:
 2. Write/invalidate cache ...... ?
 ```
 
-If step 2 fails (cache down, network blip), you have permanent staleness — the cache and DB disagree forever.
+If step 2 fails (cache down, network blip), you have permanent staleness, the cache and DB disagree forever.
 
 Three real fixes:
 1. **Async invalidation via the DB's CDC stream** (e.g. Debezium reads Postgres WAL and emits `cache.invalidate` events to Kafka, which a worker consumes). Cache invalidation becomes eventually consistent but **always happens**.
@@ -366,18 +366,18 @@ A cache without metrics is worse than no cache. Track:
 - **Hit rate** (per shard, per key prefix). Sudden drop = invalidation storm or new traffic pattern.
 - **Memory used vs configured.** Approaching limit → evictions are about to spike.
 - **Eviction count per second.** Spike = working set just outgrew the cache.
-- **p50/p99/p99.9 latency** — mean lies, percentiles tell the truth.
-- **Connection count** — connection-pool leaks are real.
-- **Slowlog** — any single command > 10 ms is suspicious.
+- **p50/p99/p99.9 latency**, mean lies, percentiles tell the truth.
+- **Connection count**, connection-pool leaks are real.
+- **Slowlog**, any single command > 10 ms is suspicious.
 
 ## 17. The 30-second summary
 
-> A distributed cache is **consistent-hashed shards, each with async replication, doing in-memory KV ops with LRU/LFU eviction**. The interesting design isn't the storage — it's the operational concerns: thundering herds, hot keys, failover behavior, eviction policy, and being honest about consistency. Get those five right and the rest is just choosing between Redis and Memcached based on the data structures you need.
+> A distributed cache is **consistent-hashed shards, each with async replication, doing in-memory KV ops with LRU/LFU eviction**. The interesting design isn't the storage, it's the operational concerns: thundering herds, hot keys, failover behavior, eviction policy, and being honest about consistency. Get those five right and the rest is just choosing between Redis and Memcached based on the data structures you need.
 
 That's the version that lands the strong-hire signal. The next time someone says "we'll just add a cache," you'll know the 12 questions to ask before agreeing.
 
 <Callout type="tip" title="Related reading">
-- [Design a URL Shortener](/blog/system-design/design-url-shortener) — uses cache as the read path
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the partitioning + replication concepts overlap heavily
-- [CAP and PACELC, finally explained](/blog/concepts/cap-pacelc-explained) — the consistency model frame
+- [Design a URL Shortener](/blog/system-design/design-url-shortener), uses cache as the read path
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the partitioning + replication concepts overlap heavily
+- [CAP and PACELC, finally explained](/blog/concepts/cap-pacelc-explained), the consistency model frame
 </Callout>

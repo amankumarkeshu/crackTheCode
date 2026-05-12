@@ -12,7 +12,7 @@ excerpt: "The most frequently asked system design question, done properly. Fan-o
 
 If you do exactly one system design problem before your next interview, do this one. **News feed / Twitter timeline** is the single most-asked question across Google, Meta, Amazon, LinkedIn and Atlassian loops, and it's the one candidates most often answer at a junior level.
 
-The issue isn't that "fan-out on write" or "fan-out on read" is hard. It's that 90% of candidates pick one and stop. The interesting answer is the **hybrid** — and you need real capacity numbers to justify it.
+The issue isn't that "fan-out on write" or "fan-out on read" is hard. It's that 90% of candidates pick one and stop. The interesting answer is the **hybrid**, and you need real capacity numbers to justify it.
 
 ## 1. Clarify before you draw
 
@@ -27,13 +27,13 @@ Don't draw boxes. Ask:
 
 For this post we commit to:
 
-> Twitter-style asymmetric follow graph. Reverse-chronological feed (no ranking — that's a separate ML problem). Visible within ~5 seconds. ~500M DAU. Median user follows 200, max user is followed by 600M.
+> Twitter-style asymmetric follow graph. Reverse-chronological feed (no ranking, that's a separate ML problem). Visible within ~5 seconds. ~500M DAU. Median user follows 200, max user is followed by 600M.
 
 ## 2. Functional & non-functional requirements
 
 **Functional:**
-1. `post(user, tweet)` — create a tweet.
-2. `get_feed(user, limit, cursor)` — return most recent tweets from people they follow.
+1. `post(user, tweet)`, create a tweet.
+2. `get_feed(user, limit, cursor)`, return most recent tweets from people they follow.
 3. `follow(user, target)` / `unfollow`.
 
 Out of scope (interviewer's choice): replies, retweets, ranking, search, notifications.
@@ -51,7 +51,7 @@ Out of scope (interviewer's choice): replies, retweets, ranking, search, notific
 - **Posts:** 500M DAU × 0.4 posts/day = **200M posts/day** ≈ **2.3K writes/sec average, ~25K peak**.
 - **Follow graph:** 500M users × 200 follows median = **100B follow edges**. Even at 16 bytes each = **1.6 TB** for the graph alone.
 - **Tweet storage:** 200M × 365 × 5 yrs × 500 bytes = **180 TB raw**, ~**500 TB with replication**.
-- **Read amplification per post (fan-out on write):** 200M posts × 200 followers = **40B writes/day** to inboxes — 10× the post rate. Manageable.
+- **Read amplification per post (fan-out on write):** 200M posts × 200 followers = **40B writes/day** to inboxes, 10× the post rate. Manageable.
 - **Read amplification for a celebrity (600M followers):** 1 post = 600M inbox writes. **Catastrophic** if naive.
 
 The celebrity number alone tells you fan-out-on-write *cannot* be the whole answer. We need a hybrid.
@@ -72,7 +72,7 @@ GET /feed?cursor=...
 POST /follow { "targetUserId": "u_99" } → 204
 ```
 
-Cursor-based pagination only — never offset-based. Offset-based at this scale is a death sentence (you can't `OFFSET 100000` cheaply).
+Cursor-based pagination only, never offset-based. Offset-based at this scale is a death sentence (you can't `OFFSET 100000` cheaply).
 
 ## 5. The two pure approaches
 
@@ -88,7 +88,7 @@ A's followers later GET feed:
   → SELECT tweet_id FROM timeline WHERE user=F ORDER BY ts DESC LIMIT 50
 ```
 
-- **Pros:** Reads are dirt cheap — one indexed range scan on a single user's timeline.
+- **Pros:** Reads are dirt cheap, one indexed range scan on a single user's timeline.
 - **Cons:** Writes are expensive (200× amplification on average; **600M× for a celebrity**).
 - **Verdict:** Great for normal users. Catastrophic for celebrities.
 
@@ -105,7 +105,7 @@ F GETs feed:
 ```
 
 - **Pros:** Cheap writes (1 row inserted, period).
-- **Cons:** Reads are expensive — 200 followee fetches per feed read, with sort/merge.
+- **Cons:** Reads are expensive, 200 followee fetches per feed read, with sort/merge.
 - **Verdict:** Great for celebrities (their tweets aren't pre-fanned-out). Bad for normal users on every read.
 
 ## 6. The hybrid (the answer they want)
@@ -179,7 +179,7 @@ For the storage system itself: a wide-column store (Cassandra, ScyllaDB, DynamoD
 
 ### Snowflake ID anatomy (use this exact answer when asked)
 
-Tweet IDs are not random — they're carefully designed to be **sortable, sharded, and globally unique without a central sequence**. The 64-bit layout Twitter actually used:
+Tweet IDs are not random, they're carefully designed to be **sortable, sharded, and globally unique without a central sequence**. The 64-bit layout Twitter actually used:
 
 ```
  1 bit | 41 bits                    | 10 bits     | 12 bits
@@ -209,7 +209,7 @@ Drop "Snowflake-style 64-bit ID with a custom epoch and per-machine sequence" in
 ```
 1. User posts → API gateway → Tweet Service
 2. Tweet Service:
-   a. Generate tweet_id (Snowflake — embeds timestamp, sortable, unique).
+   a. Generate tweet_id (Snowflake, embeds timestamp, sortable, unique).
    b. Write to tweets table (durable).
    c. Write to timeline_authors[author_id].
    d. Publish to Kafka topic "tweet.created" → return 201 to user.
@@ -225,7 +225,7 @@ Latency to the poster: just the tweet write (~tens of ms). Followers see it with
 ### The celebrity follower-fetch problem
 
 Even *just listing* the 600M followers of a celebrity is slow. Fix:
-- **Don't paginate at fan-out time** — celebrities are skipped entirely. ✓
+- **Don't paginate at fan-out time**, celebrities are skipped entirely. ✓
 - **For everyone else,** paginate the follower list and parallelize across worker shards.
 
 ## 9. The read path
@@ -246,7 +246,7 @@ Even *just listing* the 600M followers of a celebrity is slow. Fix:
    g. Cache result, return.
 ```
 
-The cache step is non-negotiable. **Without caching, the merge in step (e) repeats on every scroll** — death.
+The cache step is non-negotiable. **Without caching, the merge in step (e) repeats on every scroll**, death.
 
 ### Inbox vs hydrated cache
 
@@ -262,7 +262,7 @@ You don't keep an infinite inbox per user. Cap it (e.g. 800 entries):
 
 - After 800, oldest entries roll off.
 - Reads beyond 800 fall back to fan-out-on-read of all followees (for the rare deep-scroll user).
-- This caps inbox storage at `500M users × 800 entries × 16 bytes = 6.4 TB` — manageable.
+- This caps inbox storage at `500M users × 800 entries × 16 bytes = 6.4 TB`, manageable.
 
 ## 11. Pre-warming on follow
 
@@ -278,7 +278,7 @@ The backfill step is an extra write but vastly improves new-user experience. Wor
 What if a normal user becomes a celebrity (follower count crosses threshold)?
 
 - **Going up (normal → celebrity):** future tweets stop fanning out. Existing inbox entries stay; they'll roll off naturally.
-- **Going down (celebrity → normal, e.g. mass unfollow):** future tweets start fanning out again. No backfill — old tweets stay celebrity-style.
+- **Going down (celebrity → normal, e.g. mass unfollow):** future tweets start fanning out again. No backfill, old tweets stay celebrity-style.
 
 Both transitions are essentially free. Easy to defend.
 
@@ -292,7 +292,7 @@ Both transitions are essentially free. Easy to defend.
 | **DB shard down** | Affected users see stale feeds; new tweets queue in Kafka and replay when shard returns. |
 | **Whole region down** | Multi-region replication; read-only mode in failover region. |
 
-## 14. Ranking layer — from time-ordered candidates to ML-scored feed
+## 14. Ranking layer, from time-ordered candidates to ML-scored feed
 
 We've designed a **chronological** feed. But every modern social product (Twitter Home, Instagram, TikTok, LinkedIn) ranks instead. The interviewer will *almost always* ask: "How would you add ranking?"
 
@@ -305,31 +305,31 @@ The right answer is a clean separation of concerns:
   size="full"
 />
 
-### Stage 1 — Candidate generation (what we already built)
+### Stage 1, Candidate generation (what we already built)
 
-Pull the last few hundred tweets from the user's pre-built inbox + the last few celebrity tweets. **Don't rank yet** — just produce ~5,000 candidates per feed request. Latency budget: ~50 ms.
+Pull the last few hundred tweets from the user's pre-built inbox + the last few celebrity tweets. **Don't rank yet**, just produce ~5,000 candidates per feed request. Latency budget: ~50 ms.
 
 This is where everything we designed up to section 13 lives. Ranking sits *on top*.
 
-### Stage 2 — Feature hydration
+### Stage 2, Feature hydration
 
 For each candidate tweet, fetch:
-- **Item features** — author engagement rate, recency, media type, language, predicted topic.
-- **User features** — viewer's interest embedding, time of day, device, recent dwell-time history.
-- **Cross features** — past interactions between viewer and author, shared social graph, prior session signals.
+- **Item features**, author engagement rate, recency, media type, language, predicted topic.
+- **User features**, viewer's interest embedding, time of day, device, recent dwell-time history.
+- **Cross features**, past interactions between viewer and author, shared social graph, prior session signals.
 
 This is bulk lookups against feature stores (e.g. Feast, Tecton, or Redis with embeddings). Latency budget: ~30 ms via parallel fetches.
 
-### Stage 3 — Scoring
+### Stage 3, Scoring
 
-A model — typically a deep neural network or GBDT for online speed — produces a score per (viewer, candidate). Top K go into the feed.
+A model, typically a deep neural network or GBDT for online speed, produces a score per (viewer, candidate). Top K go into the feed.
 
 Pragmatic patterns:
 - **Two-tower model** for fast scoring: precompute viewer embedding once per session; precompute candidate embeddings offline; online step is a dot product. Sub-ms per item.
-- **Multi-objective scoring**: predict P(like), P(reply), P(retweet), P(dwell time > 3s) — combine via a learned weighting. This is closer to what Twitter actually does (see the open-sourced "the-algorithm" repo).
+- **Multi-objective scoring**: predict P(like), P(reply), P(retweet), P(dwell time > 3s), combine via a learned weighting. This is closer to what Twitter actually does (see the open-sourced "the-algorithm" repo).
 - **Real-time signal injection**: if the viewer scrolls past a tweet without engaging in the last 5 minutes, downrank similar tweets immediately.
 
-### Stage 4 — Filtering / business rules
+### Stage 4, Filtering / business rules
 
 After scoring but before serving:
 - Remove tweets the viewer has already seen (per-viewer Bloom filter of seen IDs).
@@ -352,9 +352,9 @@ After scoring but before serving:
 
 A brand-new user has no inbox, no follows, no embedding. Three fallbacks:
 
-1. **Popular-content fallback** — global trending tweets, regionally weighted.
-2. **Onboarding interest selection** — ask the user to pick 5 topics on signup; bootstrap the feed from those topic streams.
-3. **Friend-of-friend / address-book** — cold inbox seeded from people whom *this user's recent contacts* follow.
+1. **Popular-content fallback**, global trending tweets, regionally weighted.
+2. **Onboarding interest selection**, ask the user to pick 5 topics on signup; bootstrap the feed from those topic streams.
+3. **Friend-of-friend / address-book**, cold inbox seeded from people whom *this user's recent contacts* follow.
 
 Almost every social product runs all three in parallel for the first session and uses the engagement signals to bootstrap real personalization within a day.
 
@@ -370,10 +370,10 @@ Land that and you've answered the staff version of the most-asked system design 
 
 | Question | What they want to hear |
 |---|---|
-| "Why hybrid instead of pure push or pure pull?" | The celebrity problem — show numbers |
+| "Why hybrid instead of pure push or pure pull?" | The celebrity problem, show numbers |
 | "Why a Snowflake ID for tweets?" | Sortable, sharded, unique, no central sequence |
 | "Why cap the inbox?" | Storage bound; deep-scroll falls back to pull |
-| "What if a celebrity tweets and immediately deletes?" | Need a delete-fanout — or filter at read time via a small "deleted" set |
+| "What if a celebrity tweets and immediately deletes?" | Need a delete-fanout, or filter at read time via a small "deleted" set |
 | "How do you order by 'most relevant' instead of time?" | That's a scoring / ML layer on top of the time-ordered candidate set |
 | "How do you handle replies and retweets?" | Treat retweets as new tweets with a `referenced_id`; hydrate at read time |
 | "Why not just use Postgres?" | Write amplification of fan-out; Cassandra/Dynamo handle the time-ordered append pattern natively |
@@ -392,7 +392,7 @@ Land that summary in minute 40, with the specific math from section 3 backing yo
 
 <Callout type="tip" title="Practice progression">
 After News Feed, the natural next questions are:
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the fan-out workers run on it
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — the timeline cache layer
-- Design a notification system — same fan-out problem, different latency requirements
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the fan-out workers run on it
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), the timeline cache layer
+- Design a notification system, same fan-out problem, different latency requirements
 </Callout>

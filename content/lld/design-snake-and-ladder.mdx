@@ -7,7 +7,7 @@ difficulty: "mid"
 readingTime: 9
 publishedAt: "2026-04-07"
 author: "Aman Kumar Keshu"
-excerpt: "Snake and Ladder is an easy LLD that tests whether you can identify the right abstraction — the board element — and avoid hard-coding rules into the game loop. Here's the clean design."
+excerpt: "Snake and Ladder is an easy LLD that tests whether you can identify the right abstraction, the board element, and avoid hard-coding rules into the game loop. Here's the clean design."
 isPremium: false
 ---
 
@@ -53,7 +53,7 @@ Dice
  └─ roll(): int
 ```
 
-## 3. The key abstraction — BoardElement
+## 3. The key abstraction, BoardElement
 
 ```java
 public interface BoardElement {
@@ -93,7 +93,7 @@ public class Board {
   }
 
   public int resolvePosition(int pos) {
-    if (pos > size) return -1;   // overshot — invalid move
+    if (pos > size) return -1;   // overshot, invalid move
     BoardElement el = elements.get(pos);
     return el != null ? el.applyTo(pos) : pos;
   }
@@ -117,7 +117,7 @@ public class Game {
       int resolved = board.resolvePosition(next);
 
       if (resolved == -1) {
-        System.out.println(current.getName() + " rolled " + roll + " — overshot, stay.");
+        System.out.println(current.getName() + " rolled " + roll + ", overshot, stay.");
       } else {
         current.setPosition(resolved);
         System.out.println(current.getName() + " → " + resolved + " [" + board.elementDescAt(next) + "]");
@@ -151,7 +151,7 @@ public class LoadedDice implements Dice {   // useful for tests
 }
 ```
 
-Injecting `Dice` as an interface makes the game fully testable — pass a `LoadedDice` in tests.
+Injecting `Dice` as an interface makes the game fully testable, pass a `LoadedDice` in tests.
 
 ## 7. Extending with new elements
 
@@ -181,8 +181,8 @@ Zero changes to `Game`, `Board`, or the loop. That's Open/Closed working.
 | Multiplayer online | `Game` runs on server; clients send "roll" events over WebSocket. |
 | Save / resume | Serialize `List<Player>` positions + `turn`; store in DB. |
 | Leaderboard | Track wins per player; persist in a `GameResult` table. |
-| Power cells | New `BoardElement` implementations — no other changes. |
+| Power cells | New `BoardElement` implementations, no other changes. |
 
 ## 10. The 30-second summary
 
-> The single insight: `BoardElement` is an interface with one method — `applyTo`. The game loop never type-checks. You roll, add, resolve through `board.resolvePosition`, done. That clean abstraction is all the interviewer wants to see.
+> The single insight: `BoardElement` is an interface with one method, `applyTo`. The game loop never type-checks. You roll, add, resolve through `board.resolvePosition`, done. That clean abstraction is all the interviewer wants to see.

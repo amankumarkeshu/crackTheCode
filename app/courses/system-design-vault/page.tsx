@@ -5,9 +5,9 @@ import { LinkButton } from "@/components/ui/button";
 import { RazorpayButton } from "@/components/razorpay-button";
 
 export const metadata: Metadata = {
-  title: "Vault — LLD + System Design",
+  title: "Vault, LLD + System Design",
   description:
-    "20 LLD deep-dives and 90+ System Design questions — lifetime access, one-time payment.",
+    "20 LLD deep-dives and 90+ System Design questions, lifetime access, one-time payment.",
 };
 
 const LLD_FREE = [
@@ -68,12 +68,12 @@ const LLD_FEATURES = [
   "Java code with SOLID & design patterns for each",
   "Class diagrams, state machines, entity models",
   "Common follow-ups interviewers actually ask",
-  "Lifetime access — updated as new problems added",
+  "Lifetime access, updated as new problems added",
 ];
 
 const HLD_FEATURES = [
   "90+ system design deep-dives across 9 domains",
-  "Real capacity numbers — QPS, storage, bandwidth",
+  "Real capacity numbers, QPS, storage, bandwidth",
   "Staff-Level Spectrum: same question at L4 → L5 → L6",
   "Principal-mode follow-ups after every question",
   "Lifetime access + free future updates",
@@ -100,7 +100,7 @@ export default function VaultPage() {
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star key={i} className="h-4 w-4 fill-current text-accent" />
               ))}
-              <span className="ml-2">Early-access pricing — first 100 members</span>
+              <span className="ml-2">Early-access pricing, first 100 members</span>
             </div>
           </div>
         </div>
@@ -197,7 +197,7 @@ export default function VaultPage() {
         <div className="mx-auto max-w-2xl text-center">
           <Badge variant="default" className="inline-flex items-center gap-1.5">
             <Unlock className="h-3.5 w-3.5" />
-            LLD — Free Preview (5 of 20)
+            LLD, Free Preview (5 of 20)
           </Badge>
           <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
             Low-Level Design problems
@@ -238,7 +238,7 @@ export default function VaultPage() {
         <div className="mx-auto max-w-2xl text-center">
           <Badge variant="default" className="inline-flex items-center gap-1.5">
             <Unlock className="h-3.5 w-3.5" />
-            System Design — Free Preview (3 of 9 domains)
+            System Design, Free Preview (3 of 9 domains)
           </Badge>
           <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
             System Design questions
@@ -291,7 +291,7 @@ export default function VaultPage() {
             Get both vaults for ₹1,999
           </h2>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            One-time payment. Lifetime access. LLD + System Design — everything you need to crack Senior and Staff-level loops.
+            One-time payment. Lifetime access. LLD + System Design, everything you need to crack Senior and Staff-level loops.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <RazorpayButton product="bundle" size="lg" />

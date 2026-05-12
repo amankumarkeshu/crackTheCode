@@ -10,9 +10,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
-  title: "Interview Questions — Filter by Company & Type",
+  title: "Interview Questions, Filter by Company & Type",
   description:
-    "1000+ curated interview questions across 90+ companies — Google, Meta, Amazon, Uber, LinkedIn, Flipkart, Swiggy, and more. Filter by company, type (System Design / LLD / DSA), and difficulty.",
+    "1000+ curated interview questions across 90+ companies, Google, Meta, Amazon, Uber, LinkedIn, Flipkart, Swiggy, and more. Filter by company, type (System Design / LLD / DSA), and difficulty.",
 };
 
 export default function InterviewQuestionsPage() {
@@ -27,7 +27,7 @@ export default function InterviewQuestionsPage() {
           Interview Questions
         </h1>
         <p className="mt-2 text-muted-foreground">
-          {total.toLocaleString()} questions across {allCompanies.length} companies — System Design, LLD &amp; DSA.
+          {total.toLocaleString()} questions across {allCompanies.length} companies, System Design, LLD &amp; DSA.
           Sourced from publicly reported interview experiences.
         </p>
       </div>

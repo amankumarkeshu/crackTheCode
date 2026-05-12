@@ -55,7 +55,7 @@ Zoom 18: 70B tiles (street level)
 Zoom 22: trillions
 ```
 
-Each tile is a 256×256 image (PNG / WebP) or a vector tile (Mapbox/Google use vectors now — smaller, themable, sharper on retina). URL pattern:
+Each tile is a 256×256 image (PNG / WebP) or a vector tile (Mapbox/Google use vectors now, smaller, themable, sharper on retina). URL pattern:
 
 ```
 https://tiles.example/<z>/<x>/<y>.pbf
@@ -81,7 +81,7 @@ The road network is a **directed weighted graph**:
 
 For the world: ~10⁹ nodes, ~3×10⁹ edges. Stored in a custom on-disk format with spatial partitioning (one file per geographic region, mmap'd).
 
-## 6. Routing — why naive Dijkstra/A\* doesn't fly
+## 6. Routing, why naive Dijkstra/A\* doesn't fly
 
 Naive A\* on a 10⁹-node graph for an LA-to-NYC route → seconds to minutes. Need **&lt;1 second**.
 
@@ -126,7 +126,7 @@ When traffic on a segment slows, that segment's edge weight increases → A\* re
 
 Privacy notes (mention briefly): pings are anonymized by stripping device IDs and bucketing locations into coarse cells before aggregation. Individual users can't be re-identified from the aggregate.
 
-## 8. Geocoding — "near me" queries
+## 8. Geocoding, "near me" queries
 
 Two flavors:
 - **Forward geocoding:** "1600 Amphitheatre Parkway" → `(lat, lng)`.
@@ -156,7 +156,7 @@ ETA(t) = sum of edge_weights along remaining path,
 
 Re-computed every ~30 seconds during navigation. If a faster alternative emerges (you're stuck in traffic, an off-ramp would save 10 min), surface a "faster route" suggestion.
 
-## 11. Street-level imagery (Street View) — separate system
+## 11. Street-level imagery (Street View), separate system
 
 Out of scope for the headline question, but worth knowing: Street View is a separate object-storage + tile pyramid for the imagery, plus a depth model for 3D rendering. Mention it exists if asked.
 
@@ -190,7 +190,7 @@ Famous Maps lesson: **offline-first** for the mobile app. Users in areas with po
 Land that with the routing-preprocessing math (Dijkstra → CH → ~1000× speedup) from section 6, and you've answered the staff version.
 
 <Callout type="tip" title="Related reading">
-- [Design Uber / Ride-Sharing](/blog/system-design/design-uber-ride-sharing) — geospatial indexing
-- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete) — address suggestions
-- [Design YouTube](/blog/system-design/design-youtube) — multi-tier CDN pattern for tile delivery
+- [Design Uber / Ride-Sharing](/blog/system-design/design-uber-ride-sharing), geospatial indexing
+- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete), address suggestions
+- [Design YouTube](/blog/system-design/design-youtube), multi-tier CDN pattern for tile delivery
 </Callout>

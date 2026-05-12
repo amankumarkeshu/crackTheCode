@@ -43,9 +43,9 @@ interface RazorpayButtonProps {
 }
 
 const PRODUCT_CONFIG = {
-  lld: { amount: 149900, description: "LLD Vault — 20 Problems · Lifetime Access", label: "Buy LLD Vault — ₹1,499", successPath: "/courses/system-design-vault/success?product=lld" },
-  hld: { amount: 149900, description: "System Design Vault — 90+ Questions · Lifetime Access", label: "Buy HLD Vault — ₹1,499", successPath: "/courses/system-design-vault/success?product=hld" },
-  bundle: { amount: 199900, description: "Full Vault Bundle (LLD + HLD) · Lifetime Access", label: "Buy Full Bundle — ₹1,999", successPath: "/courses/system-design-vault/success?product=bundle" },
+  lld: { amount: 149900, description: "LLD Vault, 20 Problems · Lifetime Access", label: "Buy LLD Vault, ₹1,499", successPath: "/courses/system-design-vault/success?product=lld" },
+  hld: { amount: 149900, description: "System Design Vault, 90+ Questions · Lifetime Access", label: "Buy HLD Vault, ₹1,499", successPath: "/courses/system-design-vault/success?product=hld" },
+  bundle: { amount: 199900, description: "Full Vault Bundle (LLD + HLD) · Lifetime Access", label: "Buy Full Bundle, ₹1,999", successPath: "/courses/system-design-vault/success?product=bundle" },
 };
 
 export function RazorpayButton({ className, size = "lg", product = "bundle", label }: RazorpayButtonProps) {

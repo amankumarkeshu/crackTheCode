@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Leaderboard",
-  description: "Top readers on CrackTheLoop — ranked by quiz points and articles read.",
+  description: "Top readers on CrackTheLoop, ranked by quiz points and articles read.",
 };
 
 export const revalidate = 60;

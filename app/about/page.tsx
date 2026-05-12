@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
   title: "About",
-  description: `About ${siteConfig.author.name} — ${siteConfig.author.title}`,
+  description: `About ${siteConfig.author.name}, ${siteConfig.author.title}`,
 };
 
 export default function AboutPage() {
@@ -36,19 +36,19 @@ export default function AboutPage() {
           </p>
           <ul>
             <li>
-              <strong>System Design</strong> — End-to-end designs of real products with capacity
+              <strong>System Design</strong>, End-to-end designs of real products with capacity
               numbers, trade-offs, and follow-up depth.
             </li>
             <li>
-              <strong>Low-Level Design (LLD)</strong> — Object-oriented design problems with class
+              <strong>Low-Level Design (LLD)</strong>, Object-oriented design problems with class
               diagrams, SOLID principles and production-ready code.
             </li>
             <li>
-              <strong>DSA Patterns</strong> — Pattern-first prep so you stop grinding 500 problems
+              <strong>DSA Patterns</strong>, Pattern-first prep so you stop grinding 500 problems
               and start recognizing the 20 that matter.
             </li>
             <li>
-              <strong>Interview Experiences</strong> — Honest, round-by-round debriefs from real
+              <strong>Interview Experiences</strong>, Honest, round-by-round debriefs from real
               loops at Google, Meta, Amazon, Atlassian and more.
             </li>
           </ul>
@@ -57,8 +57,8 @@ export default function AboutPage() {
           <p>
             If you&apos;re actively interviewing or planning a level transition, I run 1:1 mock
             interviews and mentorship through Topmate. The flagship{" "}
-            <a href="/courses/system-design-vault">System Design Vault</a> — 90+ deep-dive
-            questions modeled on what big-tech interviewers actually look for — is in development;
+            <a href="/courses/system-design-vault">System Design Vault</a>, 90+ deep-dive
+            questions modeled on what big-tech interviewers actually look for, is in development;
             join the waitlist to be the first in.
           </p>
 

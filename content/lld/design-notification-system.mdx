@@ -7,7 +7,7 @@ difficulty: "senior"
 readingTime: 11
 publishedAt: "2026-04-19"
 author: "Aman Kumar Keshu"
-excerpt: "Notification System is the Observer pattern at scale. The design challenge is decoupling senders from channels — so adding a new channel (WhatsApp) never touches existing code."
+excerpt: "Notification System is the Observer pattern at scale. The design challenge is decoupling senders from channels, so adding a new channel (WhatsApp) never touches existing code."
 isPremium: true
 ---
 
@@ -61,7 +61,7 @@ DeliveryLog
  └─ lastAttemptAt: Instant
 ```
 
-## 3. NotificationChannel — Strategy pattern
+## 3. NotificationChannel, Strategy pattern
 
 ```java
 public interface NotificationChannel {
@@ -115,7 +115,7 @@ public class TemplateEngine {
 }
 ```
 
-## 5. NotificationService — orchestrator
+## 5. NotificationService, orchestrator
 
 ```java
 public class NotificationService {
@@ -216,4 +216,4 @@ This decouples `BookingService` completely from the notification logic.
 
 ## 9. The 30-second summary
 
-> Two patterns: Strategy (channels) and Observer (event-driven dispatch). `NotificationService` looks up user preferences, renders the template, then tries each enabled channel with retry-and-backoff. Adding a new channel means one new class — nothing else changes.
+> Two patterns: Strategy (channels) and Observer (event-driven dispatch). `NotificationService` looks up user preferences, renders the template, then tries each enabled channel with retry-and-backoff. Adding a new channel means one new class, nothing else changes.

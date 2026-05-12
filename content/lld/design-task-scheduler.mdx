@@ -79,7 +79,7 @@ public class ScheduledTask implements Comparable<ScheduledTask> {
 }
 ```
 
-## 4. TaskScheduler — the core
+## 4. TaskScheduler, the core
 
 ```java
 public class TaskScheduler {
@@ -212,7 +212,7 @@ public class SchedulerMonitor {
 | Concern | Solution |
 |---|---|
 | Queue access | `PriorityBlockingQueue` is thread-safe |
-| Task status updates | `volatile` status field (single writer — executor thread) |
+| Task status updates | `volatile` status field (single writer, executor thread) |
 | Cancellation | `queue.removeIf` is atomic in `PriorityBlockingQueue` |
 | Shutdown race | `dispatcherService.shutdown()` before `threadPool.shutdown()` |
 

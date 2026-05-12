@@ -32,10 +32,10 @@ For this post: VOD only, MP4 input, transcode to 144p/360p/720p/1080p/4K, global
 4. List/search videos (metadata service).
 
 **Non-functional:**
-1. **Read-heavy** — ~1000:1 read:write ratio.
-2. **Low playback latency** — first frame in &lt;2 seconds globally.
+1. **Read-heavy**, ~1000:1 read:write ratio.
+2. **Low playback latency**, first frame in &lt;2 seconds globally.
 3. **High durability** for uploaded originals (never lose user content).
-4. **Scale** — petabytes of new content per day.
+4. **Scale**, petabytes of new content per day.
 
 ## 3. Capacity numbers
 
@@ -81,9 +81,9 @@ Naive multi-GB upload over HTTP is fragile. Real systems use chunked, resumable 
 ```
 
 Key wins:
-- **Resumable** — phone wifi drops, only the failed chunk re-uploads.
-- **Direct-to-storage** — your API isn't a 50 GB pipe; the client talks to S3.
-- **Parallel** — chunks upload simultaneously.
+- **Resumable**, phone wifi drops, only the failed chunk re-uploads.
+- **Direct-to-storage**, your API isn't a 50 GB pipe; the client talks to S3.
+- **Parallel**, chunks upload simultaneously.
 
 Industry primitives: S3 Multipart Upload, GCS Resumable Upload, Tus protocol.
 
@@ -120,7 +120,7 @@ Why segment-level parallelism:
 - Worker failures only re-do one 10-second segment, not the whole video.
 - Transcoding the same content into 5 bitrates is just 5 runs on the same segment, batched per worker for cache locality.
 
-Hardware: GPUs (NVENC) or dedicated ASICs (Google's VCU) — 10–100× cheaper than CPU encoding at YouTube scale.
+Hardware: GPUs (NVENC) or dedicated ASICs (Google's VCU), 10–100× cheaper than CPU encoding at YouTube scale.
 
 ## 7. Adaptive Bitrate (ABR) streaming
 
@@ -144,7 +144,7 @@ Client logic: every 10 seconds, measure throughput, pick the highest-quality var
 Implications for the system:
 - Every variant of every video is just a folder of small `.ts` files in object storage.
 - The CDN caches `.ts` segments aggressively; cache hit rate ~90%+ for popular content.
-- Low-bandwidth regions get 144p; gigabit fiber gets 4K — same backend, same storage.
+- Low-bandwidth regions get 144p; gigabit fiber gets 4K, same backend, same storage.
 
 ## 8. CDN strategy
 
@@ -158,7 +158,7 @@ Edge (in viewer's ISP)  →  Regional cache  →  Origin (object storage)
        hit rate ~80%         hit rate ~99%       miss rate ~1%
 ```
 
-YouTube actually runs its own edge cache fleet (**Google Global Cache / GGC**) that ISPs install in their own data centers. ISPs save backbone bandwidth; YouTube saves egress costs. Mention this — it's a great "actually how it works" point.
+YouTube actually runs its own edge cache fleet (**Google Global Cache / GGC**) that ISPs install in their own data centers. ISPs save backbone bandwidth; YouTube saves egress costs. Mention this, it's a great "actually how it works" point.
 
 For new and viral content: **pre-warm** the edge by pushing the manifest + first few segments to top-N cities the moment a video goes live or starts trending.
 
@@ -178,13 +178,13 @@ view_counts(video_id, count)        -- distributed counter; see [Distributed Cou
 
 ## 10. View counting (the famous "view = 30 seconds watched" rule)
 
-A "view" isn't every GET on a `.ts` segment — that overcounts wildly. YouTube's heuristic: a view is recorded when a unique user watches at least 30 seconds.
+A "view" isn't every GET on a `.ts` segment, that overcounts wildly. YouTube's heuristic: a view is recorded when a unique user watches at least 30 seconds.
 
 Pipeline:
 1. Player sends a `playback_event` to the metrics service every N seconds.
 2. Stream processor (Flink / Kafka Streams) aggregates per (user, video) over a sliding window.
 3. When a user crosses the 30s threshold for a video they haven't been counted for in the last X hours, increment the view counter.
-4. View count is a **distributed counter** — see the dedicated post.
+4. View count is a **distributed counter**, see the dedicated post.
 
 This is also where bot/spam filtering happens. Real view counting is largely a fraud-detection problem.
 
@@ -217,7 +217,7 @@ This is also where bot/spam filtering happens. Real view counting is largely a f
 That structure plus the capacity math from section 3 lands the staff-level signal.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — backs the transcode job pipeline
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — sits in front of metadata reads
-- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — view-count storage
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), backs the transcode job pipeline
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), sits in front of metadata reads
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), view-count storage
 </Callout>

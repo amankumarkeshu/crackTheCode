@@ -53,7 +53,7 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-// Show difficulty only up to "senior" — hide staff / principal labels
+// Show difficulty only up to "senior", hide staff / principal labels
 const VISIBLE_DIFFICULTIES = ["junior", "mid", "senior"];
 
 export default function PostPage({ params }: PageProps) {
@@ -137,7 +137,7 @@ export default function PostPage({ params }: PageProps) {
 
       {/* ── Article body ─────────────────────────────────────────────── */}
       <div className="container py-12 md:py-16">
-        {/* In-article ad — highest CPM placement, loads after content starts */}
+        {/* In-article ad, highest CPM placement, loads after content starts */}
         <div className="mx-auto max-w-3xl">
           <InArticleAd slot={process.env.NEXT_PUBLIC_ADSENSE_IN_ARTICLE_SLOT ?? ""} />
         </div>
@@ -153,12 +153,12 @@ export default function PostPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Display ad — end of article, high viewability */}
+        {/* Display ad, end of article, high viewability */}
         <div className="mx-auto max-w-3xl mt-10">
           <DisplayAd slot={process.env.NEXT_PUBLIC_ADSENSE_DISPLAY_SLOT ?? ""} />
         </div>
 
-        {/* Quiz — only for system-design posts */}
+        {/* Quiz, only for system-design posts */}
         {params.category === "system-design" && quizzes[params.slug] && (
           <QuizWidget
             slug={params.slug}

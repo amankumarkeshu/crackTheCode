@@ -123,7 +123,7 @@ public class SlidingWindowRateLimiter implements RateLimiter {
 }
 ```
 
-Sliding Window is strict — no burst allowance. Each request timestamp is tracked individually. Memory cost: O(maxRequests) per user.
+Sliding Window is strict, no burst allowance. Each request timestamp is tracked individually. Memory cost: O(maxRequests) per user.
 
 ## 5. Factory / configuration
 

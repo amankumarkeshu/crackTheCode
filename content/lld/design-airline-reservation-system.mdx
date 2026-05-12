@@ -84,7 +84,7 @@ BoardingPass
  └─ barcode: String
 ```
 
-## 4. Search — flight availability
+## 4. Search, flight availability
 
 ```java
 public class FlightSearchService {
@@ -219,4 +219,4 @@ public class EconomyFlexRule implements FareRule {
 
 ## 10. The 30-second summary
 
-> Seat hold (15-min TTL) at booking initiation; confirm on payment. Check-in validates the 24h window. Fare rules are strategies that determine cancellation fees — inject based on `FareType`. Two state machines: booking lifecycle and flight status. State validation at every transition prevents invalid operations.
+> Seat hold (15-min TTL) at booking initiation; confirm on payment. Check-in validates the 24h window. Fare rules are strategies that determine cancellation fees, inject based on `FareType`. Two state machines: booking lifecycle and flight status. State validation at every transition prevents invalid operations.

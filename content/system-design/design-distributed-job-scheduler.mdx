@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "How to design a system that runs millions of scheduled jobs reliably: time-bucketed indexing, exactly-once execution via leases + fencing, DAG dependencies, and the operational realities of 'cron at scale.'"
 ---
 
-A single-machine cron is trivial. **Cron at scale** — the platform that fires off "send daily digest at 8 AM," "rebuild search index every hour," "expire trial accounts at 90 days," "run this Spark job after that one finishes" — is one of the more interesting distributed systems problems. The hard parts: **exactly-once execution**, **failure recovery**, and **dependency graphs (DAGs)**.
+A single-machine cron is trivial. **Cron at scale**, the platform that fires off "send daily digest at 8 AM," "rebuild search index every hour," "expire trial accounts at 90 days," "run this Spark job after that one finishes", is one of the more interesting distributed systems problems. The hard parts: **exactly-once execution**, **failure recovery**, and **dependency graphs (DAGs)**.
 
 ## 1. Clarify before you draw
 
@@ -21,7 +21,7 @@ A single-machine cron is trivial. **Cron at scale** — the platform that fires 
 - **Job duration?** Microseconds to hours?
 - **Volume?** 10K jobs/day, or 10M?
 
-For this post: full platform — cron + one-off + DAGs, ~10M jobs/day, exactly-once execution, ~1-min granularity, jobs can run from milliseconds to many hours.
+For this post: full platform, cron + one-off + DAGs, ~10M jobs/day, exactly-once execution, ~1-min granularity, jobs can run from milliseconds to many hours.
 
 ## 2. Functional & non-functional requirements
 
@@ -33,8 +33,8 @@ For this post: full platform — cron + one-off + DAGs, ~10M jobs/day, exactly-o
 5. Track status, retry on failure, surface logs.
 
 **Non-functional:**
-1. **High availability** — scheduler outage = missed runs = real damage.
-2. **Exactly-once execution** — no double-runs.
+1. **High availability**, scheduler outage = missed runs = real damage.
+2. **Exactly-once execution**, no double-runs.
 3. **Bounded latency** between scheduled and actual fire time.
 4. **Scale to 10M+ jobs/day**.
 
@@ -42,7 +42,7 @@ For this post: full platform — cron + one-off + DAGs, ~10M jobs/day, exactly-o
 
 - 10M jobs/day → **~120 jobs/sec average**, ~5K peak (jobs cluster on top of the hour).
 - Storing 1 yr of job history at 1 KB each = **~3.6 TB** queryable history.
-- Worker fleet: depends entirely on per-job duration, but the **scheduler** (firing logic) is small — single-digit nodes.
+- Worker fleet: depends entirely on per-job duration, but the **scheduler** (firing logic) is small, single-digit nodes.
 
 ## 4. The two-layer architecture
 
@@ -119,7 +119,7 @@ The **fencing token** prevents the classic "old worker wakes up after a long pau
 
 ### Idempotency in the job itself
 
-Even with fencing, the job code should be **idempotent**. If "send email to user X" runs twice somehow, the user shouldn't get two emails. Use the `run_id` as a dedup token in any external API calls — same trick as in the [Payment System](/blog/system-design/design-payment-system#4-the-non-negotiable-idempotency-on-every-api).
+Even with fencing, the job code should be **idempotent**. If "send email to user X" runs twice somehow, the user shouldn't get two emails. Use the `run_id` as a dedup token in any external API calls, same trick as in the [Payment System](/blog/system-design/design-payment-system#4-the-non-negotiable-idempotency-on-every-api).
 
 ## 7. Cron jobs (recurring)
 
@@ -132,7 +132,7 @@ def on_complete(job, result):
         save(job)
 ```
 
-Don't recompute the next run from `now()` if you want strict cadence — recompute from the *scheduled* time so missed minutes don't pile up. Optionally add a "catchup window" parameter so a job that missed last hour doesn't fire 60 times now.
+Don't recompute the next run from `now()` if you want strict cadence, recompute from the *scheduled* time so missed minutes don't pile up. Optionally add a "catchup window" parameter so a job that missed last hour doesn't fire 60 times now.
 
 ## 8. DAG support (depends-on)
 
@@ -206,7 +206,7 @@ Every fire path needs:
 Land that with the lease + fencing token pattern from section 6, and you've answered the staff version.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Locking Service](/blog/system-design/design-distributed-locking-service) — backs the leader election and leases
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the dispatch queue
-- [Design a Notification System](/blog/system-design/design-notification-system) — uses scheduled jobs for digests
+- [Design a Distributed Locking Service](/blog/system-design/design-distributed-locking-service), backs the leader election and leases
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the dispatch queue
+- [Design a Notification System](/blog/system-design/design-notification-system), uses scheduled jobs for digests
 </Callout>

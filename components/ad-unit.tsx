@@ -68,7 +68,7 @@ export function AdUnit({
   );
 }
 
-/** Responsive in-article ad — best for mid-article placement */
+/** Responsive in-article ad, best for mid-article placement */
 export function InArticleAd({ slot, className }: { slot: string; className?: string }) {
   return (
     <AdUnit
@@ -80,7 +80,7 @@ export function InArticleAd({ slot, className }: { slot: string; className?: str
   );
 }
 
-/** Responsive display ad — good for sidebar / end of article */
+/** Responsive display ad, good for sidebar / end of article */
 export function DisplayAd({ slot, className }: { slot: string; className?: string }) {
   return (
     <div className={`flex justify-center ${className ?? ""}`}>
@@ -89,7 +89,7 @@ export function DisplayAd({ slot, className }: { slot: string; className?: strin
   );
 }
 
-/** In-feed ad — for blog listing pages between post cards */
+/** In-feed ad, for blog listing pages between post cards */
 export function InFeedAd({ slot, className }: { slot: string; className?: string }) {
   return (
     <AdUnit

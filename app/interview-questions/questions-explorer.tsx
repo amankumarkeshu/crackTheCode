@@ -167,7 +167,7 @@ export function QuestionsExplorer({
       <div className="mt-4">
         {filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
-            No questions match — try adjusting or clearing the filters.
+            No questions match, try adjusting or clearing the filters.
           </div>
         ) : (
           <ul className="divide-y divide-border rounded-xl border border-border bg-card">

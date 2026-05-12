@@ -82,7 +82,7 @@ Trade-off:
 
 ## 5. Adaptive sharding
 
-100 shards for every counter is wasteful — most counters get 0 likes. Adaptive:
+100 shards for every counter is wasteful, most counters get 0 likes. Adaptive:
 
 - Default N = 1 (single counter row).
 - When writes exceed a threshold (e.g. 100/sec), the hot-key detector promotes the counter: split into 10 shards.
@@ -93,7 +93,7 @@ This is the design pattern Twitter Tweets, Instagram likes, and YouTube views us
 
 ## 6. Caching the read
 
-A like-count read happens on every feed view → millions per second. Even with N=100 shards, summing 100 Redis lookups per read is 100M Redis calls/sec for the platform — too much.
+A like-count read happens on every feed view → millions per second. Even with N=100 shards, summing 100 Redis lookups per read is 100M Redis calls/sec for the platform, too much.
 
 Cache the summed value:
 
@@ -119,7 +119,7 @@ likes(post_id, user_id) PK   ← unique constraint prevents dupes
 ```
 Like → INSERT (with `ON CONFLICT DO NOTHING`). If 0 rows affected → user already liked, no count change. Else → INSERT and `INCR` the counter.
 
-Memory cost: 1 row per like. For a 1M-like post, that's 1M rows. Real systems do this — and use the table for the "users who liked this" feature too.
+Memory cost: 1 row per like. For a 1M-like post, that's 1M rows. Real systems do this, and use the table for the "users who liked this" feature too.
 
 ### B. Bloom filter dedup
 A 1% false-positive rate is acceptable: ~1% of "first likes" might be incorrectly skipped, but you save the storage of the full likes table. Trade-off: lose the "who liked it" feature.
@@ -187,13 +187,13 @@ Be explicit about this in interviews. Promising "always-correct" counts at this 
 
 ## 12. The 30-second summary
 
-> A distributed counter is a **sharded sub-counter pattern with adaptive promotion for hot keys**, fronted by a 5-second read cache, deduplicated against a likes table or Bloom filter, and replicated across regions either via async rollup or a G-Counter CRDT. The whole thing is unapologetically eventually consistent — anyone promising strict consistency at 1M writes/sec on a single counter is wrong. Real systems pick (consistency, freshness, cost) trade-offs explicitly and tune per use case.
+> A distributed counter is a **sharded sub-counter pattern with adaptive promotion for hot keys**, fronted by a 5-second read cache, deduplicated against a likes table or Bloom filter, and replicated across regions either via async rollup or a G-Counter CRDT. The whole thing is unapologetically eventually consistent, anyone promising strict consistency at 1M writes/sec on a single counter is wrong. Real systems pick (consistency, freshness, cost) trade-offs explicitly and tune per use case.
 
 Land that, plus the "promote to 100 shards on hot writes" insight from section 5, and you've answered the senior version.
 
 <Callout type="tip" title="Related reading">
-- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter) — like counts on tweets
-- [Design YouTube](/blog/system-design/design-youtube) — view counters
-- [Design Instagram](/blog/system-design/design-instagram) — like + view + follower counts
-- [Design Top-K / Trending](/blog/system-design/design-top-k-trending) — approximate counting (different problem)
+- [Design Twitter News Feed](/blog/system-design/design-news-feed-twitter), like counts on tweets
+- [Design YouTube](/blog/system-design/design-youtube), view counters
+- [Design Instagram](/blog/system-design/design-instagram), like + view + follower counts
+- [Design Top-K / Trending](/blog/system-design/design-top-k-trending), approximate counting (different problem)
 </Callout>

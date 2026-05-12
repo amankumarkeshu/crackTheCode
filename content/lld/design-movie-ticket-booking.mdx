@@ -7,11 +7,11 @@ difficulty: "senior"
 readingTime: 14
 publishedAt: "2026-04-13"
 author: "Aman Kumar Keshu"
-excerpt: "BookMyShow is a classic LLD with a concurrency twist — two users trying to book the same seat simultaneously. The design must handle seat locking, booking expiry, and payment atomically."
+excerpt: "BookMyShow is a classic LLD with a concurrency twist, two users trying to book the same seat simultaneously. The design must handle seat locking, booking expiry, and payment atomically."
 isPremium: true
 ---
 
-Movie Ticket Booking is asked at Atlassian, Flipkart, and Amazon. The OOP part is straightforward — the real complexity is the **concurrent seat reservation** problem.
+Movie Ticket Booking is asked at Atlassian, Flipkart, and Amazon. The OOP part is straightforward, the real complexity is the **concurrent seat reservation** problem.
 
 ## 1. Clarify requirements
 
@@ -67,7 +67,7 @@ Booking
  └─ totalAmount: BigDecimal
 ```
 
-## 3. The concurrency problem — seat locking
+## 3. The concurrency problem, seat locking
 
 Two users select the same seat at the same time. You must guarantee only one gets it.
 
@@ -126,7 +126,7 @@ public class BookingService {
         .map(n -> show.getSeat(n).orElseThrow(() -> new SeatNotFoundException(n)))
         .toList();
 
-    // Hold all seats atomically — if any fails, release all
+    // Hold all seats atomically, if any fails, release all
     List<ShowSeat> held = new ArrayList<>();
     for (ShowSeat seat : seats) {
       if (!seat.hold(user.getId(), HOLD_DURATION)) {
@@ -208,4 +208,4 @@ public class SearchService {
 
 ## 9. The 30-second summary
 
-> The hard part is holding seats atomically — `synchronized hold()` per `ShowSeat` prevents double-booking. If any seat in a batch fails to hold, release all already-held seats (all-or-nothing). Payment confirmation converts holds to bookings. For scale: replace `synchronized` with Redis TTL locks.
+> The hard part is holding seats atomically, `synchronized hold()` per `ShowSeat` prevents double-booking. If any seat in a batch fails to hold, release all already-held seats (all-or-nothing). Payment confirmation converts holds to bookings. For scale: replace `synchronized` with Redis TTL locks.

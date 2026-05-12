@@ -6,7 +6,7 @@ import { saveQuizScore, getUserQuizScore } from "@/lib/post-store";
 
 interface Params { params: { slug: string } }
 
-// GET — fetch question count and user's previous best score
+// GET, fetch question count and user's previous best score
 export async function GET(_req: Request, { params }: Params) {
   const quiz = quizzes[params.slug];
   if (!quiz) return NextResponse.json({ error: "No quiz for this post" }, { status: 404 });
@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Params) {
   });
 }
 
-// POST — submit answers, return score + explanations
+// POST, submit answers, return score + explanations
 export async function POST(req: Request, { params }: Params) {
   const quiz = quizzes[params.slug];
   if (!quiz) return NextResponse.json({ error: "No quiz for this post" }, { status: 404 });
@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Invalid answers" }, { status: 400 });
   }
 
-  // Grade server-side — answers never sent to client
+  // Grade server-side, answers never sent to client
   const results = quiz.questions.map((q, i) => ({
     correct: answers[i] === q.answer,
     correctAnswer: q.answer,

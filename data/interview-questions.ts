@@ -1659,7 +1659,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "paytm-dsa-4",   company: "Paytm", type: "dsa", difficulty: "medium", question: "Count Primes (Sieve, optimized).", tags: ["math", "sieve"], askedFor: "SDE-2", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
-  // FINAL TOP-UP — reaching 1000+
+  // FINAL TOP-UP, reaching 1000+
   // ────────────────────────────────────────────────────────────────────
   { id: "google-sd-19",  company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Translate: batch + streaming NMT inference.", tags: ["ml", "nlp", "inference"], askedFor: "L5", frequency: "medium" },
   { id: "meta-sd-17",    company: "Meta", type: "system-design", difficulty: "hard", question: "Design Meta Quest / VR social space.", tags: ["vr", "real-time", "spatial"], askedFor: "E5", frequency: "low" },
@@ -1704,7 +1704,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "shopee-dsa-3",   company: "Shopee", type: "dsa", difficulty: "medium", question: "Minimum Cost of Hiring K Workers.", tags: ["heap", "greedy"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
-  // ADDITIONAL QUESTIONS — May 2026 batch
+  // ADDITIONAL QUESTIONS, May 2026 batch
   // ────────────────────────────────────────────────────────────────────
 
   // --- Uber (deep-dive) ---
@@ -1987,7 +1987,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "inmobi-dsa-1", company: "InMobi", type: "dsa", difficulty: "medium",           question: "Random Pick Index (reservoir sampling).", tags: ["probability", "design"], askedFor: "SDE-2", frequency: "medium" },
 
   // ════════════════════════════════════════════════════════════════════
-  // CAT A  — HIGH-PAYING COMPANIES  (new additions)
+  // CAT A , HIGH-PAYING COMPANIES  (new additions)
   // ════════════════════════════════════════════════════════════════════
 
   // ────────────────────────────────────────────────────────────────────
@@ -2151,7 +2151,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "careem-dsa-1", company: "Careem", type: "dsa", difficulty: "medium", question: "Network Delay Time: Dijkstra's shortest path.", tags: ["graph", "dijkstra"], askedFor: "Senior SWE", frequency: "high" },
 
   // ════════════════════════════════════════════════════════════════════
-  // CAT B — SOLID PAYING COMPANIES (new additions)
+  // CAT B, SOLID PAYING COMPANIES (new additions)
   // ════════════════════════════════════════════════════════════════════
 
   // ────────────────────────────────────────────────────────────────────
@@ -2230,7 +2230,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "wmg-dsa-1", company: "Warner Music Group", type: "dsa", difficulty: "medium", question: "Find Median of a Number Stream.", tags: ["heap", "design"], askedFor: "Senior SWE", frequency: "high" },
 
   // ════════════════════════════════════════════════════════════════════
-  // CAT C — MID-TIER COMPANIES (new additions + expansions)
+  // CAT C, MID-TIER COMPANIES (new additions + expansions)
   // ════════════════════════════════════════════════════════════════════
 
   // ────────────────────────────────────────────────────────────────────
@@ -2244,7 +2244,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "nutanix-dsa-3", company: "Nutanix", type: "dsa", difficulty: "hard", question: "Recover Binary Search Tree (Morris traversal or recursive).", tags: ["tree", "bst"], askedFor: "SDE-3", frequency: "medium" },
 
   // ════════════════════════════════════════════════════════════════════
-  // EXPANSIONS — thin existing companies
+  // EXPANSIONS, thin existing companies
   // ════════════════════════════════════════════════════════════════════
 
   // ────────────────────────────────────────────────────────────────────

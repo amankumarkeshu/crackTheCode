@@ -30,7 +30,7 @@ That's it. Three terms with very specific meanings:
 
 People say: *"Cassandra is AP. Postgres is CA."*
 
-This is wrong because **partitions happen whether you like it or not**. You don't get to pick "CA" — networks fail. Reality is:
+This is wrong because **partitions happen whether you like it or not**. You don't get to pick "CA", networks fail. Reality is:
 
 > When a partition occurs, you must choose between **C and A**. Outside of partitions, that choice doesn't apply.
 
@@ -41,7 +41,7 @@ So CAP is really:
 
 CP and AP are about **partition behavior**, not steady-state behavior.
 
-## 3. Why CAP isn't enough — enter PACELC
+## 3. Why CAP isn't enough, enter PACELC
 
 CAP only tells you what happens *during* a partition. But partitions are rare. The interesting question is what your system does the **other 99.9% of the time**.
 
@@ -70,21 +70,21 @@ PACELC explains the **decisions you'll defend in an interview** in a way CAP alo
 
 Here's how to *use* this when an interviewer asks "what consistency model would you choose?":
 
-> *"For this system, I'd target PA/EL. The user-facing read path needs to be fast and available — a 200ms latency budget rules out cross-region quorum. I'm willing to accept seconds-to-minutes of staleness on the timeline, because users won't notice. For the **payment** path I'd flip to PC/EC: I'd rather be slow or unavailable than show a wrong balance."*
+> *"For this system, I'd target PA/EL. The user-facing read path needs to be fast and available, a 200ms latency budget rules out cross-region quorum. I'm willing to accept seconds-to-minutes of staleness on the timeline, because users won't notice. For the **payment** path I'd flip to PC/EC: I'd rather be slow or unavailable than show a wrong balance."*
 
 Two things just happened in that paragraph:
 
-1. You named the trade-off in PACELC terms — instantly puts you above 80% of candidates.
+1. You named the trade-off in PACELC terms, instantly puts you above 80% of candidates.
 2. You showed you'll **mix consistency models within one system** based on the path. That's a senior+ signal.
 
 ## 5. Common misconceptions to avoid
 
 <Callout type="warn" title="Five things to never say">
-1. *"Cassandra is AP, so it's eventually consistent."* — Cassandra's tunable consistency lets you read with QUORUM and get *strong* consistency at higher latency. Per-query, not per-system.
-2. *"Postgres is CP."* — A single-node Postgres has no P to speak of. A multi-master setup has its own trade-offs. Vanilla Postgres with a hot standby is closer to CP for writes, AP for reads against the replica.
-3. *"You can't have C and A together if you're not partitioned."* — You can. CAP only kicks in during a partition.
-4. *"NoSQL = AP, SQL = CP."* — Pure mythology. Spanner is SQL and CP. DynamoDB has consistent-read mode. The data model and the consistency model are orthogonal.
-5. *"Two-phase commit gives me CAP-Consistency."* — 2PC blocks during failures. It's a CP protocol that buys you atomicity, not magical CP.
+1. *"Cassandra is AP, so it's eventually consistent."*, Cassandra's tunable consistency lets you read with QUORUM and get *strong* consistency at higher latency. Per-query, not per-system.
+2. *"Postgres is CP."*, A single-node Postgres has no P to speak of. A multi-master setup has its own trade-offs. Vanilla Postgres with a hot standby is closer to CP for writes, AP for reads against the replica.
+3. *"You can't have C and A together if you're not partitioned."*, You can. CAP only kicks in during a partition.
+4. *"NoSQL = AP, SQL = CP."*, Pure mythology. Spanner is SQL and CP. DynamoDB has consistent-read mode. The data model and the consistency model are orthogonal.
+5. *"Two-phase commit gives me CAP-Consistency."*, 2PC blocks during failures. It's a CP protocol that buys you atomicity, not magical CP.
 </Callout>
 
 ## 6. A quick mental model that always works
@@ -107,6 +107,6 @@ Your answers map directly to a PACELC quadrant. No theorem-quoting required.
 
 ## 8. The 30-second summary
 
-> CAP is necessary but insufficient. Real systems are described by **PACELC**: what they do during partitions *and* what they trade off in steady state. The senior-engineer move is to apply different PACELC choices to different paths within the same system — strong + slow for money, eventual + fast for feeds.
+> CAP is necessary but insufficient. Real systems are described by **PACELC**: what they do during partitions *and* what they trade off in steady state. The senior-engineer move is to apply different PACELC choices to different paths within the same system, strong + slow for money, eventual + fast for feeds.
 
 Memorize PACELC. Drop it casually in your next system design round. Watch the interviewer's posture change.

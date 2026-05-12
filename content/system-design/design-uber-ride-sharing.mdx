@@ -48,7 +48,7 @@ For this post: ride-sharing, ~5M drivers, ~100M MAU, 25M trips/day, ~5K matches/
 
 The write rate on location updates dominates the architecture.
 
-## 4. Geospatial indexing — pick exactly one scheme
+## 4. Geospatial indexing, pick exactly one scheme
 
 You need to answer "find all available drivers within 2 km of (lat, lng)" in milliseconds. Three viable schemes:
 
@@ -64,7 +64,7 @@ San Francisco roughly: "9q8yyk"
 Lookup: take rider's geohash prefix, query all drivers whose geohash shares that prefix.
 
 - **Pros:** trivially indexable in any KV store; sortable.
-- **Cons:** *boundary problem* — two points right next to each other can have totally different prefixes if they straddle a cell edge. Mitigate by querying the cell + 8 neighbors.
+- **Cons:** *boundary problem*, two points right next to each other can have totally different prefixes if they straddle a cell edge. Mitigate by querying the cell + 8 neighbors.
 
 ### B. S2 cells (Google's hierarchical scheme)
 
@@ -109,7 +109,7 @@ Hot path:
 3. Redis is sharded by geohash prefix (4-char prefix → ~10K shards).
 4. Asynchronously, an aggregator batches updates and writes to Cassandra for the 30-day "where was the driver" trail.
 
-Trade-off: Redis Geo's `GEOADD` is convenient but uses a single sorted set per key — hot prefixes (downtown SF) become hot shards. Mitigate by:
+Trade-off: Redis Geo's `GEOADD` is convenient but uses a single sorted set per key, hot prefixes (downtown SF) become hot shards. Mitigate by:
 - Sharding by 5-char geohash prefix (smaller cells, more shards).
 - Replicating hot prefixes across multiple Redis nodes.
 - See [hot-key protection](/blog/system-design/design-distributed-cache#9-hot-key-protection).
@@ -133,7 +133,7 @@ Rider request arrives → Trip Service creates a trip row (status: `REQUESTING`)
 9. Return trip details to rider.
 ```
 
-The CAS on step 8 is critical — two riders can't both grab the same driver. Use a transactional update with optimistic locking on driver state.
+The CAS on step 8 is critical, two riders can't both grab the same driver. Use a transactional update with optimistic locking on driver state.
 
 ## 8. The trip state machine
 
@@ -147,7 +147,7 @@ REQUESTING → MATCHED → DRIVER_EN_ROUTE → ARRIVED → IN_PROGRESS → COMPL
 
 Stored in Postgres (or DynamoDB with conditional writes). Each transition is **idempotent** keyed on trip_id + transition. Driver and rider apps poll or subscribe to status changes via WebSocket.
 
-A great staff-level point: the trip state machine is the **anchor of correctness** — payment, ratings, dispute resolution all reference these state transitions. Make them durable, idempotent, and audit-logged.
+A great staff-level point: the trip state machine is the **anchor of correctness**, payment, ratings, dispute resolution all reference these state transitions. Make them durable, idempotent, and audit-logged.
 
 ## 9. Surge pricing
 
@@ -173,7 +173,7 @@ Two flavors:
 
 Compute via a routing service backed by:
 - Static map graph (OpenStreetMap or proprietary).
-- Real-time traffic — derived from anonymized speed of vehicles in each road segment (drivers themselves provide the data).
+- Real-time traffic, derived from anonymized speed of vehicles in each road segment (drivers themselves provide the data).
 - Historical patterns by time-of-day.
 
 For interview purposes, mention that ETA is usually a separate service (or third-party like Mapbox/Google) and that the routing graph is a graph-search problem with weighted edges. Cross-link to [Design Google Maps](/blog/system-design/design-google-maps).
@@ -207,7 +207,7 @@ For interview purposes, mention that ETA is usually a separate service (or third
 Get those three layers right, with the location-update math from section 3 backing your geospatial choice, and you've answered Uber's actual interview question.
 
 <Callout type="tip" title="Related reading">
-- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat) — same long-lived-connection pattern
-- [Design Google Maps](/blog/system-design/design-google-maps) — the routing/ETA layer
-- [Design a Distributed Cache](/blog/system-design/design-distributed-cache) — the hot location store
+- [Design WhatsApp / Chat](/blog/system-design/design-whatsapp-chat), same long-lived-connection pattern
+- [Design Google Maps](/blog/system-design/design-google-maps), the routing/ETA layer
+- [Design a Distributed Cache](/blog/system-design/design-distributed-cache), the hot location store
 </Callout>

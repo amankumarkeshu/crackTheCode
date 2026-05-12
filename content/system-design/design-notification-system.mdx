@@ -37,9 +37,9 @@ For this post: 4 channels (push/email/SMS/in-app), 100M users, ~500M notificatio
 **Non-functional:**
 1. **At-least-once delivery** with idempotent dedup so users don't see duplicates.
 2. **Low latency** for real-time alerts (&lt;5 s end-to-end).
-3. **Provider failover** — if SES is down, email shouldn't stop globally.
-4. **Highly available** — notification outage hides all your other features' value.
-5. **Auditable** — for compliance + debugging.
+3. **Provider failover**, if SES is down, email shouldn't stop globally.
+4. **Highly available**, notification outage hides all your other features' value.
+5. **Auditable**, for compliance + debugging.
 
 ## 3. Capacity numbers
 
@@ -73,15 +73,15 @@ App Service ─► Notification API
 
 Each box is a separate service. Each channel queue lets you scale independently and apply per-channel concurrency limits / provider quotas.
 
-## 5. Rules engine — the part that prevents lawsuits
+## 5. Rules engine, the part that prevents lawsuits
 
 Before any notification sends, run a **chain of filters**:
 
-1. **User preference check** — has the user opted out of this notification type or this channel?
-2. **Rate limit** — has this user received &gt; N notifications in the last hour? (Per-channel + global.)
-3. **Quiet hours** — is it 2 AM in the user's timezone? Suppress non-critical or queue for morning.
-4. **Compliance gate** — TCPA / GDPR / CAN-SPAM check; e.g. SMS must have explicit consent.
-5. **Dedup window** — has the same `(user, dedup_key)` been notified in the last X hours?
+1. **User preference check**, has the user opted out of this notification type or this channel?
+2. **Rate limit**, has this user received &gt; N notifications in the last hour? (Per-channel + global.)
+3. **Quiet hours**, is it 2 AM in the user's timezone? Suppress non-critical or queue for morning.
+4. **Compliance gate**, TCPA / GDPR / CAN-SPAM check; e.g. SMS must have explicit consent.
+5. **Dedup window**, has the same `(user, dedup_key)` been notified in the last X hours?
 
 Each filter can suppress, delay, or downgrade (e.g. push → in-app fallback). **A notification system without a rules engine is a spam system.**
 
@@ -102,7 +102,7 @@ Notifications are templates + data, not hand-built strings:
       push:  "Tu pedido #{{order_id}} está en camino..."
 ```
 
-Stored in a config service or content DB. Versioned (changes are tracked, never overwritten — for compliance and A/B testing). Localized per user's locale. Pre-compiled into renderable form for hot-path performance.
+Stored in a config service or content DB. Versioned (changes are tracked, never overwritten, for compliance and A/B testing). Localized per user's locale. Pre-compiled into renderable form for hot-path performance.
 
 ## 7. Provider abstraction
 
@@ -159,13 +159,13 @@ For very high volumes of scheduled jobs, see [Design a Distributed Job Scheduler
 
 ### Email
 - Bounce handling is mandatory. Hard bounce → mark address invalid, never retry.
-- Reputation matters — too many bounces and your sending domain gets blocklisted by Gmail.
+- Reputation matters, too many bounces and your sending domain gets blocklisted by Gmail.
 - Track unsubscribe links per template/version for compliance.
 
 ### SMS
 - Most expensive channel by 100×. Reserve for critical (OTP, fraud alerts).
 - Country-specific compliance (TCPA in US, TRAI in India). Send-time windows are regulated.
-- Long-code vs short-code vs alphanumeric sender ID — each has different constraints.
+- Long-code vs short-code vs alphanumeric sender ID, each has different constraints.
 
 ### In-app
 - Persisted in a per-user inbox table. Read on login.
@@ -201,7 +201,7 @@ Sample every dispatch with full trace (template version, user prefs evaluated, p
 Land that with a clean separation of "decide whether to send" (rules engine) from "actually send" (provider routing), and you've answered the senior-level question well.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the per-channel queue tier
-- [Design a Rate Limiter](/blog/system-design/design-rate-limiter) — per-user notification limits
-- [Design a Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler) — scheduled / recurring notifications
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the per-channel queue tier
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), per-user notification limits
+- [Design a Distributed Job Scheduler](/blog/system-design/design-distributed-job-scheduler), scheduled / recurring notifications
 </Callout>

@@ -7,11 +7,11 @@ difficulty: "principal"
 readingTime: 15
 publishedAt: "2026-05-05"
 author: "Aman Kumar Keshu"
-excerpt: "Document Editor is a Principal-level LLD. Undo/redo with the Command pattern, version history, access control, and the basics of operational transformation — this is the question that separates L5 from L6."
+excerpt: "Document Editor is a Principal-level LLD. Undo/redo with the Command pattern, version history, access control, and the basics of operational transformation, this is the question that separates L5 from L6."
 isPremium: true
 ---
 
-Document Editor is the most complex LLD asked in interviews — typically at Principal/L6 loops at Google and Atlassian. The key areas: Command pattern for undo/redo, access control, version snapshots, and a mention of operational transformation for real collaboration.
+Document Editor is the most complex LLD asked in interviews, typically at Principal/L6 loops at Google and Atlassian. The key areas: Command pattern for undo/redo, access control, version snapshots, and a mention of operational transformation for real collaboration.
 
 ## 1. Clarify requirements
 
@@ -61,7 +61,7 @@ Permission (enum)
  └─ OWNER | EDITOR | VIEWER
 ```
 
-## 3. Command pattern — undo / redo
+## 3. Command pattern, undo / redo
 
 Every edit is a `Command` object. The editor maintains two stacks: `undoStack` and `redoStack`.
 
@@ -116,7 +116,7 @@ public class UpdateTextCommand implements EditCommand {
 }
 ```
 
-## 4. Editor — managing undo/redo stacks
+## 4. Editor, managing undo/redo stacks
 
 ```java
 public class DocumentEditor {
@@ -131,7 +131,7 @@ public class DocumentEditor {
     redoStack.clear();   // new action invalidates redo history
 
     if (undoStack.size() > MAX_HISTORY) {
-      // Drop oldest — convert to a linked list if needed
+      // Drop oldest, convert to a linked list if needed
       ((ArrayDeque<EditCommand>) undoStack).removeLast();
     }
     document.setUpdatedAt(Instant.now());
@@ -215,7 +215,7 @@ public class VersionService {
 }
 ```
 
-## 7. Real-time collaboration — the conceptual model
+## 7. Real-time collaboration, the conceptual model
 
 For true concurrent editing (Google Docs style), you need **Operational Transformation (OT)** or **CRDTs**:
 
@@ -245,4 +245,4 @@ You don't need to implement OT in an LLD interview. Naming the problem and the s
 
 ## 10. The 30-second summary
 
-> Document content is a `List<Block>`. Every edit is an `EditCommand` that knows how to `execute` and `undo`. Two stacks enable unlimited undo/redo. Version snapshots are deep copies. Access control guards all mutations. For real-time collab, mention OT or CRDTs — you don't need to implement them, just show you understand why naive concurrent edits are unsafe.
+> Document content is a `List<Block>`. Every edit is an `EditCommand` that knows how to `execute` and `undo`. Two stacks enable unlimited undo/redo. Version snapshots are deep copies. Access control guards all mutations. For real-time collab, mention OT or CRDTs, you don't need to implement them, just show you understand why naive concurrent edits are unsafe.

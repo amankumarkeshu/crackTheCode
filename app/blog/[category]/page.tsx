@@ -59,7 +59,7 @@ export default function CategoryPage({ params }: PageProps) {
       <div className="mt-12">
         {posts.length === 0 ? (
           <div className="mx-auto max-w-md text-center text-muted-foreground">
-            <p>No posts in this section yet — the first batch is coming this week.</p>
+            <p>No posts in this section yet, the first batch is coming this week.</p>
             <Link href="/blog" className="mt-3 inline-block text-primary hover:underline">
               See all posts →
             </Link>

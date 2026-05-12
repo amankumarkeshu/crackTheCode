@@ -4,7 +4,7 @@ export const siteConfig = {
   domain: "cracktheloop.in",
   url: "https://cracktheloop.in",
   description:
-    "Crack your big-tech interview loop — system design, LLD, DSA and real interview deep-dives from a senior big-tech engineer. Free articles + the System Design Vault.",
+    "Crack your big-tech interview loop, system design, LLD, DSA and real interview deep-dives from a senior big-tech engineer. Free articles + the System Design Vault.",
   tagline: "Crack Your Big-Tech Interview Loop",
   email: "hello@cracktheloop.in",
   social: {

@@ -10,7 +10,7 @@ export function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <Badge variant="accent" className="mb-6 inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            New: System Design Vault — joining the waitlist
+            New: System Design Vault, joining the waitlist
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight md:text-6xl">
             Hey, I&apos;m {siteConfig.author.name.split(" ")[0]}.
@@ -24,7 +24,7 @@ export function Hero() {
             <span className="font-semibold text-foreground">Low-Level Design</span>,{" "}
             <span className="font-semibold text-foreground">DSA patterns</span> and real{" "}
             <span className="font-semibold text-foreground">interview experiences</span>{" "}
-            from big-tech loops — the stuff I wish I&apos;d had when I was prepping.
+            from big-tech loops, the stuff I wish I&apos;d had when I was prepping.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

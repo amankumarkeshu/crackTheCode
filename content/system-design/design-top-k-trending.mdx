@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "How to find the top-K most popular items over a sliding time window when 'count exactly' isn't an option \u2014 Count-Min Sketch, Heavy Hitters, two-tier aggregation, and the ~1KB-per-shard memory footprint behind real trending systems."
 ---
 
-"Find the top-10 trending hashtags in the last hour" is one of the most elegant system-design questions there is. The naive answer ("count everything in a hash map") falls apart at scale. The right answer combines **streaming aggregation**, **approximate algorithms**, and **two-tier hierarchy** — and it's the same pattern behind Twitter Trending, YouTube Top Charts, real-time anomaly detection, and search autocomplete.
+"Find the top-10 trending hashtags in the last hour" is one of the most elegant system-design questions there is. The naive answer ("count everything in a hash map") falls apart at scale. The right answer combines **streaming aggregation**, **approximate algorithms**, and **two-tier hierarchy**, and it's the same pattern behind Twitter Trending, YouTube Top Charts, real-time anomaly detection, and search autocomplete.
 
 ## 1. Clarify before you draw
 
@@ -32,7 +32,7 @@ For this post: 1B+ distinct items, sliding 1h window updated every minute, top 1
 **Non-functional:**
 1. **Sub-100ms read latency** on top-K queries.
 2. **Approximate is fine** (off by 1–2% on counts; correct on the *top* set).
-3. **Bounded memory** — can't store every distinct item exactly.
+3. **Bounded memory**, can't store every distinct item exactly.
 4. **Scalable to 1M+ events/sec** ingest.
 
 ## 3. Why exact counting doesn't work
@@ -41,7 +41,7 @@ Naive: `Counter[item_id] += 1` per event, every minute scan and sort.
 
 - 1B distinct items × 16 bytes = **16 GB** per node, per window, per shard.
 - Sorting 1B entries to find top-100 every minute = brutal CPU.
-- Sliding window means you also need to *decrement* old events — even more state.
+- Sliding window means you also need to *decrement* old events, even more state.
 - Multiplied across shards × replicas → infeasible.
 
 We need an algorithm that uses **kilobytes**, not gigabytes.
@@ -97,7 +97,7 @@ Memory: K × 16 bytes ≈ **2 KB for K=100**. Total per shard: ~30 KB sketch + 2
 
 Combined: **Count-Min Sketch + Heavy Hitters min-heap = the "Space-Saving" / "MisraGries" family**. This is what real-world top-K implementations use (Algebird, Druid's TopN, Redis's `topk` module).
 
-## 6. Time windows — the sliding part
+## 6. Time windows, the sliding part
 
 A 1-hour rolling window means events older than 1 hour shouldn't count. Two approaches:
 
@@ -120,7 +120,7 @@ Apply exponential decay: every event contributes `exp(-λt)` to the current sket
 
 Lighter on memory; more useful for "trending right now" than "exact last hour."
 
-Real systems often use both — tumbling for the "honest" count + decay for the user-facing "trending" signal.
+Real systems often use both, tumbling for the "honest" count + decay for the user-facing "trending" signal.
 
 ## 7. The two-tier architecture (always do this)
 
@@ -149,7 +149,7 @@ Each shard maintains its own Count-Min Sketch + Heavy Hitters. A merger runs eve
 2. Sum counts across shards for the union of items.
 3. Re-rank, take top-100, cache.
 
-Why merging top-K of each shard works: an item that's in the global top-K must be in the top-K of *at least one shard* — otherwise its count is too small to matter. (Caveat: this can miss items just outside each shard's local top-K but adding up to global top-K. Mitigate by using top-2K per shard and merging.)
+Why merging top-K of each shard works: an item that's in the global top-K must be in the top-K of *at least one shard*, otherwise its count is too small to matter. (Caveat: this can miss items just outside each shard's local top-K but adding up to global top-K. Mitigate by using top-2K per shard and merging.)
 
 ## 8. Hot-key partitioning trap
 
@@ -178,7 +178,7 @@ The framework handles:
 - Checkpoint / state recovery (sketches persisted to RocksDB / S3).
 - Exactly-once semantics on the sketch updates.
 
-Mention these — it's what makes the streaming layer operational, not theoretical.
+Mention these, it's what makes the streaming layer operational, not theoretical.
 
 ## 10. Failure handling
 
@@ -208,7 +208,7 @@ Mention these — it's what makes the streaming layer operational, not theoretic
 That's the answer that lands the senior+ signal. The Count-Min Sketch reference alone is often the difference between a "knows the textbook" answer and a "has actually built one of these" answer.
 
 <Callout type="tip" title="Related reading">
-- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete) — uses the same streaming layer
-- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — exact counters at scale (different problem)
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — the upstream event stream
+- [Design Search Autocomplete](/blog/system-design/design-typeahead-autocomplete), uses the same streaming layer
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), exact counters at scale (different problem)
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), the upstream event stream
 </Callout>

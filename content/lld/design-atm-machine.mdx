@@ -18,7 +18,7 @@ ATM is asked at fintech companies and occasionally at big-tech. The trap is skip
 - Operations: withdraw, deposit, balance inquiry, transfer?
 - Multiple accounts per card?
 - PIN retry limit?
-- Cash denominations — does the ATM dispense exact change or nearest denomination?
+- Cash denominations, does the ATM dispense exact change or nearest denomination?
 - Network: standalone or connected to a bank server?
 - Receipts?
 
@@ -26,7 +26,7 @@ Agreed scope:
 
 > Withdrawal, balance inquiry, PIN change. 3 PIN attempts before card lockout. Cash dispensing with multiple denominations (greedy algorithm). Connected to bank server (abstracted).
 
-## 2. State machine — the centrepiece
+## 2. State machine, the centrepiece
 
 ```
 IDLE
@@ -81,7 +81,7 @@ Transaction (abstract)
  └─ PINChangeTransaction
 ```
 
-## 4. ATM class — state transitions
+## 4. ATM class, state transitions
 
 ```java
 public class ATM {
@@ -148,7 +148,7 @@ public class ATM {
 }
 ```
 
-## 5. Cash dispensing — greedy algorithm
+## 5. Cash dispensing, greedy algorithm
 
 ```java
 public class CashInventory {
@@ -194,7 +194,7 @@ The ATM doesn't care whether the bank is a REST call, a local DB, or a stub in t
 ## 7. SOLID
 
 - **SRP:** `CashInventory` handles denominations; `BankService` handles financial ops; `ATM` manages state.
-- **OCP:** New transaction type (e.g., `MiniStatementTransaction`) — extend `Transaction`, add a handler. No ATM changes.
+- **OCP:** New transaction type (e.g., `MiniStatementTransaction`), extend `Transaction`, add a handler. No ATM changes.
 - **DIP:** `ATM` depends on `BankService` interface. Swap real bank for mock in tests.
 
 ## 8. Concurrency
@@ -206,7 +206,7 @@ A real ATM is single-user (physical hardware), so `synchronized` on the ATM meth
 | Follow-up | Addition |
 |---|---|
 | Deposit | `DepositTransaction`; cash inventory increments instead of deducting. |
-| Transfer | Debit source, credit destination — wrap in a transaction; rollback on partial failure. |
+| Transfer | Debit source, credit destination, wrap in a transaction; rollback on partial failure. |
 | Cardless (UPI) | `Authentication` becomes an interface; `UPIAuthentication` doesn't use a card. |
 | Maintenance mode | `OUT_OF_SERVICE` state; technician-only transition; alerts operations team. |
 

@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "Beyond the standard hash-and-store: how to design a URL shortener at billions-per-day scale, with capacity numbers, cache strategy, and the trade-offs interviewers actually probe."
 ---
 
-URL shortener is the *Hello World* of system design rounds. Done badly, it's a 5-minute conversation about base62 encoding. Done well, it's a 45-minute exploration of capacity planning, caching, hot keys, analytics pipelines and abuse prevention — exactly what a Senior+ interviewer wants.
+URL shortener is the *Hello World* of system design rounds. Done badly, it's a 5-minute conversation about base62 encoding. Done well, it's a 45-minute exploration of capacity planning, caching, hot keys, analytics pipelines and abuse prevention, exactly what a Senior+ interviewer wants.
 
 This post walks through the answer the way I'd give it in a real loop.
 
@@ -26,7 +26,7 @@ The single biggest mistake I see candidates make is sketching a box-and-arrow di
 - **Multi-region?** Latency target? (e.g. p99 < 50ms globally)
 
 <Callout type="tip" title="Why this matters">
-The interviewer is grading whether you build a system *for the requirements* — not whether you can recite a generic template. State the assumptions out loud and write them on the board.
+The interviewer is grading whether you build a system *for the requirements*, not whether you can recite a generic template. State the assumptions out loud and write them on the board.
 </Callout>
 
 ## 2. Functional & non-functional requirements
@@ -40,7 +40,7 @@ The interviewer is grading whether you build a system *for the requirements* —
 **Non-functional:**
 1. **Highly available** for reads. Redirect downtime is a public outage.
 2. **Low latency** reads (< 50 ms p99).
-3. **Durable** — losing a URL means breaking every share that ever pointed at it.
+3. **Durable**, losing a URL means breaking every share that ever pointed at it.
 4. **Scalable to ~1B reads/day** (typical interview number).
 
 ## 3. Back-of-envelope capacity
@@ -50,7 +50,7 @@ Let's anchor on real numbers. Assume:
 - **100M new URLs/day** → ~1,200 writes/sec average, ~10K writes/sec peak.
 - **10B redirects/day** → ~115K reads/sec average, ~1M reads/sec peak.
 - **Storage:** 100M/day × 365 × 5 years × 500 bytes/row ≈ **90 TB** raw. Compressed and indexed, plan for **~150 TB** with replicas.
-- **Cache:** the top **20% of links serve 80% of traffic** (Pareto). Caching the top 10M hot links @ ~500 bytes ≈ **5 GB** — trivial for Redis.
+- **Cache:** the top **20% of links serve 80% of traffic** (Pareto). Caching the top 10M hot links @ ~500 bytes ≈ **5 GB**, trivial for Redis.
 
 These numbers drive every later decision. Always carry them through.
 
@@ -75,7 +75,7 @@ Idempotency: if the same `(userId, longUrl)` is shortened twice, return the same
 
 ## 5. Generating the short code
 
-Three viable approaches — pick based on requirements:
+Three viable approaches, pick based on requirements:
 
 | Approach | Pros | Cons |
 |---|---|---|
@@ -86,7 +86,7 @@ Three viable approaches — pick based on requirements:
 In production I'd use a **distributed sequence service** (e.g. Snowflake-style or a Redis `INCR` shard) producing a 64-bit ID, then base62-encode it to ~7 chars. Pre-fetch ranges per app server to avoid hot-pathing the sequence on every write.
 
 <Callout type="warn" title="Don't say 'just use UUID'">
-UUIDs are 22+ chars in base62 — terrible UX. Interviewers know this; address the trade-off explicitly.
+UUIDs are 22+ chars in base62, terrible UX. Interviewers know this; address the trade-off explicitly.
 </Callout>
 
 ## 6. Data model
@@ -107,7 +107,7 @@ CREATE INDEX idx_user ON links(user_id, created_at);
 
 Storage choice:
 - **Postgres** is plenty up to ~10B rows with proper partitioning.
-- For interview points, mention **DynamoDB / Cassandra** as the obvious wide-column alternative — single-key lookups, predictable latency, easier multi-region writes.
+- For interview points, mention **DynamoDB / Cassandra** as the obvious wide-column alternative, single-key lookups, predictable latency, easier multi-region writes.
 - **Don't** use a relational JOIN-heavy model. The hot path is a single primary-key lookup.
 
 ## 7. Read path: the cache is the system
@@ -122,12 +122,12 @@ The interview is won or lost here.
 />
 
 Key decisions:
-- **301 vs 302?** 301 is permanent and aggressively cached by browsers — saves you traffic but breaks click analytics. Most real shorteners use **302** to keep every click reaching origin.
+- **301 vs 302?** 301 is permanent and aggressively cached by browsers, saves you traffic but breaks click analytics. Most real shorteners use **302** to keep every click reaching origin.
 - **Cache key:** `code → long_url`. TTL of hours, not days. Evict via LRU.
 - **Hot-key protection:** if a viral link gets 100K req/sec, a single Redis node will brown out. Mitigations: client-side caching with a short TTL, request coalescing, sharding by `hash(code)`.
 - **CDN:** for true global p99, sit a CDN in front and let it cache 302s for short windows. Only viable if you accept slightly stale analytics.
 
-### CDN edge caching — the trade-off worth defending
+### CDN edge caching, the trade-off worth defending
 
 If you cache 302 responses at the CDN edge for, say, 60 seconds:
 
@@ -138,8 +138,8 @@ The right call depends on what you're optimizing for:
 
 | Use case | Cache 302 at edge? |
 |---|---|
-| Marketing campaign tracker | No — every click is revenue data |
-| Internal company shortener | Yes — analytics is secondary |
+| Marketing campaign tracker | No, every click is revenue data |
+| Internal company shortener | Yes, analytics is secondary |
 | Public free shortener (bit.ly model) | Tiered: short edge cache, async log shipping back |
 
 Mention this trade-off explicitly in an interview. It demonstrates you've thought past the architecture diagram.
@@ -151,7 +151,7 @@ Real-world shorteners see **5–20× their human traffic in bot crawls**: link p
 Implications:
 - Provision capacity for the bot multiplier, not human traffic.
 - Bots usually issue `HEAD` requests; serve them from cache only.
-- Don't count bot hits as "clicks" in analytics — filter by `User-Agent` or by request method.
+- Don't count bot hits as "clicks" in analytics, filter by `User-Agent` or by request method.
 - If bots cause 90% of your QPS, your hot-key problem is *theirs*, not your users'.
 
 ## 8. Write path
@@ -167,7 +167,7 @@ Lower volume → simpler:
 
 For custom aliases, use `INSERT ... ON CONFLICT DO NOTHING` and surface a 409 if taken. For random codes, retry on rare collisions.
 
-## 9. Analytics — keep it off the hot path
+## 9. Analytics, keep it off the hot path
 
 A fatal mistake: writing to your analytics store synchronously on every redirect. You'll quintuple your latency.
 
@@ -197,7 +197,7 @@ Almost every senior+ interviewer asks this. Be ready:
 
 - **Rate limit** writes per user/IP at the API gateway (token bucket).
 - **Block known-bad domains** at write time (phishing, malware lists).
-- **Soft-disable** links flagged as abuse (`is_disabled`) instead of deleting — preserves audit trail.
+- **Soft-disable** links flagged as abuse (`is_disabled`) instead of deleting, preserves audit trail.
 - **HTTPS only**, HSTS on the redirect host.
 
 ## 12. ID generation deep-dive: Snowflake, range pre-fetch, and the clock-skew trap
@@ -219,9 +219,9 @@ I waved at "use a Snowflake-style ID" earlier. At staff level, you'll be asked t
         | (since epoch)    |             |
 ```
 
-- Generated **locally on each app server** — no central call.
+- Generated **locally on each app server**, no central call.
 - Roughly time-ordered → DB inserts are sequential → great for indexes.
-- Up to `2^12 = 4096` IDs per ms per machine = 4M IDs/sec/machine — ample.
+- Up to `2^12 = 4096` IDs per ms per machine = 4M IDs/sec/machine, ample.
 - Base62-encoded → 11 chars; or trim leading bits → 7–9 chars.
 
 This is what Twitter, Discord, Sony (Sonyflake), Instagram and dozens of others use.
@@ -238,7 +238,7 @@ App server 2: takes range [100_001..200_000]
 
 - Each app server burns through its range locally (no network call per ID).
 - Fetches a new range when the current one is 80% used.
-- ID ranger only runs ~10K times per second across all app servers — easy to scale.
+- ID ranger only runs ~10K times per second across all app servers, easy to scale.
 - Base62-encoded.
 
 **Verdict:** Snowflake is the textbook answer; range pre-fetch is what you reach for when clock skew is a real worry (e.g. on bare metal across multiple data centers).
@@ -255,9 +255,9 @@ Snowflake's correctness depends on monotonic, roughly-synchronized clocks. Two f
 
 In an interview, **state these explicitly**. The senior signal is "I know what can go wrong with this design," not "Snowflake is great, let's move on."
 
-### Custom aliases — the parallel namespace
+### Custom aliases, the parallel namespace
 
-Custom aliases (`akk.in/launch`) live in the **same code space** as auto-generated codes. So `INSERT ... ON CONFLICT DO NOTHING` is the right primitive — both auto and custom go through the same uniqueness check.
+Custom aliases (`akk.in/launch`) live in the **same code space** as auto-generated codes. So `INSERT ... ON CONFLICT DO NOTHING` is the right primitive, both auto and custom go through the same uniqueness check.
 
 Two subtleties:
 - Reserve a few thousand "premium" aliases (single-letter, common words) so they can't be squatted.
@@ -286,7 +286,7 @@ This question has come up in every URL-shortener interview I've sat in. Have an 
 
 ## 14. The 30-second summary
 
-> A URL shortener is fundamentally a **read-heavy KV store with a sequence generator in front**. The interesting parts aren't the encoding — they're the cache strategy, hot-key protection, async analytics, and abuse prevention. Get those four right and you've answered the staff-level version of the question.
+> A URL shortener is fundamentally a **read-heavy KV store with a sequence generator in front**. The interesting parts aren't the encoding, they're the cache strategy, hot-key protection, async analytics, and abuse prevention. Get those four right and you've answered the staff-level version of the question.
 
 That's the answer I'd give. In an interview I'd whiteboard the architecture as I went, surface the trade-offs in section 12 unprompted, and leave the last 5 minutes for the interviewer's deep dive.
 

@@ -10,7 +10,7 @@ author: "Aman Kumar Keshu"
 excerpt: "Three-sided marketplace: customer, restaurant, courier. Catalog freshness, order pipeline, courier matching with cooking-time-aware ETAs, batched deliveries, and the settlement nightmare."
 ---
 
-Uber Eats / DoorDash / Swiggy / Zomato are all **three-sided marketplaces**: customer wants food, restaurant cooks, courier delivers. Each side has its own data, latency, and incentive constraints. Designing this is meaningfully different from designing rides — the ETA isn't just driving time, the catalog is huge and changes every hour, and you have a literal hot meal that goes cold while you optimize.
+Uber Eats / DoorDash / Swiggy / Zomato are all **three-sided marketplaces**: customer wants food, restaurant cooks, courier delivers. Each side has its own data, latency, and incentive constraints. Designing this is meaningfully different from designing rides, the ETA isn't just driving time, the catalog is huge and changes every hour, and you have a literal hot meal that goes cold while you optimize.
 
 ## 1. Clarify before you draw
 
@@ -33,10 +33,10 @@ For this post: platform with gig couriers, ~10M orders/day across thousands of c
 
 **Non-functional:**
 1. **Real-time location** for tracking.
-2. **Reliability** — orders can't go missing.
-3. **Fast matching** — courier assigned within seconds.
-4. **Accurate ETAs** — customer trust depends on this.
-5. **Three-sided fairness** — pricing and incentives must work for all sides.
+2. **Reliability**, orders can't go missing.
+3. **Fast matching**, courier assigned within seconds.
+4. **Accurate ETAs**, customer trust depends on this.
+5. **Three-sided fairness**, pricing and incentives must work for all sides.
 
 ## 3. Capacity numbers
 
@@ -85,7 +85,7 @@ A 500M-item catalog where prices change at lunch, items sell out mid-shift, hour
 **Catalog architecture:**
 - **Source of truth:** restaurant profile in a relational DB.
 - **Read replicas / cache:** Redis/Memcached for hot catalog reads.
-- **Search index:** Elasticsearch — restaurants searchable by name, cuisine, location.
+- **Search index:** Elasticsearch, restaurants searchable by name, cuisine, location.
 - **Personalized "for you":** ranked recommendations from a separate ML service.
 
 ### Real-time updates
@@ -131,7 +131,7 @@ Restaurants set hours per day. Plus geo-fenced delivery: only show restaurants w
    - failed (couldn't find courier in time)
 ```
 
-State stored in a relational DB (Postgres, MySQL — orders are firmly transactional). Each state transition is **idempotent** with version checking — same as [Uber](/blog/system-design/design-uber-ride-sharing).
+State stored in a relational DB (Postgres, MySQL, orders are firmly transactional). Each state transition is **idempotent** with version checking, same as [Uber](/blog/system-design/design-uber-ride-sharing).
 
 Events emitted to Kafka so other services react:
 - Matching service triggers on `restaurant_accepted`.
@@ -141,7 +141,7 @@ Events emitted to Kafka so other services react:
 ## 7. Courier matching: smarter than "nearest"
 
 For rides, "nearest available driver" is usually right. For food delivery, it's wrong:
-- The food isn't ready yet — assign too early and the courier waits, hating you.
+- The food isn't ready yet, assign too early and the courier waits, hating you.
 - Other orders might come in 30 sec later that batch with this one.
 - Some couriers prefer cars vs bikes; some don't go to certain areas.
 
@@ -166,17 +166,17 @@ In practice, run a heuristic-based solver:
 - Greedy assignment in priority order; refine periodically.
 
 ### Matching cadence
-- Don't match instantly — wait ~10–20 sec to batch.
+- Don't match instantly, wait ~10–20 sec to batch.
 - Re-match orders that haven't been picked up if a better courier appears.
 - Once courier accepts, lock the assignment.
 
 ## 8. ETA: the four-component beast
 
 A delivery ETA is the sum of:
-- **Order preparation time** (cooking) — varies by restaurant + item + current load.
-- **Courier-to-restaurant drive time** — based on traffic.
-- **Restaurant-to-customer drive time** — based on traffic.
-- **Wait time at restaurant** — courier arrived but food isn't ready.
+- **Order preparation time** (cooking), varies by restaurant + item + current load.
+- **Courier-to-restaurant drive time**, based on traffic.
+- **Restaurant-to-customer drive time**, based on traffic.
+- **Wait time at restaurant**, courier arrived but food isn't ready.
 
 ETA is a **machine-learned regression** model trained on millions of past deliveries:
 - Features: restaurant, time-of-day, item complexity, courier vehicle, weather, current traffic.
@@ -194,14 +194,14 @@ DoorDash makes ~$5 per single delivery; ~$8 per batched (two orders) one with th
 - Courier has bag capacity.
 - Some items don't batch (pizza ≠ ice cream).
 
-The matching solver above naturally finds batches when scoring multi-stop routes. Batching ratio (% of deliveries batched) is a key business KPI — typically 30–50%.
+The matching solver above naturally finds batches when scoring multi-stop routes. Batching ratio (% of deliveries batched) is a key business KPI, typically 30–50%.
 
 ## 10. Surge pricing & courier incentives
 
 Three-sided pricing:
-- **Customer-facing surge** — busy time / weather → +20–50% delivery fee.
-- **Courier incentives** — base pay + tips + bonuses for "complete N orders by 8pm" or "go to underserved area."
-- **Restaurant boost programs** — restaurants pay for promoted placement.
+- **Customer-facing surge**, busy time / weather → +20–50% delivery fee.
+- **Courier incentives**, base pay + tips + bonuses for "complete N orders by 8pm" or "go to underserved area."
+- **Restaurant boost programs**, restaurants pay for promoted placement.
 
 Surge calculation = stream-processed (Flink/Kafka Streams) over current order volume vs courier supply per geo cell, updated every minute. Same shape as [Uber surge](/blog/system-design/design-uber-ride-sharing).
 
@@ -212,7 +212,7 @@ Customer wants to see "Courier is 5 min away."
 - Courier app posts location every 4–10 sec.
 - Each ping → in-memory store (Redis) keyed by `courier_id`.
 - For customer's order's view, the customer app subscribes via WebSocket; backend pushes courier's location updates.
-- Don't expose courier's exact identity (privacy) — just the moving dot.
+- Don't expose courier's exact identity (privacy), just the moving dot.
 - Recent path also stored for "Why was the courier delayed?" debugging.
 
 This is the same engine as [Uber](/blog/system-design/design-uber-ride-sharing).
@@ -231,7 +231,7 @@ End-of-day batch:
 - Courier payouts (typically weekly).
 - Platform revenue rolled to treasury.
 
-The architecture is exactly **[Design a Payment System](/blog/system-design/design-payment-system)** — double-entry ledger, reconciliation pipeline, immutable financial records.
+The architecture is exactly **[Design a Payment System](/blog/system-design/design-payment-system)**, double-entry ledger, reconciliation pipeline, immutable financial records.
 
 ## 13. Failure modes
 
@@ -248,9 +248,9 @@ The architecture is exactly **[Design a Payment System](/blog/system-design/desi
 
 | Question | What they want to hear |
 |---|---|
-| "Three-sided marketplace — what's hard?" | Each side has different incentives + latency constraints |
+| "Three-sided marketplace, what's hard?" | Each side has different incentives + latency constraints |
 | "Why batch deliveries?" | Margin lever; needs route-optimization solver |
-| "ETA components?" | Cooking + drive-out + drive-in + wait — all stochastic |
+| "ETA components?" | Cooking + drive-out + drive-in + wait, all stochastic |
 | "How does the courier matching work?" | Optimization with batching, not greedy nearest |
 | "Catalog updates in real time?" | Restaurant tablet → Kafka event → cache invalidation + customer push |
 | "What if no courier accepts?" | Re-match rounds; eventual cancel + refund |
@@ -260,11 +260,11 @@ The architecture is exactly **[Design a Payment System](/blog/system-design/desi
 
 > Food delivery is a three-sided marketplace where each side has unique state. The **catalog** (millions of restaurants × items, real-time updates), the **order pipeline** (idempotent state machine across customer + restaurant + courier), the **matching** (route-optimizing solver, not nearest-driver), and the **ETA** (cooking + driving) all interact. Batching is a margin lever; surge balances supply and demand. Settlement is double-entry ledger with daily payouts to restaurants and couriers.
 
-Lead with the three-sided model. Show the order state machine. Differentiate matching/ETA from rides — cooking time is the unique input. Mention batching as the business lever. That's the staff-level answer.
+Lead with the three-sided model. Show the order state machine. Differentiate matching/ETA from rides, cooking time is the unique input. Mention batching as the business lever. That's the staff-level answer.
 
 <Callout type="tip" title="Related reading">
-- [Design Uber / Ride-Sharing](/blog/system-design/design-uber-ride-sharing) — geospatial matching foundation
-- [Design a Payment System](/blog/system-design/design-payment-system) — settlement backbone
-- [Design a Notification System](/blog/system-design/design-notification-system) — for "your order is on its way" pushes
-- [Design a Top-K / Trending](/blog/system-design/design-top-k-trending) — popular dishes, surge zones
+- [Design Uber / Ride-Sharing](/blog/system-design/design-uber-ride-sharing), geospatial matching foundation
+- [Design a Payment System](/blog/system-design/design-payment-system), settlement backbone
+- [Design a Notification System](/blog/system-design/design-notification-system), for "your order is on its way" pushes
+- [Design a Top-K / Trending](/blog/system-design/design-top-k-trending), popular dishes, surge zones
 </Callout>

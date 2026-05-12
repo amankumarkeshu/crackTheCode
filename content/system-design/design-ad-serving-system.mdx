@@ -78,7 +78,7 @@ Publisher (e.g. NYT app)  ←── user opens app ────
    Impression event recorded
 ```
 
-For an in-house ad system (Facebook, Google), there's no external bid auction — internal pacing/auction picks the best ad from the platform's own advertisers. We'll cover both.
+For an in-house ad system (Facebook, Google), there's no external bid auction, internal pacing/auction picks the best ad from the platform's own advertisers. We'll cover both.
 
 ## 5. Inside a DSP: the matching pipeline
 
@@ -144,7 +144,7 @@ Not a 1-billion-parameter LLM. The latency budget rules that out.
 
 - Counter in Redis keyed `(user_id, campaign_id, day)`.
 - Increment on serve; reject if &gt;= cap.
-- Eventually-consistent — the user might see 4 in the same minute due to Redis lag, but it converges.
+- Eventually-consistent, the user might see 4 in the same minute due to Redis lag, but it converges.
 - Use a [Distributed Counter](/blog/system-design/design-distributed-counter) sharded by user.
 
 ### Budget pacing
@@ -178,29 +178,29 @@ Multiple ads might "touch" a user before they convert:
 - Clicked search ad and bought on Fri.
 
 Different **attribution models** assign credit:
-- **Last-click** — only the search ad gets credit.
-- **First-touch** — only the display ad.
-- **Linear** — each gets 1/3.
-- **Time-decay** — recent touches get more.
-- **Data-driven** — ML model attributes credit based on observed lift.
+- **Last-click**, only the search ad gets credit.
+- **First-touch**, only the display ad.
+- **Linear**, each gets 1/3.
+- **Time-decay**, recent touches get more.
+- **Data-driven**, ML model attributes credit based on observed lift.
 
 The attribution pipeline is a **batch + stream hybrid**:
 - Stream: assign provisional last-click attribution in real time.
 - Batch: nightly recompute with full multi-touch model.
 
-Privacy regulations (Apple's ATT, Google's Privacy Sandbox) are reshaping attribution dramatically — increasingly, attribution happens via aggregated, k-anonymized reports rather than per-user tracking.
+Privacy regulations (Apple's ATT, Google's Privacy Sandbox) are reshaping attribution dramatically, increasingly, attribution happens via aggregated, k-anonymized reports rather than per-user tracking.
 
 ## 11. Fraud detection
 
 Estimated 20–30% of online ad traffic is fraudulent. Fraud takes many forms:
-- **Bot traffic** — non-human clicks/impressions.
-- **Click farms** — humans paid to click.
-- **Domain spoofing** — fraudulent publisher claims to be NYTimes.
-- **Pixel stuffing** — invisible 1×1 ad iframes claiming impressions.
+- **Bot traffic**, non-human clicks/impressions.
+- **Click farms**, humans paid to click.
+- **Domain spoofing**, fraudulent publisher claims to be NYTimes.
+- **Pixel stuffing**, invisible 1×1 ad iframes claiming impressions.
 
 Detection is multi-layered:
-- **Real-time** — heuristics on the request: known bot UAs, abnormal click rate, geo mismatch.
-- **Batch ML** — cluster analysis on user behavior; outliers flagged.
+- **Real-time**, heuristics on the request: known bot UAs, abnormal click rate, geo mismatch.
+- **Batch ML**, cluster analysis on user behavior; outliers flagged.
 - **IVT (Invalid Traffic) lists** from third parties (HUMAN/White Ops, Integral Ad Science).
 
 Fraud invalidates billed impressions; budgets are credited back. Critical for advertiser trust.
@@ -208,8 +208,8 @@ Fraud invalidates billed impressions; budgets are credited back. Critical for ad
 ## 12. Creative delivery
 
 The winning ad's actual content (image, video, HTML5) must render. Two patterns:
-- **CDN-served** — creative URL → fetched from CDN ([Design a CDN](/blog/system-design/design-cdn)).
-- **Inline-returned** — for tiny creatives, full HTML markup returned in bid response.
+- **CDN-served**, creative URL → fetched from CDN ([Design a CDN](/blog/system-design/design-cdn)).
+- **Inline-returned**, for tiny creatives, full HTML markup returned in bid response.
 
 Pre-cache hot creatives at edge globally. Latency-critical for video; cold-start delay = lost impression.
 
@@ -228,10 +228,10 @@ Pre-cache hot creatives at edge globally. Latency-critical for video; cold-start
 ## 14. Privacy & compliance
 
 Modern ad systems must:
-- **Honor opt-out** — IDFA on iOS, GAID on Android. If user opted out, no targeting/tracking.
-- **Cookie-less paths** — first-party data, contextual targeting only.
-- **GDPR consent** — show banner; only operate per-user-consent.
-- **Data residency** — EU users' data stays in EU (cross-link to [Design a Distributed Cache](/blog/system-design/design-distributed-cache)'s region discussion).
+- **Honor opt-out**, IDFA on iOS, GAID on Android. If user opted out, no targeting/tracking.
+- **Cookie-less paths**, first-party data, contextual targeting only.
+- **GDPR consent**, show banner; only operate per-user-consent.
+- **Data residency**, EU users' data stays in EU (cross-link to [Design a Distributed Cache](/blog/system-design/design-distributed-cache)'s region discussion).
 
 Every system component must be designed around the consent flag. Privacy is now a first-class architectural concern, not a feature.
 
@@ -244,18 +244,18 @@ Every system component must be designed around the consent flag. Privacy is now 
 | "How do you pace budgets?" | Token bucket per campaign; pacing curve over the day |
 | "First-price vs second-price auction?" | Second-price truthful but rare in practice; first-price now dominant in RTB |
 | "How does attribution work with multiple touchpoints?" | Stream provisional + batch recompute; multi-touch models |
-| "How is impression tracking exactly-once?" | It's not — eventual consistency with idempotency keys; reconciliation against publisher logs |
+| "How is impression tracking exactly-once?" | It's not, eventual consistency with idempotency keys; reconciliation against publisher logs |
 | "Privacy / cookie deprecation impact?" | Cohort-based targeting; first-party data; aggregated attribution reports |
 
 ## 16. The 30-second summary
 
 > An ad serving system runs **a sub-30-ms internal auction over an inverted-indexed campaign catalog with ML-based pCTR/pCVR scoring, frequency-cap and budget-pacing constraints, and per-impression tracking ingested at billions/day**. The hardest constraints are the latency budget, billing correctness (no over-spend), and fraud + privacy. Attribution is a hybrid stream + batch problem; long-term, the entire industry is moving toward aggregated, privacy-preserving reporting.
 
-Lead with the latency budget — it shapes everything. Show the auction pipeline and how candidate generation works. Mention frequency caps + budget pacing. Talk fraud + privacy as architecture-level concerns. That's the staff-level answer.
+Lead with the latency budget, it shapes everything. Show the auction pipeline and how candidate generation works. Mention frequency caps + budget pacing. Talk fraud + privacy as architecture-level concerns. That's the staff-level answer.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Counter](/blog/system-design/design-distributed-counter) — frequency caps & impression counts
-- [Design a Rate Limiter](/blog/system-design/design-rate-limiter) — budget pacing
-- [Design a CDN](/blog/system-design/design-cdn) — creative delivery
-- [Design Google Search](/blog/system-design/design-google-search) — same inverted-index foundation
+- [Design a Distributed Counter](/blog/system-design/design-distributed-counter), frequency caps & impression counts
+- [Design a Rate Limiter](/blog/system-design/design-rate-limiter), budget pacing
+- [Design a CDN](/blog/system-design/design-cdn), creative delivery
+- [Design Google Search](/blog/system-design/design-google-search), same inverted-index foundation
 </Callout>

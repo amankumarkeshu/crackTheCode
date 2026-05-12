@@ -31,7 +31,7 @@ Common phrasings that should make you reach for sliding window immediately:
 - "Count subarrays where ..."
 - "Longest subarray containing only ..."
 
-## 2. Two flavors — know which one you have
+## 2. Two flavors, know which one you have
 
 | Flavor | When to use | Template |
 |---|---|---|
@@ -137,7 +137,7 @@ def longest_unique_substring(s: str) -> int:
     return best
 ```
 
-You could also use a `dict` of `char → last_index` to jump `left` forward in O(1) — a nice optimization to mention in an interview.
+You could also use a `dict` of `char → last_index` to jump `left` forward in O(1), a nice optimization to mention in an interview.
 
 ## 7. Worked problem: Permutation in string
 
@@ -163,7 +163,7 @@ def check_permutation(s1: str, s2: str) -> bool:
     return False
 ```
 
-`Counter == Counter` is `O(26)` for lowercase ASCII — effectively `O(1)`. Total: `O(n)`.
+`Counter == Counter` is `O(26)` for lowercase ASCII, effectively `O(1)`. Total: `O(n)`.
 
 ## 8. Common pitfalls
 
@@ -173,7 +173,7 @@ For **longest** problems, shrink while the window is *invalid*, then record *aft
 
 - **Off-by-one** in `right - left + 1`. Always reason from a concrete tiny example.
 - **Negative numbers break it.** Sliding window for "subarray sum" only works on **positive** inputs. With negatives, you need prefix sums + hashmap.
-- **Multiple aggregates.** If you need sum *and* distinct count *and* max — keep them all in `state`, but make sure each is updated in `add` and `remove`.
+- **Multiple aggregates.** If you need sum *and* distinct count *and* max, keep them all in `state`, but make sure each is updated in `add` and `remove`.
 
 ## 9. Practice progression
 
@@ -192,4 +192,4 @@ After #6 you'll start *seeing* the pattern in problems before reading the constr
 
 > Sliding window is **expand-right, shrink-left-while-invalid, record**. One template, two flavors (fixed vs variable), two recording placements (longest vs shortest). Memorize the three-line shape and you'll solve most variants in under 15 minutes.
 
-Next pattern post: [monotonic stacks](/blog/dsa/) — coming this week.
+Next pattern post: [monotonic stacks](/blog/dsa/), coming this week.

@@ -33,11 +33,11 @@ For this post: card payment platform like Stripe, global, ~10K transactions/sec 
 4. Dispute / chargeback handling.
 
 **Non-functional:**
-1. **Exactly-once correctness** — never double-charge, never silently fail.
+1. **Exactly-once correctness**, never double-charge, never silently fail.
 2. **Idempotent at every layer.**
-3. **Auditable** — every cent must have a paper trail (literally, for compliance).
-4. **Highly available** — payment outage = revenue outage.
-5. **Low latency** — auth in &lt;3 sec end-to-end.
+3. **Auditable**, every cent must have a paper trail (literally, for compliance).
+4. **Highly available**, payment outage = revenue outage.
+5. **Low latency**, auth in &lt;3 sec end-to-end.
 
 ## 3. Capacity numbers
 
@@ -89,9 +89,9 @@ Transaction T1: Customer pays merchant $50, $1.45 fee.
 ```
 
 Why double-entry?
-- **Auditability** — every change to balance has a paired entry; can never have a phantom balance change.
-- **Reconciliation** — sum of all entries to any account = its balance, derivable from the log.
-- **Reversibility** — refunds, chargebacks, adjustments are just opposite entries.
+- **Auditability**, every change to balance has a paired entry; can never have a phantom balance change.
+- **Reconciliation**, sum of all entries to any account = its balance, derivable from the log.
+- **Reversibility**, refunds, chargebacks, adjustments are just opposite entries.
 
 Schema:
 ```sql
@@ -118,7 +118,7 @@ INIT → AUTHORIZED → CAPTURED → SETTLED
           DECLINED              DISPUTED → CHARGEBACK
 ```
 
-Every transition is durable and audit-logged. A payment doesn't "exist" — it has a state, and state transitions are events.
+Every transition is durable and audit-logged. A payment doesn't "exist", it has a state, and state transitions are events.
 
 Each transition produces ledger entries (e.g. on `CAPTURED`, money moves from `customer` to `merchant_holding`). Idempotency: each state transition is keyed on `(payment_id, target_state)`.
 
@@ -132,7 +132,7 @@ Stripe-class API → Card Network Gateway (sync, blocking) → returns auth code
 
 This is the only synchronous external call in the design. Wrap it with:
 - **Aggressive timeout** (3–5 sec).
-- **Idempotent retry** (on timeout, ask the network for status before retrying — never blind retry money movement).
+- **Idempotent retry** (on timeout, ask the network for status before retrying, never blind retry money movement).
 - **Circuit breaker** per card brand and per acquirer.
 
 If the network is genuinely down, the API responds with "auth pending" and the user gets emailed when resolved.
@@ -231,7 +231,7 @@ Reduces audit scope from "your whole stack" to "the vault and its perimeter."
 Land that with the idempotency, ledger, and saga depth from sections 4–8, and you've answered the staff version of one of the highest-bar questions in the loop.
 
 <Callout type="tip" title="Related reading">
-- [Design a Distributed Queue](/blog/system-design/design-distributed-queue) — webhook + settlement queues
-- [Design a Distributed Locking Service](/blog/system-design/design-distributed-locking-service) — for idempotency-key locks at scale
-- [Design a Notification System](/blog/system-design/design-notification-system) — payment-success notifications
+- [Design a Distributed Queue](/blog/system-design/design-distributed-queue), webhook + settlement queues
+- [Design a Distributed Locking Service](/blog/system-design/design-distributed-locking-service), for idempotency-key locks at scale
+- [Design a Notification System](/blog/system-design/design-notification-system), payment-success notifications
 </Callout>
