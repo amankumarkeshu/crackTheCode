@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X, Filter, Building2, Boxes, Network, Binary } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Search, X, ChevronDown, Network, Boxes, Binary } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   InterviewQuestion,
@@ -18,41 +17,28 @@ interface ExplorerProps {
   companyCount: { company: string; count: number }[];
 }
 
-const TYPE_META: Record<
-  QuestionType,
-  { label: string; short: string; chip: string; accent: string; icon: typeof Network }
-> = {
-  "system-design": {
-    label: "System Design",
-    short: "SD",
-    chip:
-      "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
-    accent: "border-l-indigo-400",
-    icon: Network,
-  },
-  lld: {
-    label: "Low-Level Design",
-    short: "LLD",
-    chip:
-      "border-fuchsia-400/50 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
-    accent: "border-l-fuchsia-400",
-    icon: Boxes,
-  },
-  dsa: {
-    label: "DSA",
-    short: "DSA",
-    chip:
-      "border-emerald-400/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    accent: "border-l-emerald-400",
-    icon: Binary,
-  },
+const TYPE_META: Record<QuestionType, { label: string; accent: string; dot: string; icon: typeof Network }> = {
+  "system-design": { label: "System Design", accent: "border-l-indigo-400", dot: "bg-indigo-400", icon: Network },
+  lld:             { label: "Low-Level Design", accent: "border-l-fuchsia-400", dot: "bg-fuchsia-400", icon: Boxes },
+  dsa:             { label: "DSA", accent: "border-l-emerald-400", dot: "bg-emerald-400", icon: Binary },
 };
 
-const DIFFICULTY_META: Record<QuestionDifficulty, string> = {
-  easy: "border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  medium: "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  hard: "border-rose-400/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+const DIFF_COLORS: Record<QuestionDifficulty, string> = {
+  easy:   "text-emerald-600 dark:text-emerald-400",
+  medium: "text-amber-600 dark:text-amber-400",
+  hard:   "text-rose-600 dark:text-rose-400",
 };
+
+type SortOption = "default" | "difficulty-asc" | "difficulty-desc" | "company";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "default",          label: "Recent & Popular" },
+  { value: "difficulty-asc",   label: "Easiest First" },
+  { value: "difficulty-desc",  label: "Hardest First" },
+  { value: "company",          label: "Company A–Z" },
+];
+
+const DIFF_ORDER: Record<QuestionDifficulty, number> = { easy: 0, medium: 1, hard: 2 };
 
 export function QuestionsExplorer({
   questions,
@@ -61,197 +47,132 @@ export function QuestionsExplorer({
   difficulties,
   companyCount,
 }: ExplorerProps) {
-  const [search, setSearch] = useState("");
-  const [selectedType, setSelectedType] = useState<QuestionType | "all">("all");
-  const [selectedDifficulty, setSelectedDifficulty] =
-    useState<QuestionDifficulty | "all">("all");
-  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
-  const [showAllCompanies, setShowAllCompanies] = useState(false);
+  const [search, setSearch]               = useState("");
+  const [company, setCompany]             = useState("all");
+  const [type, setType]                   = useState<QuestionType | "all">("all");
+  const [difficulty, setDifficulty]       = useState<QuestionDifficulty | "all">("all");
+  const [sort, setSort]                   = useState<SortOption>("default");
 
-  const topCompanies = useMemo(
-    () => companyCount.slice(0, 14).map((c) => c.company),
+  // Sort companies by question count for the dropdown
+  const sortedCompanies = useMemo(
+    () => companyCount.map((c) => c.company),
     [companyCount]
   );
-  const visibleCompanies = showAllCompanies ? companies : topCompanies;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return questions.filter((row) => {
-      if (selectedType !== "all" && row.type !== selectedType) return false;
-      if (selectedDifficulty !== "all" && row.difficulty !== selectedDifficulty) return false;
-      if (selectedCompanies.size > 0 && !selectedCompanies.has(row.company)) return false;
+    let rows = questions.filter((row) => {
+      if (company !== "all" && row.company !== company) return false;
+      if (type !== "all" && row.type !== type) return false;
+      if (difficulty !== "all" && row.difficulty !== difficulty) return false;
       if (q) {
-        const hay =
-          row.question.toLowerCase() +
-          " " +
-          row.tags.join(" ").toLowerCase() +
-          " " +
-          (row.note?.toLowerCase() ?? "");
+        const hay = `${row.question} ${row.tags.join(" ")} ${row.note ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [questions, search, selectedType, selectedDifficulty, selectedCompanies]);
 
-  const toggleCompany = (c: string) => {
-    setSelectedCompanies((prev) => {
-      const next = new Set(prev);
-      if (next.has(c)) next.delete(c);
-      else next.add(c);
-      return next;
-    });
+    if (sort === "difficulty-asc")  rows = [...rows].sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
+    if (sort === "difficulty-desc") rows = [...rows].sort((a, b) => DIFF_ORDER[b.difficulty] - DIFF_ORDER[a.difficulty]);
+    if (sort === "company")         rows = [...rows].sort((a, b) => a.company.localeCompare(b.company));
+
+    return rows;
+  }, [questions, search, company, type, difficulty, sort]);
+
+  const anyActive = search || company !== "all" || type !== "all" || difficulty !== "all";
+
+  const resetAll = () => {
+    setSearch(""); setCompany("all"); setType("all"); setDifficulty("all"); setSort("default");
   };
-
-  const clearAll = () => {
-    setSearch("");
-    setSelectedType("all");
-    setSelectedDifficulty("all");
-    setSelectedCompanies(new Set());
-  };
-
-  const anyFilterActive =
-    search.length > 0 ||
-    selectedType !== "all" ||
-    selectedDifficulty !== "all" ||
-    selectedCompanies.size > 0;
 
   return (
-    <div className="mt-10">
-      {/* Filter bar */}
-      <div className="sticky top-16 z-20 -mx-4 rounded-2xl border border-border bg-background/85 px-4 py-4 shadow-sm backdrop-blur md:mx-0 md:px-6">
-        {/* Search */}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search questions, tags, topics — e.g. 'rate limiter', 'lru', 'dijkstra'"
-            className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Type filter */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Filter className="h-3 w-3" /> Type
-          </span>
-          <FilterChip
-            active={selectedType === "all"}
-            onClick={() => setSelectedType("all")}
+    <div className="mt-8">
+      {/* ── Search bar ── */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search all questions…"
+          className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 text-sm shadow-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
           >
-            All
-          </FilterChip>
-          {types.map((t) => (
-            <FilterChip
-              key={t.value}
-              active={selectedType === t.value}
-              onClick={() => setSelectedType(t.value)}
-            >
-              {t.label}
-            </FilterChip>
-          ))}
-        </div>
-
-        {/* Difficulty filter */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Difficulty
-          </span>
-          <FilterChip
-            active={selectedDifficulty === "all"}
-            onClick={() => setSelectedDifficulty("all")}
-          >
-            All
-          </FilterChip>
-          {difficulties.map((d) => (
-            <FilterChip
-              key={d}
-              active={selectedDifficulty === d}
-              onClick={() => setSelectedDifficulty(d)}
-            >
-              <span className="capitalize">{d}</span>
-            </FilterChip>
-          ))}
-        </div>
-
-        {/* Company filter */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Building2 className="h-3 w-3" /> Company
-          </span>
-          {selectedCompanies.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelectedCompanies(new Set())}
-              className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              Clear ({selectedCompanies.size})
-            </button>
-          )}
-          {visibleCompanies.map((c) => (
-            <FilterChip
-              key={c}
-              active={selectedCompanies.has(c)}
-              onClick={() => toggleCompany(c)}
-            >
-              {c}
-            </FilterChip>
-          ))}
-          {companies.length > topCompanies.length && (
-            <button
-              type="button"
-              onClick={() => setShowAllCompanies((s) => !s)}
-              className="rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
-            >
-              {showAllCompanies
-                ? "Show fewer"
-                : `+ ${companies.length - topCompanies.length} more`}
-            </button>
-          )}
-        </div>
-
-        {/* Result count + clear */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
-          <span className="text-muted-foreground">
-            <span className="font-semibold text-foreground">{filtered.length}</span>{" "}
-            {filtered.length === 1 ? "question" : "questions"}
-            {anyFilterActive ? " match your filters" : " total"}
-          </span>
-          {anyFilterActive && (
-            <button
-              type="button"
-              onClick={clearAll}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              <X className="h-3 w-3" /> Reset all filters
-            </button>
-          )}
-        </div>
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {/* Results */}
-      <div className="mt-8">
+      {/* ── Filter row ── */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Select
+          value={company}
+          onChange={setCompany}
+          placeholder="All Companies"
+          options={[
+            { value: "all", label: "All Companies" },
+            ...sortedCompanies.map((c) => ({ value: c, label: c })),
+          ]}
+          className="min-w-[160px]"
+        />
+        <Select
+          value={type}
+          onChange={(v) => setType(v as QuestionType | "all")}
+          placeholder="All Types"
+          options={[
+            { value: "all", label: "All Types" },
+            ...types.map((t) => ({ value: t.value, label: t.label })),
+          ]}
+        />
+        <Select
+          value={difficulty}
+          onChange={(v) => setDifficulty(v as QuestionDifficulty | "all")}
+          placeholder="All Levels"
+          options={[
+            { value: "all",    label: "All Levels" },
+            ...difficulties.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) })),
+          ]}
+        />
+        <Select
+          value={sort}
+          onChange={(v) => setSort(v as SortOption)}
+          placeholder="Sort By"
+          options={SORT_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+        />
+
+        {anyActive && (
+          <button
+            type="button"
+            onClick={resetAll}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-rose-400 hover:text-rose-600"
+          >
+            <X className="h-3.5 w-3.5" /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* ── Result count ── */}
+      <p className="mt-4 text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">{filtered.length.toLocaleString()}</span>{" "}
+        {filtered.length === 1 ? "question" : "questions"}
+        {anyActive ? " match your filters" : " in the bank"}
+      </p>
+
+      {/* ── Results ── */}
+      <div className="mt-4">
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-12 text-center">
-            <p className="text-muted-foreground">
-              No questions match. Try widening filters or clearing the search.
-            </p>
+          <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
+            No questions match — try adjusting or clearing the filters.
           </div>
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
-            {filtered.map((q) => (
-              <QuestionCard key={q.id} q={q} />
+          <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+            {filtered.map((q, i) => (
+              <QuestionRow key={q.id} q={q} index={i} />
             ))}
           </ul>
         )}
@@ -260,93 +181,93 @@ export function QuestionsExplorer({
   );
 }
 
-function FilterChip({
-  active,
-  onClick,
-  children,
+/* ── Reusable dropdown ── */
+function Select({
+  value,
+  onChange,
+  options,
+  placeholder,
+  className,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  className?: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-        active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-      )}
-    >
-      {children}
-    </button>
+    <div className={cn("relative", className)}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+    </div>
   );
 }
 
-function QuestionCard({ q }: { q: InterviewQuestion }) {
-  const typeMeta = TYPE_META[q.type];
-  const TypeIcon = typeMeta.icon;
+/* ── Single question row ── */
+function QuestionRow({ q, index }: { q: InterviewQuestion; index: number }) {
+  const meta = TYPE_META[q.type];
+  const TypeIcon = meta.icon;
+
   return (
-    <li
-      className={cn(
-        "group flex flex-col rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md",
-        "border-l-4",
-        typeMeta.accent
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-            typeMeta.chip
-          )}
-        >
-          <TypeIcon className="h-3 w-3" />
-          {typeMeta.short}
-        </span>
-        <Badge variant="outline">{q.company}</Badge>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize",
-            DIFFICULTY_META[q.difficulty]
-          )}
-        >
-          {q.difficulty}
-        </span>
-        {q.frequency === "high" && (
-          <Badge variant="accent" className="text-[10px]">
-            Frequent
-          </Badge>
+    <li className={cn("flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary/40", meta.accent, "border-l-[3px]")}>
+      {/* Row number */}
+      <span className="mt-0.5 w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground/50">
+        {index + 1}
+      </span>
+
+      {/* Main content */}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium leading-snug text-foreground">{q.question}</p>
+
+        {q.note && (
+          <p className="mt-1 text-xs text-muted-foreground">{q.note}</p>
         )}
-        {q.askedFor && (
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {q.askedFor}
-          </span>
+
+        {/* Tags */}
+        {q.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {q.tags.map((t) => (
+              <span key={t} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {t}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      <p className="mt-3 text-sm font-medium leading-snug text-foreground">
-        {q.question}
-      </p>
+      {/* Right-side meta */}
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        {/* Company */}
+        <span className="text-xs font-medium text-foreground">{q.company}</span>
 
-      {q.note && (
-        <p className="mt-2 text-xs italic text-muted-foreground">{q.note}</p>
-      )}
-
-      {q.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {q.tags.map((t) => (
-            <span
-              key={t}
-              className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground"
-            >
-              #{t}
-            </span>
-          ))}
+        {/* Type + difficulty on one line */}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+            <TypeIcon className="h-3 w-3" />
+            {meta.label}
+          </span>
+          <span className={cn("text-[11px] font-medium capitalize", DIFF_COLORS[q.difficulty])}>
+            {q.difficulty}
+          </span>
         </div>
-      )}
+
+        {/* Frequent badge */}
+        {q.frequency === "high" && (
+          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+            Frequent
+          </span>
+        )}
+      </div>
     </li>
   );
 }

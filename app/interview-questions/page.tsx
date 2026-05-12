@@ -20,20 +20,15 @@ export default function InterviewQuestionsPage() {
   const companyCount = getCompanyCount();
 
   return (
-    <div className="container py-12 md:py-16">
-      <div className="mx-auto max-w-3xl text-center">
+    <div className="container max-w-5xl py-10 md:py-14">
+      <div className="mb-8">
         <Badge variant="muted">Question Bank</Badge>
-        <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight md:text-5xl">
-          Interview questions, tagged by company.
+        <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Interview Questions
         </h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          {total}+ curated questions from {allCompanies.length} major companies. Filter by
-          company, type (System Design, LLD, DSA), or difficulty.
-        </p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Sourced from widely-reported interview write-ups across LeetCode, GeeksforGeeks,
-          Glassdoor, Blind, engineering blogs, and books. Not NDA-protected — all questions
-          are publicly shared patterns.
+        <p className="mt-2 text-muted-foreground">
+          {total.toLocaleString()} questions across {allCompanies.length} companies — System Design, LLD &amp; DSA.
+          Sourced from publicly reported interview experiences.
         </p>
       </div>
 
