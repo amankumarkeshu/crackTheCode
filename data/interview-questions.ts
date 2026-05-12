@@ -32,47 +32,47 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // GOOGLE
   // ────────────────────────────────────────────────────────────────────
-  { id: "google-sd-1", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Search autocomplete (typeahead) — billions of queries/day, sub-100ms latency.", tags: ["trie", "ranking", "caching", "ml-ranking"], askedFor: "L5–L6", frequency: "high", note: "Classic loop question. Expect to discuss data freshness, trie sharding, personalization." },
-  { id: "google-sd-2", company: "Google", type: "system-design", difficulty: "hard", question: "Design YouTube — upload, transcode, store, and stream video at planetary scale.", tags: ["video", "cdn", "storage", "transcoding"], askedFor: "L5–L6", frequency: "high" },
-  { id: "google-sd-3", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Drive / Dropbox — file sync, dedup, conflict resolution.", tags: ["storage", "sync", "chunking", "dedup"], askedFor: "L5", frequency: "high" },
-  { id: "google-sd-4", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Maps — map tiles, ETA, traffic, routing.", tags: ["geo", "graph", "tiles", "routing"], askedFor: "L5–L6", frequency: "medium" },
+  { id: "google-sd-1", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Search autocomplete (typeahead): billions of queries/day, sub-100ms latency.", tags: ["trie", "ranking", "caching", "ml-ranking"], askedFor: "L5–L6", frequency: "high", note: "Classic loop question. Expect to discuss data freshness, trie sharding, personalization." },
+  { id: "google-sd-2", company: "Google", type: "system-design", difficulty: "hard", question: "Design YouTube: upload, transcode, store, and stream video at planetary scale.", tags: ["video", "cdn", "storage", "transcoding"], askedFor: "L5–L6", frequency: "high" },
+  { id: "google-sd-3", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Drive / Dropbox: file sync, dedup, conflict resolution.", tags: ["storage", "sync", "chunking", "dedup"], askedFor: "L5", frequency: "high" },
+  { id: "google-sd-4", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Maps: map tiles, ETA, traffic, routing.", tags: ["geo", "graph", "tiles", "routing"], askedFor: "L5–L6", frequency: "medium" },
   { id: "google-sd-5", company: "Google", type: "system-design", difficulty: "hard", question: "Design a web crawler with politeness, dedup, and freshness guarantees.", tags: ["crawler", "queue", "bloom-filter", "dns"], askedFor: "L5", frequency: "high" },
-  { id: "google-sd-6", company: "Google", type: "system-design", difficulty: "medium", question: "Design a URL shortener (TinyURL) — billions of links, custom aliases, analytics.", tags: ["hashing", "key-generation", "kv-store"], askedFor: "L4–L5", frequency: "high" },
-  { id: "google-sd-7", company: "Google", type: "system-design", difficulty: "hard", question: "Design a global rate limiter — per-user, per-IP, distributed.", tags: ["rate-limit", "redis", "token-bucket"], askedFor: "L5", frequency: "medium" },
-  { id: "google-sd-8", company: "Google", type: "system-design", difficulty: "hard", question: "Design Gmail — store, index, search, and deliver email at scale.", tags: ["search", "indexing", "storage"], askedFor: "L5–L6", frequency: "medium" },
+  { id: "google-sd-6", company: "Google", type: "system-design", difficulty: "medium", question: "Design a URL shortener (TinyURL): billions of links, custom aliases, analytics.", tags: ["hashing", "key-generation", "kv-store"], askedFor: "L4–L5", frequency: "high" },
+  { id: "google-sd-7", company: "Google", type: "system-design", difficulty: "hard", question: "Design a global rate limiter: per-user, per-IP, distributed.", tags: ["rate-limit", "redis", "token-bucket"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-8", company: "Google", type: "system-design", difficulty: "hard", question: "Design Gmail: store, index, search, and deliver email at scale.", tags: ["search", "indexing", "storage"], askedFor: "L5–L6", frequency: "medium" },
   { id: "google-lld-1", company: "Google", type: "lld", difficulty: "medium", question: "Design an in-memory file system with mkdir, addFile, readFile, ls.", tags: ["trees", "design-pattern", "composite"], askedFor: "L4–L5", frequency: "high" },
-  { id: "google-lld-2", company: "Google", type: "lld", difficulty: "medium", question: "Design an LRU cache with TTL support — production-quality API.", tags: ["lru", "linked-list", "hashmap"], askedFor: "L4", frequency: "high" },
+  { id: "google-lld-2", company: "Google", type: "lld", difficulty: "medium", question: "Design an LRU cache with TTL support: production-quality API.", tags: ["lru", "linked-list", "hashmap"], askedFor: "L4", frequency: "high" },
   { id: "google-lld-3", company: "Google", type: "lld", difficulty: "hard", question: "Design Google Calendar's scheduling/availability engine.", tags: ["intervals", "scheduling"], askedFor: "L5", frequency: "medium" },
-  { id: "google-dsa-1", company: "Google", type: "dsa", difficulty: "hard", question: "Number of Islands II — dynamic Union-Find with rank/path compression.", tags: ["union-find", "grid"], askedFor: "L4–L5", frequency: "high" },
-  { id: "google-dsa-2", company: "Google", type: "dsa", difficulty: "hard", question: "Word Ladder II — return all shortest transformation sequences.", tags: ["bfs", "backtracking", "graph"], askedFor: "L4–L5", frequency: "high" },
-  { id: "google-dsa-3", company: "Google", type: "dsa", difficulty: "medium", question: "Meeting Rooms II — minimum rooms required given intervals.", tags: ["intervals", "heap"], askedFor: "L4", frequency: "high" },
-  { id: "google-dsa-4", company: "Google", type: "dsa", difficulty: "hard", question: "Bus Routes — minimum buses to reach target stop (BFS on routes).", tags: ["bfs", "graph"], askedFor: "L4–L5", frequency: "medium" },
-  { id: "google-dsa-5", company: "Google", type: "dsa", difficulty: "hard", question: "Decode Ways II — count decodings with '*' wildcard.", tags: ["dp"], askedFor: "L4", frequency: "medium" },
-  { id: "google-dsa-6", company: "Google", type: "dsa", difficulty: "medium", question: "Evaluate Division — graph DFS / Union-Find with weights.", tags: ["graph", "dfs", "union-find"], askedFor: "L4", frequency: "high" },
-  { id: "google-dsa-7", company: "Google", type: "dsa", difficulty: "medium", question: "Snapshot Array — versioned array with binary-search-on-snapshot.", tags: ["binary-search", "design"], askedFor: "L4–L5", frequency: "medium" },
-  { id: "google-dsa-8", company: "Google", type: "dsa", difficulty: "hard", question: "Longest Increasing Path in a Matrix — DFS + memoization.", tags: ["dfs", "memoization", "grid"], askedFor: "L4–L5", frequency: "high" },
+  { id: "google-dsa-1", company: "Google", type: "dsa", difficulty: "hard", question: "Number of Islands II: dynamic Union-Find with rank/path compression.", tags: ["union-find", "grid"], askedFor: "L4–L5", frequency: "high" },
+  { id: "google-dsa-2", company: "Google", type: "dsa", difficulty: "hard", question: "Word Ladder II: return all shortest transformation sequences.", tags: ["bfs", "backtracking", "graph"], askedFor: "L4–L5", frequency: "high" },
+  { id: "google-dsa-3", company: "Google", type: "dsa", difficulty: "medium", question: "Meeting Rooms II: minimum rooms required given intervals.", tags: ["intervals", "heap"], askedFor: "L4", frequency: "high" },
+  { id: "google-dsa-4", company: "Google", type: "dsa", difficulty: "hard", question: "Bus Routes: minimum buses to reach target stop (BFS on routes).", tags: ["bfs", "graph"], askedFor: "L4–L5", frequency: "medium" },
+  { id: "google-dsa-5", company: "Google", type: "dsa", difficulty: "hard", question: "Decode Ways II: count decodings with '*' wildcard.", tags: ["dp"], askedFor: "L4", frequency: "medium" },
+  { id: "google-dsa-6", company: "Google", type: "dsa", difficulty: "medium", question: "Evaluate Division: graph DFS / Union-Find with weights.", tags: ["graph", "dfs", "union-find"], askedFor: "L4", frequency: "high" },
+  { id: "google-dsa-7", company: "Google", type: "dsa", difficulty: "medium", question: "Snapshot Array: versioned array with binary-search-on-snapshot.", tags: ["binary-search", "design"], askedFor: "L4–L5", frequency: "medium" },
+  { id: "google-dsa-8", company: "Google", type: "dsa", difficulty: "hard", question: "Longest Increasing Path in a Matrix: DFS + memoization.", tags: ["dfs", "memoization", "grid"], askedFor: "L4–L5", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // META (FACEBOOK)
   // ────────────────────────────────────────────────────────────────────
-  { id: "meta-sd-1", company: "Meta", type: "system-design", difficulty: "hard", question: "Design the News Feed — ranking, fan-out, push vs pull, edge ranking.", tags: ["feed", "fan-out", "ranking"], askedFor: "E5–E6", frequency: "high", note: "Their flagship SD prompt. Expect deep discussion on push vs pull and feed ranking signals." },
-  { id: "meta-sd-2", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Messenger / WhatsApp — 1:1, group, presence, read receipts.", tags: ["chat", "websocket", "presence"], askedFor: "E5", frequency: "high" },
-  { id: "meta-sd-3", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Instagram Stories — TTL content, view tracking, ranking.", tags: ["feed", "ttl", "cdn"], askedFor: "E5", frequency: "high" },
+  { id: "meta-sd-1", company: "Meta", type: "system-design", difficulty: "hard", question: "Design the News Feed: ranking, fan-out, push vs pull, edge ranking.", tags: ["feed", "fan-out", "ranking"], askedFor: "E5–E6", frequency: "high", note: "Their flagship SD prompt. Expect deep discussion on push vs pull and feed ranking signals." },
+  { id: "meta-sd-2", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Messenger / WhatsApp: 1:1, group, presence, read receipts.", tags: ["chat", "websocket", "presence"], askedFor: "E5", frequency: "high" },
+  { id: "meta-sd-3", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Instagram Stories: TTL content, view tracking, ranking.", tags: ["feed", "ttl", "cdn"], askedFor: "E5", frequency: "high" },
   { id: "meta-sd-4", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a typeahead/search-suggest service for Facebook.", tags: ["trie", "ranking", "cache"], askedFor: "E5", frequency: "medium" },
-  { id: "meta-sd-5", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a notification system — push to billions, dedup, batching.", tags: ["notifications", "queue", "fan-out"], askedFor: "E5", frequency: "high" },
-  { id: "meta-sd-6", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Live — broadcast to millions concurrently.", tags: ["streaming", "cdn", "hls"], askedFor: "E5–E6", frequency: "medium" },
+  { id: "meta-sd-5", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a notification system: push to billions, dedup, batching.", tags: ["notifications", "queue", "fan-out"], askedFor: "E5", frequency: "high" },
+  { id: "meta-sd-6", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Live: broadcast to millions concurrently.", tags: ["streaming", "cdn", "hls"], askedFor: "E5–E6", frequency: "medium" },
   { id: "meta-sd-7", company: "Meta", type: "system-design", difficulty: "medium", question: "Design a privacy-aware photo storage service (Haystack-like).", tags: ["storage", "blobs", "photos"], askedFor: "E5", frequency: "medium" },
   { id: "meta-lld-1", company: "Meta", type: "lld", difficulty: "medium", question: "Design a thread-safe rate limiter (token bucket) in Java/Python.", tags: ["concurrency", "rate-limit"], askedFor: "E5", frequency: "high" },
   { id: "meta-lld-2", company: "Meta", type: "lld", difficulty: "medium", question: "Design a publish-subscribe library (in-memory, multi-topic).", tags: ["pubsub", "observer"], askedFor: "E5", frequency: "medium" },
-  { id: "meta-dsa-1", company: "Meta", type: "dsa", difficulty: "medium", question: "Valid Palindrome II — at most one deletion.", tags: ["two-pointers", "string"], askedFor: "E4–E5", frequency: "high" },
-  { id: "meta-dsa-2", company: "Meta", type: "dsa", difficulty: "medium", question: "Subarray Sum Equals K — prefix sum + hashmap.", tags: ["prefix-sum", "hashmap"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-3", company: "Meta", type: "dsa", difficulty: "medium", question: "Random Pick with Weight — prefix sum + binary search.", tags: ["binary-search", "prefix-sum"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-4", company: "Meta", type: "dsa", difficulty: "medium", question: "Kth Largest Element in a Stream — min-heap.", tags: ["heap"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-5", company: "Meta", type: "dsa", difficulty: "medium", question: "Binary Tree Vertical Order Traversal — BFS with column index.", tags: ["tree", "bfs"], askedFor: "E4–E5", frequency: "high" },
+  { id: "meta-dsa-1", company: "Meta", type: "dsa", difficulty: "medium", question: "Valid Palindrome II: at most one deletion.", tags: ["two-pointers", "string"], askedFor: "E4–E5", frequency: "high" },
+  { id: "meta-dsa-2", company: "Meta", type: "dsa", difficulty: "medium", question: "Subarray Sum Equals K: prefix sum + hashmap.", tags: ["prefix-sum", "hashmap"], askedFor: "E4", frequency: "high" },
+  { id: "meta-dsa-3", company: "Meta", type: "dsa", difficulty: "medium", question: "Random Pick with Weight: prefix sum + binary search.", tags: ["binary-search", "prefix-sum"], askedFor: "E4", frequency: "high" },
+  { id: "meta-dsa-4", company: "Meta", type: "dsa", difficulty: "medium", question: "Kth Largest Element in a Stream: min-heap.", tags: ["heap"], askedFor: "E4", frequency: "high" },
+  { id: "meta-dsa-5", company: "Meta", type: "dsa", difficulty: "medium", question: "Binary Tree Vertical Order Traversal: BFS with column index.", tags: ["tree", "bfs"], askedFor: "E4–E5", frequency: "high" },
   { id: "meta-dsa-6", company: "Meta", type: "dsa", difficulty: "hard", question: "Range Sum of BST + iterative variant follow-up.", tags: ["tree", "dfs"], askedFor: "E4", frequency: "medium" },
   { id: "meta-dsa-7", company: "Meta", type: "dsa", difficulty: "hard", question: "Minimum Remove to Make Valid Parentheses.", tags: ["stack", "string"], askedFor: "E4", frequency: "high" },
   { id: "meta-dsa-8", company: "Meta", type: "dsa", difficulty: "medium", question: "Lowest Common Ancestor of a Binary Tree (no parent pointers).", tags: ["tree", "dfs"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-9", company: "Meta", type: "dsa", difficulty: "hard", question: "Basic Calculator II/III — parser with stack.", tags: ["stack", "parsing"], askedFor: "E4–E5", frequency: "high" },
+  { id: "meta-dsa-9", company: "Meta", type: "dsa", difficulty: "hard", question: "Basic Calculator II/III: parser with stack.", tags: ["stack", "parsing"], askedFor: "E4–E5", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // AMAZON
@@ -84,19 +84,19 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "amazon-sd-5", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design a distributed message queue (SQS/Kafka-like).", tags: ["queue", "kafka", "replication"], askedFor: "SDE-3", frequency: "high" },
   { id: "amazon-sd-6", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design an item-recommendation service (people-who-bought).", tags: ["recommendation", "collaborative-filtering"], askedFor: "SDE-2/3", frequency: "medium" },
   { id: "amazon-sd-7", company: "Amazon", type: "system-design", difficulty: "medium", question: "Design a flash-sale (Lightning Deal) system for hot inventory.", tags: ["inventory", "lock-free", "queue"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-lld-1", company: "Amazon", type: "lld", difficulty: "medium", question: "Design a Parking Lot — multi-floor, multi-vehicle, ticket + payment.", tags: ["oop", "strategy", "state"], askedFor: "SDE-2", frequency: "high", note: "Most common Amazon LLD." },
+  { id: "amazon-lld-1", company: "Amazon", type: "lld", difficulty: "medium", question: "Design a Parking Lot: multi-floor, multi-vehicle, ticket + payment.", tags: ["oop", "strategy", "state"], askedFor: "SDE-2", frequency: "high", note: "Most common Amazon LLD." },
   { id: "amazon-lld-2", company: "Amazon", type: "lld", difficulty: "medium", question: "Design Amazon Locker assignment.", tags: ["oop", "strategy"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-lld-3", company: "Amazon", type: "lld", difficulty: "medium", question: "Design an elevator system (multiple cars, scheduling strategy).", tags: ["oop", "state-machine"], askedFor: "SDE-2", frequency: "high" },
   { id: "amazon-lld-4", company: "Amazon", type: "lld", difficulty: "medium", question: "Design a Library Management System.", tags: ["oop"], askedFor: "SDE-1/2", frequency: "medium" },
-  { id: "amazon-dsa-1", company: "Amazon", type: "dsa", difficulty: "easy", question: "Two Sum — classic warm-up.", tags: ["hashmap", "array"], askedFor: "SDE-1", frequency: "high" },
-  { id: "amazon-dsa-2", company: "Amazon", type: "dsa", difficulty: "medium", question: "Trapping Rain Water — two pointers or stack.", tags: ["two-pointers", "stack"], askedFor: "SDE-2", frequency: "high" },
-  { id: "amazon-dsa-3", company: "Amazon", type: "dsa", difficulty: "medium", question: "K Closest Points to Origin — heap or quickselect.", tags: ["heap", "quickselect"], askedFor: "SDE-1/2", frequency: "high" },
-  { id: "amazon-dsa-4", company: "Amazon", type: "dsa", difficulty: "medium", question: "LRU Cache — implement get/put in O(1).", tags: ["lru", "linked-list", "hashmap"], askedFor: "SDE-2", frequency: "high" },
-  { id: "amazon-dsa-5", company: "Amazon", type: "dsa", difficulty: "medium", question: "Word Ladder — shortest transformation length (BFS).", tags: ["bfs"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-dsa-6", company: "Amazon", type: "dsa", difficulty: "hard", question: "Merge K Sorted Lists — min-heap of heads.", tags: ["heap", "linked-list"], askedFor: "SDE-2", frequency: "high" },
-  { id: "amazon-dsa-7", company: "Amazon", type: "dsa", difficulty: "medium", question: "Number of Islands — DFS/BFS on grid.", tags: ["grid", "dfs", "bfs"], askedFor: "SDE-1/2", frequency: "high" },
+  { id: "amazon-dsa-1", company: "Amazon", type: "dsa", difficulty: "easy", question: "Two Sum: classic warm-up.", tags: ["hashmap", "array"], askedFor: "SDE-1", frequency: "high" },
+  { id: "amazon-dsa-2", company: "Amazon", type: "dsa", difficulty: "medium", question: "Trapping Rain Water: two pointers or stack.", tags: ["two-pointers", "stack"], askedFor: "SDE-2", frequency: "high" },
+  { id: "amazon-dsa-3", company: "Amazon", type: "dsa", difficulty: "medium", question: "K Closest Points to Origin: heap or quickselect.", tags: ["heap", "quickselect"], askedFor: "SDE-1/2", frequency: "high" },
+  { id: "amazon-dsa-4", company: "Amazon", type: "dsa", difficulty: "medium", question: "LRU Cache: implement get/put in O(1).", tags: ["lru", "linked-list", "hashmap"], askedFor: "SDE-2", frequency: "high" },
+  { id: "amazon-dsa-5", company: "Amazon", type: "dsa", difficulty: "medium", question: "Word Ladder: shortest transformation length (BFS).", tags: ["bfs"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "amazon-dsa-6", company: "Amazon", type: "dsa", difficulty: "hard", question: "Merge K Sorted Lists: min-heap of heads.", tags: ["heap", "linked-list"], askedFor: "SDE-2", frequency: "high" },
+  { id: "amazon-dsa-7", company: "Amazon", type: "dsa", difficulty: "medium", question: "Number of Islands: DFS/BFS on grid.", tags: ["grid", "dfs", "bfs"], askedFor: "SDE-1/2", frequency: "high" },
   { id: "amazon-dsa-8", company: "Amazon", type: "dsa", difficulty: "medium", question: "Copy List with Random Pointer.", tags: ["linked-list", "hashmap"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-dsa-9", company: "Amazon", type: "dsa", difficulty: "hard", question: "Word Break II — return all sentences.", tags: ["dp", "backtracking"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "amazon-dsa-9", company: "Amazon", type: "dsa", difficulty: "hard", question: "Word Break II: return all sentences.", tags: ["dp", "backtracking"], askedFor: "SDE-2", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // MICROSOFT
@@ -111,7 +111,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "microsoft-dsa-1", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Serialize and Deserialize Binary Tree.", tags: ["tree", "design"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-dsa-2", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Reverse Linked List in Groups of K.", tags: ["linked-list"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-dsa-3", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Spiral Matrix traversal.", tags: ["matrix"], askedFor: "L62", frequency: "high" },
-  { id: "microsoft-dsa-4", company: "Microsoft", type: "dsa", difficulty: "hard", question: "Median of Two Sorted Arrays — O(log(min(m,n))).", tags: ["binary-search"], askedFor: "L63", frequency: "medium" },
+  { id: "microsoft-dsa-4", company: "Microsoft", type: "dsa", difficulty: "hard", question: "Median of Two Sorted Arrays: O(log(min(m,n))).", tags: ["binary-search"], askedFor: "L63", frequency: "medium" },
   { id: "microsoft-dsa-5", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Implement Trie (insert, search, startsWith).", tags: ["trie"], askedFor: "L62", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -121,17 +121,17 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "apple-sd-2", company: "Apple", type: "system-design", difficulty: "hard", question: "Design Apple Push Notification Service (APNs).", tags: ["push", "fan-out", "tls"], askedFor: "ICT4", frequency: "medium" },
   { id: "apple-sd-3", company: "Apple", type: "system-design", difficulty: "hard", question: "Design iCloud Photos backup + sync.", tags: ["sync", "storage", "dedup"], askedFor: "ICT4", frequency: "medium" },
   { id: "apple-sd-4", company: "Apple", type: "system-design", difficulty: "medium", question: "Design a music-streaming service (Apple Music).", tags: ["streaming", "cdn"], askedFor: "ICT4", frequency: "medium" },
-  { id: "apple-lld-1", company: "Apple", type: "lld", difficulty: "medium", question: "Design a Vending Machine — state machine + payment.", tags: ["state-machine", "oop"], askedFor: "ICT3", frequency: "high" },
+  { id: "apple-lld-1", company: "Apple", type: "lld", difficulty: "medium", question: "Design a Vending Machine: state machine + payment.", tags: ["state-machine", "oop"], askedFor: "ICT3", frequency: "high" },
   { id: "apple-lld-2", company: "Apple", type: "lld", difficulty: "medium", question: "Design a Music Player (queue, shuffle, repeat).", tags: ["oop", "queue"], askedFor: "ICT3", frequency: "medium" },
   { id: "apple-dsa-1", company: "Apple", type: "dsa", difficulty: "medium", question: "Validate Binary Search Tree.", tags: ["tree", "dfs"], askedFor: "ICT3", frequency: "high" },
   { id: "apple-dsa-2", company: "Apple", type: "dsa", difficulty: "medium", question: "Longest Substring Without Repeating Characters.", tags: ["sliding-window"], askedFor: "ICT3", frequency: "high" },
   { id: "apple-dsa-3", company: "Apple", type: "dsa", difficulty: "medium", question: "Implement a circular queue / deque from scratch.", tags: ["queue", "design"], askedFor: "ICT3", frequency: "medium" },
-  { id: "apple-dsa-4", company: "Apple", type: "dsa", difficulty: "hard", question: "Sliding Window Maximum — monotonic deque.", tags: ["sliding-window", "deque"], askedFor: "ICT4", frequency: "high" },
+  { id: "apple-dsa-4", company: "Apple", type: "dsa", difficulty: "hard", question: "Sliding Window Maximum: monotonic deque.", tags: ["sliding-window", "deque"], askedFor: "ICT4", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // NETFLIX
   // ────────────────────────────────────────────────────────────────────
-  { id: "netflix-sd-1", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix video streaming — encoding, CDN, adaptive bitrate.", tags: ["cdn", "hls", "dash", "encoding"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "netflix-sd-1", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix video streaming: encoding, CDN, adaptive bitrate.", tags: ["cdn", "hls", "dash", "encoding"], askedFor: "Senior SWE", frequency: "high" },
   { id: "netflix-sd-2", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design the recommendation/ranking system.", tags: ["ml", "ranking", "personalization"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-sd-3", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design a global content metadata service (KV at scale).", tags: ["kv-store", "replication"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-sd-4", company: "Netflix", type: "system-design", difficulty: "medium", question: "Design A/B testing platform.", tags: ["experimentation", "metrics"], askedFor: "Senior", frequency: "medium" },
@@ -142,27 +142,27 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // UBER
   // ────────────────────────────────────────────────────────────────────
-  { id: "uber-sd-1", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber — rider/driver matching, ETA, surge.", tags: ["geo", "matching", "real-time"], askedFor: "L5", frequency: "high" },
+  { id: "uber-sd-1", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber: rider/driver matching, ETA, surge.", tags: ["geo", "matching", "real-time"], askedFor: "L5", frequency: "high" },
   { id: "uber-sd-2", company: "Uber", type: "system-design", difficulty: "hard", question: "Design a geo-spatial index for nearby-drivers query.", tags: ["geo", "quadtree", "geohash"], askedFor: "L5", frequency: "high" },
   { id: "uber-sd-3", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber Eats / food delivery system.", tags: ["matching", "geo", "workflow"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-4", company: "Uber", type: "system-design", difficulty: "hard", question: "Design a payments/payouts ledger.", tags: ["ledger", "consistency", "double-entry"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-5", company: "Uber", type: "system-design", difficulty: "medium", question: "Design distributed surge pricing computation.", tags: ["pricing", "stream"], askedFor: "L5", frequency: "medium" },
   { id: "uber-lld-1", company: "Uber", type: "lld", difficulty: "medium", question: "Design a Cab Booking app (entities, state, strategy).", tags: ["oop", "strategy", "state"], askedFor: "L4–L5", frequency: "high" },
-  { id: "uber-lld-2", company: "Uber", type: "lld", difficulty: "medium", question: "Design Splitwise — expense splitting + simplify debts.", tags: ["graph", "oop"], askedFor: "L4–L5", frequency: "high" },
+  { id: "uber-lld-2", company: "Uber", type: "lld", difficulty: "medium", question: "Design Splitwise: expense splitting + simplify debts.", tags: ["graph", "oop"], askedFor: "L4–L5", frequency: "high" },
   { id: "uber-dsa-1", company: "Uber", type: "dsa", difficulty: "medium", question: "Design Hit Counter (last 5 min).", tags: ["queue", "design"], askedFor: "L4", frequency: "high" },
   { id: "uber-dsa-2", company: "Uber", type: "dsa", difficulty: "medium", question: "Time-based Key-Value Store.", tags: ["binary-search", "design"], askedFor: "L4", frequency: "high" },
-  { id: "uber-dsa-3", company: "Uber", type: "dsa", difficulty: "hard", question: "Alien Dictionary — topological sort.", tags: ["graph", "topo-sort"], askedFor: "L5", frequency: "high" },
+  { id: "uber-dsa-3", company: "Uber", type: "dsa", difficulty: "hard", question: "Alien Dictionary: topological sort.", tags: ["graph", "topo-sort"], askedFor: "L5", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // AIRBNB
   // ────────────────────────────────────────────────────────────────────
-  { id: "airbnb-sd-1", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb — listings, search by date/location, booking with concurrency.", tags: ["search", "geo", "booking", "consistency"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "airbnb-sd-1", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb: listings, search by date/location, booking with concurrency.", tags: ["search", "geo", "booking", "consistency"], askedFor: "Senior SWE", frequency: "high" },
   { id: "airbnb-sd-2", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design a search/filter ranking pipeline for listings.", tags: ["search", "ranking"], askedFor: "Senior", frequency: "medium" },
   { id: "airbnb-sd-3", company: "Airbnb", type: "system-design", difficulty: "medium", question: "Design a review + rating system with abuse detection.", tags: ["moderation", "ranking"], askedFor: "Senior", frequency: "medium" },
   { id: "airbnb-lld-1", company: "Airbnb", type: "lld", difficulty: "medium", question: "Design a Hotel/Room booking system (no double-bookings).", tags: ["oop", "concurrency"], askedFor: "Senior", frequency: "high" },
-  { id: "airbnb-dsa-1", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Pour Water — simulation problem.", tags: ["simulation"], askedFor: "Senior", frequency: "medium" },
-  { id: "airbnb-dsa-2", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Regular Expression Matching — DP.", tags: ["dp", "string"], askedFor: "Senior", frequency: "medium" },
-  { id: "airbnb-dsa-3", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Boggle / Word Search II — Trie + DFS.", tags: ["trie", "dfs"], askedFor: "Senior", frequency: "high" },
+  { id: "airbnb-dsa-1", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Pour Water: simulation problem.", tags: ["simulation"], askedFor: "Senior", frequency: "medium" },
+  { id: "airbnb-dsa-2", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Regular Expression Matching: DP.", tags: ["dp", "string"], askedFor: "Senior", frequency: "medium" },
+  { id: "airbnb-dsa-3", company: "Airbnb", type: "dsa", difficulty: "medium", question: "Boggle / Word Search II: Trie + DFS.", tags: ["trie", "dfs"], askedFor: "Senior", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // LINKEDIN
@@ -178,10 +178,10 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // TWITTER / X
   // ────────────────────────────────────────────────────────────────────
-  { id: "twitter-sd-1", company: "Twitter / X", type: "system-design", difficulty: "hard", question: "Design Twitter — timeline (home + user), follow graph, fan-out.", tags: ["feed", "fan-out", "graph"], askedFor: "Senior", frequency: "high" },
+  { id: "twitter-sd-1", company: "Twitter / X", type: "system-design", difficulty: "hard", question: "Design Twitter: timeline (home + user), follow graph, fan-out.", tags: ["feed", "fan-out", "graph"], askedFor: "Senior", frequency: "high" },
   { id: "twitter-sd-2", company: "Twitter / X", type: "system-design", difficulty: "hard", question: "Design trending hashtags (top-K over a stream).", tags: ["stream", "top-k", "count-min"], askedFor: "Senior", frequency: "high" },
   { id: "twitter-sd-3", company: "Twitter / X", type: "system-design", difficulty: "medium", question: "Design tweet search.", tags: ["search", "elasticsearch"], askedFor: "Senior", frequency: "medium" },
-  { id: "twitter-dsa-1", company: "Twitter / X", type: "dsa", difficulty: "medium", question: "Design Twitter (data structure problem — postTweet/getNewsFeed).", tags: ["design", "heap"], askedFor: "Mid–Senior", frequency: "high" },
+  { id: "twitter-dsa-1", company: "Twitter / X", type: "dsa", difficulty: "medium", question: "Design Twitter (data structure problem: postTweet/getNewsFeed).", tags: ["design", "heap"], askedFor: "Mid–Senior", frequency: "high" },
   { id: "twitter-dsa-2", company: "Twitter / X", type: "dsa", difficulty: "hard", question: "Find Median from Data Stream.", tags: ["heap", "design"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -199,12 +199,12 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ATLASSIAN
   // ────────────────────────────────────────────────────────────────────
-  { id: "atlassian-sd-1", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Jira — projects, issues, workflow, permissions.", tags: ["workflow", "rbac", "search"], askedFor: "P50–P60", frequency: "high" },
-  { id: "atlassian-sd-2", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Confluence — collaborative document editing.", tags: ["crdt", "ot", "collaboration"], askedFor: "P50", frequency: "medium" },
+  { id: "atlassian-sd-1", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Jira: projects, issues, workflow, permissions.", tags: ["workflow", "rbac", "search"], askedFor: "P50–P60", frequency: "high" },
+  { id: "atlassian-sd-2", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Confluence: collaborative document editing.", tags: ["crdt", "ot", "collaboration"], askedFor: "P50", frequency: "medium" },
   { id: "atlassian-sd-3", company: "Atlassian", type: "system-design", difficulty: "medium", question: "Design a notification + email digest service.", tags: ["notifications", "queue"], askedFor: "P50", frequency: "medium" },
   { id: "atlassian-lld-1", company: "Atlassian", type: "lld", difficulty: "medium", question: "Design a task scheduler (cron-like) with retries.", tags: ["scheduler", "queue"], askedFor: "P50", frequency: "high" },
   { id: "atlassian-lld-2", company: "Atlassian", type: "lld", difficulty: "medium", question: "Design Logger Rate Limiter.", tags: ["rate-limit"], askedFor: "P40–P50", frequency: "medium" },
-  { id: "atlassian-dsa-1", company: "Atlassian", type: "dsa", difficulty: "medium", question: "Course Schedule II — topological sort.", tags: ["graph", "topo-sort"], askedFor: "P50", frequency: "high" },
+  { id: "atlassian-dsa-1", company: "Atlassian", type: "dsa", difficulty: "medium", question: "Course Schedule II: topological sort.", tags: ["graph", "topo-sort"], askedFor: "P50", frequency: "high" },
   { id: "atlassian-dsa-2", company: "Atlassian", type: "dsa", difficulty: "medium", question: "Design a Hit Counter with sliding window.", tags: ["sliding-window", "design"], askedFor: "P50", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "sfdc-sd-2", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design a workflow/automation engine (Process Builder-like).", tags: ["workflow", "rules"], askedFor: "MTS+", frequency: "medium" },
   { id: "sfdc-lld-1", company: "Salesforce", type: "lld", difficulty: "medium", question: "Design a rule engine evaluating boolean expressions.", tags: ["interpreter", "oop"], askedFor: "MTS", frequency: "medium" },
   { id: "sfdc-dsa-1", company: "Salesforce", type: "dsa", difficulty: "medium", question: "Group Anagrams.", tags: ["hashmap", "string"], askedFor: "MTS", frequency: "high" },
-  { id: "sfdc-dsa-2", company: "Salesforce", type: "dsa", difficulty: "medium", question: "Rotting Oranges — multi-source BFS.", tags: ["bfs", "grid"], askedFor: "MTS", frequency: "high" },
+  { id: "sfdc-dsa-2", company: "Salesforce", type: "dsa", difficulty: "medium", question: "Rotting Oranges: multi-source BFS.", tags: ["bfs", "grid"], askedFor: "MTS", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // ADOBE
@@ -254,7 +254,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // SNOWFLAKE
   // ────────────────────────────────────────────────────────────────────
   { id: "snowflake-sd-1", company: "Snowflake", type: "system-design", difficulty: "hard", question: "Design a query-planning + execution layer for an analytical DB.", tags: ["db", "olap", "query-planner"], askedFor: "Senior", frequency: "medium" },
-  { id: "snowflake-dsa-1", company: "Snowflake", type: "dsa", difficulty: "medium", question: "Range Sum Query — 2D Immutable (prefix sum).", tags: ["prefix-sum"], askedFor: "Senior", frequency: "medium" },
+  { id: "snowflake-dsa-1", company: "Snowflake", type: "dsa", difficulty: "medium", question: "Range Sum Query: 2D Immutable (prefix sum).", tags: ["prefix-sum"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // DATABRICKS
@@ -273,7 +273,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // DROPBOX
   // ────────────────────────────────────────────────────────────────────
-  { id: "dropbox-sd-1", company: "Dropbox", type: "system-design", difficulty: "hard", question: "Design Dropbox — chunking, dedup, sync, conflict resolution.", tags: ["sync", "chunking", "dedup"], askedFor: "IC3–IC4", frequency: "high" },
+  { id: "dropbox-sd-1", company: "Dropbox", type: "system-design", difficulty: "hard", question: "Design Dropbox: chunking, dedup, sync, conflict resolution.", tags: ["sync", "chunking", "dedup"], askedFor: "IC3–IC4", frequency: "high" },
   { id: "dropbox-sd-2", company: "Dropbox", type: "system-design", difficulty: "medium", question: "Design a file-sharing link service.", tags: ["sharing", "auth"], askedFor: "IC3", frequency: "medium" },
   { id: "dropbox-dsa-1", company: "Dropbox", type: "dsa", difficulty: "medium", question: "Find Duplicate Files in a Filesystem.", tags: ["hashmap", "filesystem"], askedFor: "IC3", frequency: "medium" },
 
@@ -286,20 +286,20 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // SLACK
   // ────────────────────────────────────────────────────────────────────
-  { id: "slack-sd-1", company: "Slack", type: "system-design", difficulty: "hard", question: "Design Slack — channels, real-time messages, search.", tags: ["chat", "websocket", "search"], askedFor: "Senior", frequency: "high" },
+  { id: "slack-sd-1", company: "Slack", type: "system-design", difficulty: "hard", question: "Design Slack: channels, real-time messages, search.", tags: ["chat", "websocket", "search"], askedFor: "Senior", frequency: "high" },
   { id: "slack-sd-2", company: "Slack", type: "system-design", difficulty: "medium", question: "Design Slack message search across workspaces.", tags: ["search", "indexing"], askedFor: "Senior", frequency: "medium" },
   { id: "slack-dsa-1", company: "Slack", type: "dsa", difficulty: "medium", question: "Design In-Memory File System.", tags: ["trie", "design"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // ZOOM
   // ────────────────────────────────────────────────────────────────────
-  { id: "zoom-sd-1", company: "Zoom", type: "system-design", difficulty: "hard", question: "Design Zoom — video conferencing for 1000+ participants.", tags: ["webrtc", "sfu", "media"], askedFor: "Senior", frequency: "high" },
+  { id: "zoom-sd-1", company: "Zoom", type: "system-design", difficulty: "hard", question: "Design Zoom: video conferencing for 1000+ participants.", tags: ["webrtc", "sfu", "media"], askedFor: "Senior", frequency: "high" },
   { id: "zoom-sd-2", company: "Zoom", type: "system-design", difficulty: "medium", question: "Design webinar broadcast (one-to-many).", tags: ["streaming"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // DOORDASH
   // ────────────────────────────────────────────────────────────────────
-  { id: "doordash-sd-1", company: "DoorDash", type: "system-design", difficulty: "hard", question: "Design DoorDash — courier/restaurant/customer matching.", tags: ["matching", "geo"], askedFor: "Senior", frequency: "high" },
+  { id: "doordash-sd-1", company: "DoorDash", type: "system-design", difficulty: "hard", question: "Design DoorDash: courier/restaurant/customer matching.", tags: ["matching", "geo"], askedFor: "Senior", frequency: "high" },
   { id: "doordash-sd-2", company: "DoorDash", type: "system-design", difficulty: "medium", question: "Design real-time delivery tracking.", tags: ["geo", "websocket"], askedFor: "Senior", frequency: "medium" },
   { id: "doordash-dsa-1", company: "DoorDash", type: "dsa", difficulty: "medium", question: "Asteroid Collision (stack).", tags: ["stack"], askedFor: "Senior", frequency: "high" },
 
@@ -338,7 +338,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "flipkart-sd-3", company: "Flipkart", type: "system-design", difficulty: "hard", question: "Design the order-management system across warehouses.", tags: ["workflow", "inventory"], askedFor: "SDE-3", frequency: "medium" },
   { id: "flipkart-lld-1", company: "Flipkart", type: "lld", difficulty: "medium", question: "Design BookMyShow / movie ticket booking (seat lock).", tags: ["oop", "concurrency"], askedFor: "SDE-2", frequency: "high" },
   { id: "flipkart-lld-2", company: "Flipkart", type: "lld", difficulty: "medium", question: "Design Notification Service with multiple channels.", tags: ["strategy", "queue"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "flipkart-dsa-1", company: "Flipkart", type: "dsa", difficulty: "medium", question: "Min Stack — O(1) getMin.", tags: ["stack"], askedFor: "SDE-1/2", frequency: "high" },
+  { id: "flipkart-dsa-1", company: "Flipkart", type: "dsa", difficulty: "medium", question: "Min Stack: O(1) getMin.", tags: ["stack"], askedFor: "SDE-1/2", frequency: "high" },
   { id: "flipkart-dsa-2", company: "Flipkart", type: "dsa", difficulty: "medium", question: "Maximum of all subarrays of size K.", tags: ["sliding-window", "deque"], askedFor: "SDE-2", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -353,7 +353,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // SWIGGY
   // ────────────────────────────────────────────────────────────────────
-  { id: "swiggy-sd-1", company: "Swiggy", type: "system-design", difficulty: "hard", question: "Design Swiggy — restaurant discovery, ordering, delivery matching.", tags: ["geo", "matching", "workflow"], askedFor: "SDE-3", frequency: "high" },
+  { id: "swiggy-sd-1", company: "Swiggy", type: "system-design", difficulty: "hard", question: "Design Swiggy: restaurant discovery, ordering, delivery matching.", tags: ["geo", "matching", "workflow"], askedFor: "SDE-3", frequency: "high" },
   { id: "swiggy-sd-2", company: "Swiggy", type: "system-design", difficulty: "hard", question: "Design dynamic ETA service for food delivery.", tags: ["ml", "geo"], askedFor: "SDE-2/3", frequency: "medium" },
   { id: "swiggy-lld-1", company: "Swiggy", type: "lld", difficulty: "medium", question: "Design a Food Delivery app (entities + state).", tags: ["oop", "state-machine"], askedFor: "SDE-2", frequency: "high" },
   { id: "swiggy-dsa-1", company: "Swiggy", type: "dsa", difficulty: "medium", question: "Find nearest K restaurants (heap + geohash).", tags: ["heap", "geo"], askedFor: "SDE-2", frequency: "medium" },
@@ -361,7 +361,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ZOMATO
   // ────────────────────────────────────────────────────────────────────
-  { id: "zomato-sd-1", company: "Zomato", type: "system-design", difficulty: "hard", question: "Design Zomato — restaurant search + ordering + reviews.", tags: ["search", "ranking"], askedFor: "SDE-2/3", frequency: "high" },
+  { id: "zomato-sd-1", company: "Zomato", type: "system-design", difficulty: "hard", question: "Design Zomato: restaurant search + ordering + reviews.", tags: ["search", "ranking"], askedFor: "SDE-2/3", frequency: "high" },
   { id: "zomato-lld-1", company: "Zomato", type: "lld", difficulty: "medium", question: "Design a Review/Rating system with abuse detection.", tags: ["oop"], askedFor: "SDE-2", frequency: "medium" },
   { id: "zomato-dsa-1", company: "Zomato", type: "dsa", difficulty: "medium", question: "Top K Most Frequent Items.", tags: ["heap", "hashmap"], askedFor: "SDE-2", frequency: "high" },
 
@@ -370,7 +370,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   { id: "phonepe-sd-1", company: "PhonePe", type: "system-design", difficulty: "hard", question: "Design a UPI payment processing system.", tags: ["payments", "upi", "idempotency"], askedFor: "SDE-3", frequency: "high" },
   { id: "phonepe-sd-2", company: "PhonePe", type: "system-design", difficulty: "hard", question: "Design a wallet (balance, transactions, settlements).", tags: ["ledger", "wallet"], askedFor: "SDE-2/3", frequency: "high" },
-  { id: "phonepe-lld-1", company: "PhonePe", type: "lld", difficulty: "medium", question: "Design Splitwise — group expense splitting.", tags: ["oop", "graph"], askedFor: "SDE-2", frequency: "high" },
+  { id: "phonepe-lld-1", company: "PhonePe", type: "lld", difficulty: "medium", question: "Design Splitwise: group expense splitting.", tags: ["oop", "graph"], askedFor: "SDE-2", frequency: "high" },
   { id: "phonepe-dsa-1", company: "PhonePe", type: "dsa", difficulty: "medium", question: "Minimum cash flow among friends (simplify debts).", tags: ["graph", "greedy"], askedFor: "SDE-2", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // DREAM11
   // ────────────────────────────────────────────────────────────────────
-  { id: "dream11-sd-1", company: "Dream11", type: "system-design", difficulty: "hard", question: "Design Dream11 — fantasy sports with live leaderboards.", tags: ["leaderboard", "real-time", "scaling"], askedFor: "Senior", frequency: "high" },
+  { id: "dream11-sd-1", company: "Dream11", type: "system-design", difficulty: "hard", question: "Design Dream11: fantasy sports with live leaderboards.", tags: ["leaderboard", "real-time", "scaling"], askedFor: "Senior", frequency: "high" },
   { id: "dream11-lld-1", company: "Dream11", type: "lld", difficulty: "medium", question: "Design a leaderboard (top-K + ranks).", tags: ["heap", "design"], askedFor: "Senior", frequency: "high" },
   { id: "dream11-dsa-1", company: "Dream11", type: "dsa", difficulty: "medium", question: "K-th Largest in Stream (heap).", tags: ["heap"], askedFor: "Mid", frequency: "high" },
 
@@ -437,44 +437,44 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // GOOGLE (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "google-sd-9",  company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Photos — upload, dedup, ML tagging, album sharing.", tags: ["storage", "ml", "dedup", "sharing"], askedFor: "L5–L6", frequency: "medium" },
+  { id: "google-sd-9",  company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Photos: upload, dedup, ML tagging, album sharing.", tags: ["storage", "ml", "dedup", "sharing"], askedFor: "L5–L6", frequency: "medium" },
   { id: "google-sd-10", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Docs collaborative editor (OT / CRDT).", tags: ["crdt", "ot", "collaboration", "websocket"], askedFor: "L5–L6", frequency: "high", note: "Operational Transformation vs CRDT tradeoff is the crux." },
-  { id: "google-sd-11", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Calendar — recurring events, timezone handling, invites.", tags: ["scheduling", "calendar", "timezone"], askedFor: "L5", frequency: "medium" },
-  { id: "google-sd-12", company: "Google", type: "system-design", difficulty: "hard", question: "Design Bigtable — wide-column storage, compaction, tablet splits.", tags: ["storage", "wide-column", "lsm"], askedFor: "L6", frequency: "medium" },
+  { id: "google-sd-11", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Calendar: recurring events, timezone handling, invites.", tags: ["scheduling", "calendar", "timezone"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-12", company: "Google", type: "system-design", difficulty: "hard", question: "Design Bigtable: wide-column storage, compaction, tablet splits.", tags: ["storage", "wide-column", "lsm"], askedFor: "L6", frequency: "medium" },
   { id: "google-sd-13", company: "Google", type: "system-design", difficulty: "hard", question: "Design a distributed key-value store (Spanner-like, multi-region).", tags: ["distributed-db", "consensus", "paxos", "spanner"], askedFor: "L6", frequency: "medium" },
-  { id: "google-sd-14", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Pay — payments, UPI rails, fraud detection.", tags: ["payments", "fraud", "upi"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-14", company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Pay: payments, UPI rails, fraud detection.", tags: ["payments", "fraud", "upi"], askedFor: "L5", frequency: "medium" },
   { id: "google-sd-15", company: "Google", type: "system-design", difficulty: "hard", question: "Design a large-scale ad serving platform (DoubleClick-like).", tags: ["ads", "real-time-bidding", "targeting"], askedFor: "L5–L6", frequency: "medium" },
-  { id: "google-sd-16", company: "Google", type: "system-design", difficulty: "hard", question: "Design PubSub (Cloud Pub/Sub) — durable, at-least-once delivery.", tags: ["pubsub", "queue", "replication"], askedFor: "L5", frequency: "medium" },
-  { id: "google-sd-17", company: "Google", type: "system-design", difficulty: "hard", question: "Design a CDN from scratch — PoPs, cache hierarchy, purge.", tags: ["cdn", "cache", "anycast"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-16", company: "Google", type: "system-design", difficulty: "hard", question: "Design PubSub (Cloud Pub/Sub): durable, at-least-once delivery.", tags: ["pubsub", "queue", "replication"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-17", company: "Google", type: "system-design", difficulty: "hard", question: "Design a CDN from scratch: PoPs, cache hierarchy, purge.", tags: ["cdn", "cache", "anycast"], askedFor: "L5", frequency: "medium" },
   { id: "google-sd-18", company: "Google", type: "system-design", difficulty: "hard", question: "Design a real-time analytics pipeline (Dataflow-like).", tags: ["stream", "analytics", "beam"], askedFor: "L5", frequency: "low" },
   { id: "google-lld-4", company: "Google", type: "lld", difficulty: "medium", question: "Design a parking lot fee calculator with multiple fee strategies.", tags: ["strategy", "oop"], askedFor: "L4", frequency: "medium" },
   { id: "google-lld-5", company: "Google", type: "lld", difficulty: "hard",   question: "Design a code deployment pipeline (stages, rollback, approval gates).", tags: ["oop", "state-machine"], askedFor: "L5", frequency: "medium" },
   { id: "google-lld-6", company: "Google", type: "lld", difficulty: "medium", question: "Design a concurrent task queue (worker pool pattern).", tags: ["concurrency", "thread-pool"], askedFor: "L5", frequency: "medium" },
   { id: "google-dsa-9",  company: "Google", type: "dsa", difficulty: "medium", question: "Find the Celebrity (API-restricted graph).", tags: ["graph"], askedFor: "L4", frequency: "high" },
   { id: "google-dsa-10", company: "Google", type: "dsa", difficulty: "hard",   question: "Trapping Rain Water II (3-D, heap BFS).", tags: ["heap", "bfs", "grid"], askedFor: "L5", frequency: "medium" },
-  { id: "google-dsa-11", company: "Google", type: "dsa", difficulty: "hard",   question: "Text Justification — greedy + string formatting.", tags: ["string", "greedy"], askedFor: "L4–L5", frequency: "high" },
-  { id: "google-dsa-12", company: "Google", type: "dsa", difficulty: "medium", question: "Jump Game II — minimum jumps (greedy).", tags: ["greedy"], askedFor: "L4", frequency: "high" },
-  { id: "google-dsa-13", company: "Google", type: "dsa", difficulty: "hard",   question: "Count of Range Sum — merge-sort or BIT.", tags: ["divide-conquer", "bit"], askedFor: "L5", frequency: "medium" },
+  { id: "google-dsa-11", company: "Google", type: "dsa", difficulty: "hard",   question: "Text Justification: greedy + string formatting.", tags: ["string", "greedy"], askedFor: "L4–L5", frequency: "high" },
+  { id: "google-dsa-12", company: "Google", type: "dsa", difficulty: "medium", question: "Jump Game II: minimum jumps (greedy).", tags: ["greedy"], askedFor: "L4", frequency: "high" },
+  { id: "google-dsa-13", company: "Google", type: "dsa", difficulty: "hard",   question: "Count of Range Sum: merge-sort or BIT.", tags: ["divide-conquer", "bit"], askedFor: "L5", frequency: "medium" },
   { id: "google-dsa-14", company: "Google", type: "dsa", difficulty: "medium", question: "Most Common Word (ignoring banned).", tags: ["hashmap", "string"], askedFor: "L4", frequency: "medium" },
   { id: "google-dsa-15", company: "Google", type: "dsa", difficulty: "hard",   question: "Maximal Rectangle (stack on histogram).", tags: ["stack", "dp"], askedFor: "L5", frequency: "high" },
-  { id: "google-dsa-16", company: "Google", type: "dsa", difficulty: "medium", question: "Strobogrammatic Number II — recursion.", tags: ["recursion"], askedFor: "L4", frequency: "medium" },
+  { id: "google-dsa-16", company: "Google", type: "dsa", difficulty: "medium", question: "Strobogrammatic Number II: recursion.", tags: ["recursion"], askedFor: "L4", frequency: "medium" },
   { id: "google-dsa-17", company: "Google", type: "dsa", difficulty: "hard",   question: "Minimum Window Substring.", tags: ["sliding-window", "hashmap"], askedFor: "L4–L5", frequency: "high" },
   { id: "google-dsa-18", company: "Google", type: "dsa", difficulty: "medium", question: "Rotate Array in-place (reversal trick).", tags: ["array"], askedFor: "L4", frequency: "medium" },
   { id: "google-dsa-19", company: "Google", type: "dsa", difficulty: "hard",   question: "Robot Room Cleaner (backtracking, virtual coordinates).", tags: ["backtracking", "dfs"], askedFor: "L5", frequency: "high" },
   { id: "google-dsa-20", company: "Google", type: "dsa", difficulty: "medium", question: "Fruit Into Baskets (sliding window, ≤2 distinct).", tags: ["sliding-window"], askedFor: "L4", frequency: "medium" },
-  { id: "google-dsa-21", company: "Google", type: "dsa", difficulty: "hard",   question: "Strange Printer — interval DP.", tags: ["dp", "interval-dp"], askedFor: "L5", frequency: "medium" },
-  { id: "google-dsa-22", company: "Google", type: "dsa", difficulty: "medium", question: "Next Permutation — O(n) in-place.", tags: ["array"], askedFor: "L4", frequency: "high" },
+  { id: "google-dsa-21", company: "Google", type: "dsa", difficulty: "hard",   question: "Strange Printer: interval DP.", tags: ["dp", "interval-dp"], askedFor: "L5", frequency: "medium" },
+  { id: "google-dsa-22", company: "Google", type: "dsa", difficulty: "medium", question: "Next Permutation: O(n) in-place.", tags: ["array"], askedFor: "L4", frequency: "high" },
   { id: "google-dsa-23", company: "Google", type: "dsa", difficulty: "hard",   question: "Largest Rectangle in Histogram.", tags: ["stack"], askedFor: "L5", frequency: "high" },
   { id: "google-dsa-24", company: "Google", type: "dsa", difficulty: "medium", question: "Decode String (stack, nested brackets).", tags: ["stack", "string"], askedFor: "L4", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // META (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "meta-sd-8",  company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Marketplace — listing, search, messaging.", tags: ["search", "geo", "messaging"], askedFor: "E5", frequency: "medium" },
-  { id: "meta-sd-9",  company: "Meta", type: "system-design", difficulty: "hard", question: "Design Instagram Reels — short-video feed ranking + CDN.", tags: ["video", "cdn", "ranking", "ml"], askedFor: "E5–E6", frequency: "high" },
+  { id: "meta-sd-8",  company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Marketplace: listing, search, messaging.", tags: ["search", "geo", "messaging"], askedFor: "E5", frequency: "medium" },
+  { id: "meta-sd-9",  company: "Meta", type: "system-design", difficulty: "hard", question: "Design Instagram Reels: short-video feed ranking + CDN.", tags: ["video", "cdn", "ranking", "ml"], askedFor: "E5–E6", frequency: "high" },
   { id: "meta-sd-10", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a global distributed cache (Memcache at Meta scale).", tags: ["cache", "replication", "consistency"], askedFor: "E6", frequency: "medium", note: "Directly maps to Meta's published Memcache paper." },
   { id: "meta-sd-11", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a graph-aware social search (across users, posts, pages).", tags: ["search", "graph", "indexing"], askedFor: "E5–E6", frequency: "medium" },
-  { id: "meta-sd-12", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Events — RSVP, recommendation, scalability.", tags: ["events", "recommendation"], askedFor: "E5", frequency: "low" },
+  { id: "meta-sd-12", company: "Meta", type: "system-design", difficulty: "hard", question: "Design Facebook Events: RSVP, recommendation, scalability.", tags: ["events", "recommendation"], askedFor: "E5", frequency: "low" },
   { id: "meta-sd-13", company: "Meta", type: "system-design", difficulty: "hard", question: "Design WhatsApp group chat (up to 1024 members, E2EE).", tags: ["chat", "e2ee", "group"], askedFor: "E5", frequency: "high" },
   { id: "meta-sd-14", company: "Meta", type: "system-design", difficulty: "hard", question: "Design a content moderation pipeline (images, video, text).", tags: ["ml", "moderation", "queue"], askedFor: "E5", frequency: "medium" },
   { id: "meta-sd-15", company: "Meta", type: "system-design", difficulty: "hard", question: "Design the Ads bidding & auction system.", tags: ["ads", "rtb", "auction"], askedFor: "E6", frequency: "medium" },
@@ -485,40 +485,40 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "meta-dsa-12", company: "Meta", type: "dsa", difficulty: "hard",   question: "Max Points on a Line (slope hashing).", tags: ["math", "hashmap"], askedFor: "E5", frequency: "medium" },
   { id: "meta-dsa-13", company: "Meta", type: "dsa", difficulty: "medium", question: "Brace Expansion (backtracking).", tags: ["backtracking"], askedFor: "E4–E5", frequency: "medium" },
   { id: "meta-dsa-14", company: "Meta", type: "dsa", difficulty: "hard",   question: "Minimum Number of Remove to Make Array Sorted.", tags: ["dp", "lis"], askedFor: "E5", frequency: "low" },
-  { id: "meta-dsa-15", company: "Meta", type: "dsa", difficulty: "medium", question: "Longest Palindromic Subsequence — DP.", tags: ["dp", "string"], askedFor: "E4", frequency: "medium" },
+  { id: "meta-dsa-15", company: "Meta", type: "dsa", difficulty: "medium", question: "Longest Palindromic Subsequence: DP.", tags: ["dp", "string"], askedFor: "E4", frequency: "medium" },
   { id: "meta-dsa-16", company: "Meta", type: "dsa", difficulty: "medium", question: "Dot Product of Two Sparse Vectors.", tags: ["design", "math"], askedFor: "E4", frequency: "high" },
   { id: "meta-dsa-17", company: "Meta", type: "dsa", difficulty: "medium", question: "Add Strings (big-integer addition without libraries).", tags: ["string", "math"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-18", company: "Meta", type: "dsa", difficulty: "medium", question: "Staircase / Climbing Stairs — 1D DP.", tags: ["dp"], askedFor: "E3", frequency: "high" },
+  { id: "meta-dsa-18", company: "Meta", type: "dsa", difficulty: "medium", question: "Staircase / Climbing Stairs: 1D DP.", tags: ["dp"], askedFor: "E3", frequency: "high" },
   { id: "meta-dsa-19", company: "Meta", type: "dsa", difficulty: "hard",   question: "Rearrange String k Distance Apart (greedy + heap).", tags: ["greedy", "heap"], askedFor: "E5", frequency: "medium" },
   { id: "meta-dsa-20", company: "Meta", type: "dsa", difficulty: "medium", question: "Find All Anagrams in a String (sliding window).", tags: ["sliding-window"], askedFor: "E4", frequency: "high" },
   { id: "meta-dsa-21", company: "Meta", type: "dsa", difficulty: "medium", question: "Product of Array Except Self.", tags: ["array", "prefix-sum"], askedFor: "E4", frequency: "high" },
   { id: "meta-dsa-22", company: "Meta", type: "dsa", difficulty: "medium", question: "Integer to English Words.", tags: ["string", "recursion"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-23", company: "Meta", type: "dsa", difficulty: "hard",   question: "Student Attendance Record II — DP counting valid sequences.", tags: ["dp"], askedFor: "E5", frequency: "medium" },
+  { id: "meta-dsa-23", company: "Meta", type: "dsa", difficulty: "hard",   question: "Student Attendance Record II: DP counting valid sequences.", tags: ["dp"], askedFor: "E5", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // AMAZON (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "amazon-sd-8",  company: "Amazon", type: "system-design", difficulty: "hard", question: "Design AWS S3 — object storage, multipart upload, replication.", tags: ["storage", "replication", "s3"], askedFor: "SDE-3 / L6", frequency: "high" },
+  { id: "amazon-sd-8",  company: "Amazon", type: "system-design", difficulty: "hard", question: "Design AWS S3: object storage, multipart upload, replication.", tags: ["storage", "replication", "s3"], askedFor: "SDE-3 / L6", frequency: "high" },
   { id: "amazon-sd-9",  company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Alexa / voice assistant pipeline.", tags: ["nlp", "streaming", "pipeline"], askedFor: "SDE-3", frequency: "medium" },
   { id: "amazon-sd-10", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design a delivery-route optimization service.", tags: ["geo", "graph", "optimization"], askedFor: "SDE-2/3", frequency: "medium" },
   { id: "amazon-sd-11", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design AWS Lambda (serverless function invocation at scale).", tags: ["serverless", "containers", "scheduling"], askedFor: "SDE-3", frequency: "medium" },
   { id: "amazon-sd-12", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design a distributed session management service.", tags: ["session", "cache", "kv-store"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-sd-13", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design a product review + ranking system.", tags: ["ranking", "ml", "search"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-sd-14", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon DynamoDB — partition key design, hot partitions.", tags: ["dynamo", "kv-store", "partitioning"], askedFor: "SDE-3", frequency: "high" },
+  { id: "amazon-sd-14", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon DynamoDB: partition key design, hot partitions.", tags: ["dynamo", "kv-store", "partitioning"], askedFor: "SDE-3", frequency: "high" },
   { id: "amazon-sd-15", company: "Amazon", type: "system-design", difficulty: "medium", question: "Design a coupon/voucher engine.", tags: ["oop", "cache"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-lld-5", company: "Amazon", type: "lld", difficulty: "medium", question: "Design an Online Shopping Cart (items, discounts, checkout).", tags: ["oop", "strategy"], askedFor: "SDE-1/2", frequency: "high" },
   { id: "amazon-lld-6", company: "Amazon", type: "lld", difficulty: "medium", question: "Design a Movie Rental system (inventory, late fees).", tags: ["oop"], askedFor: "SDE-1", frequency: "medium" },
   { id: "amazon-lld-7", company: "Amazon", type: "lld", difficulty: "medium", question: "Design a thread-safe Singleton + dependency injection container.", tags: ["concurrency", "design-pattern"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-dsa-10", company: "Amazon", type: "dsa", difficulty: "medium", question: "Longest Palindromic Substring (expand around center).", tags: ["string", "dp"], askedFor: "SDE-1", frequency: "high" },
-  { id: "amazon-dsa-11", company: "Amazon", type: "dsa", difficulty: "medium", question: "3Sum — two-pointer dedup.", tags: ["two-pointers"], askedFor: "SDE-2", frequency: "high" },
+  { id: "amazon-dsa-11", company: "Amazon", type: "dsa", difficulty: "medium", question: "3Sum: two-pointer dedup.", tags: ["two-pointers"], askedFor: "SDE-2", frequency: "high" },
   { id: "amazon-dsa-12", company: "Amazon", type: "dsa", difficulty: "medium", question: "Maximum Subarray (Kadane's algorithm).", tags: ["dp", "array"], askedFor: "SDE-1", frequency: "high" },
   { id: "amazon-dsa-13", company: "Amazon", type: "dsa", difficulty: "hard",   question: "Minimum Cost to Connect All Points (Prim's / Kruskal's MST).", tags: ["graph", "mst"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-dsa-14", company: "Amazon", type: "dsa", difficulty: "medium", question: "Spiral Matrix II — generate in-place.", tags: ["matrix"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "amazon-dsa-14", company: "Amazon", type: "dsa", difficulty: "medium", question: "Spiral Matrix II: generate in-place.", tags: ["matrix"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-dsa-15", company: "Amazon", type: "dsa", difficulty: "hard",   question: "Critical Connections in a Network (Tarjan's bridges).", tags: ["graph", "dfs"], askedFor: "SDE-3", frequency: "medium" },
   { id: "amazon-dsa-16", company: "Amazon", type: "dsa", difficulty: "medium", question: "Find if Path Exists in Graph.", tags: ["graph", "union-find"], askedFor: "SDE-1", frequency: "medium" },
-  { id: "amazon-dsa-17", company: "Amazon", type: "dsa", difficulty: "medium", question: "String to Integer (atoi) — edge cases.", tags: ["string"], askedFor: "SDE-1", frequency: "high" },
+  { id: "amazon-dsa-17", company: "Amazon", type: "dsa", difficulty: "medium", question: "String to Integer (atoi): edge cases.", tags: ["string"], askedFor: "SDE-1", frequency: "high" },
   { id: "amazon-dsa-18", company: "Amazon", type: "dsa", difficulty: "medium", question: "Reorder List (linked list split + reverse + merge).", tags: ["linked-list"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "amazon-dsa-19", company: "Amazon", type: "dsa", difficulty: "medium", question: "Pacific Atlantic Water Flow — multi-source DFS.", tags: ["dfs", "grid"], askedFor: "SDE-2", frequency: "high" },
+  { id: "amazon-dsa-19", company: "Amazon", type: "dsa", difficulty: "medium", question: "Pacific Atlantic Water Flow: multi-source DFS.", tags: ["dfs", "grid"], askedFor: "SDE-2", frequency: "high" },
   { id: "amazon-dsa-20", company: "Amazon", type: "dsa", difficulty: "medium", question: "Top K Frequent Words (heap + custom comparator).", tags: ["heap", "hashmap"], askedFor: "SDE-2", frequency: "high" },
   { id: "amazon-dsa-21", company: "Amazon", type: "dsa", difficulty: "hard",   question: "Minimum Number of Arrows to Burst Balloons (greedy intervals).", tags: ["greedy", "intervals"], askedFor: "SDE-2", frequency: "medium" },
   { id: "amazon-dsa-22", company: "Amazon", type: "dsa", difficulty: "hard",   question: "Serialize and Deserialize N-ary Tree.", tags: ["tree", "design"], askedFor: "SDE-3", frequency: "medium" },
@@ -530,15 +530,15 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "microsoft-sd-7", company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design GitHub (repos, PRs, CI/CD pipelines).", tags: ["vcs", "git", "ci-cd"], askedFor: "L64", frequency: "high" },
   { id: "microsoft-sd-8", company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design a real-time collaborative whiteboard.", tags: ["crdt", "websocket", "canvas"], askedFor: "L63", frequency: "medium" },
   { id: "microsoft-sd-9", company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design Windows Update delivery (delta updates, CDN).", tags: ["cdn", "delta", "updates"], askedFor: "L63", frequency: "low" },
-  { id: "microsoft-sd-10",company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design LinkedIn (acquired) — feed + job recommendations.", tags: ["feed", "recommendation"], askedFor: "L63", frequency: "medium" },
+  { id: "microsoft-sd-10",company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design LinkedIn (acquired): feed + job recommendations.", tags: ["feed", "recommendation"], askedFor: "L63", frequency: "medium" },
   { id: "microsoft-sd-11",company: "Microsoft", type: "system-design", difficulty: "medium", question: "Design a feature flag / config management service.", tags: ["config", "feature-flags"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-lld-3", company: "Microsoft", type: "lld", difficulty: "medium", question: "Design Tic-Tac-Toe (generalised N×N board, incremental win check).", tags: ["oop", "design"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-lld-4", company: "Microsoft", type: "lld", difficulty: "medium", question: "Design a spreadsheet (cells, formulas, dependency graph).", tags: ["graph", "design", "topo-sort"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-lld-5", company: "Microsoft", type: "lld", difficulty: "medium", question: "Design a plugin / extension system.", tags: ["oop", "design-pattern"], askedFor: "L63", frequency: "medium" },
   { id: "microsoft-dsa-6", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Reverse Words in a String.", tags: ["string"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-dsa-7", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Group Anagrams.", tags: ["hashmap", "string"], askedFor: "L62", frequency: "high" },
-  { id: "microsoft-dsa-8", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Path Sum II — root-to-leaf paths equalling target.", tags: ["tree", "dfs"], askedFor: "L62", frequency: "medium" },
-  { id: "microsoft-dsa-9", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Design HashMap — open addressing or chaining.", tags: ["design", "hashmap"], askedFor: "L62", frequency: "high" },
+  { id: "microsoft-dsa-8", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Path Sum II: root-to-leaf paths equalling target.", tags: ["tree", "dfs"], askedFor: "L62", frequency: "medium" },
+  { id: "microsoft-dsa-9", company: "Microsoft", type: "dsa", difficulty: "medium", question: "Design HashMap: open addressing or chaining.", tags: ["design", "hashmap"], askedFor: "L62", frequency: "high" },
   { id: "microsoft-dsa-10",company: "Microsoft", type: "dsa", difficulty: "hard",   question: "Minimum Window Substring.", tags: ["sliding-window", "hashmap"], askedFor: "L63", frequency: "high" },
   { id: "microsoft-dsa-11",company: "Microsoft", type: "dsa", difficulty: "medium", question: "Binary Search Tree Iterator.", tags: ["tree", "iterator"], askedFor: "L62", frequency: "medium" },
   { id: "microsoft-dsa-12",company: "Microsoft", type: "dsa", difficulty: "medium", question: "Count and Say.", tags: ["string"], askedFor: "L62", frequency: "medium" },
@@ -548,14 +548,14 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // APPLE (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "apple-sd-5", company: "Apple", type: "system-design", difficulty: "hard", question: "Design Siri — speech recognition, NLU, response generation pipeline.", tags: ["ml", "nlp", "pipeline"], askedFor: "ICT4–ICT5", frequency: "medium" },
+  { id: "apple-sd-5", company: "Apple", type: "system-design", difficulty: "hard", question: "Design Siri: speech recognition, NLU, response generation pipeline.", tags: ["ml", "nlp", "pipeline"], askedFor: "ICT4–ICT5", frequency: "medium" },
   { id: "apple-sd-6", company: "Apple", type: "system-design", difficulty: "hard", question: "Design Apple Maps routing engine.", tags: ["geo", "graph", "routing"], askedFor: "ICT4", frequency: "medium" },
-  { id: "apple-sd-7", company: "Apple", type: "system-design", difficulty: "hard", question: "Design App Store — listings, ratings, review moderation, download delivery.", tags: ["cdn", "moderation", "search"], askedFor: "ICT4", frequency: "medium" },
+  { id: "apple-sd-7", company: "Apple", type: "system-design", difficulty: "hard", question: "Design App Store: listings, ratings, review moderation, download delivery.", tags: ["cdn", "moderation", "search"], askedFor: "ICT4", frequency: "medium" },
   { id: "apple-sd-8", company: "Apple", type: "system-design", difficulty: "hard", question: "Design FaceTime group calls (STUN/TURN, mesh vs SFU).", tags: ["webrtc", "sfu", "media"], askedFor: "ICT4", frequency: "medium" },
   { id: "apple-sd-9", company: "Apple", type: "system-design", difficulty: "hard", question: "Design Apple Health data store (time-series, privacy).", tags: ["time-series", "privacy", "storage"], askedFor: "ICT4", frequency: "low" },
   { id: "apple-lld-3", company: "Apple", type: "lld", difficulty: "medium", question: "Design a Download Manager (pause, resume, priority, progress).", tags: ["concurrency", "oop", "state"], askedFor: "ICT3", frequency: "medium" },
   { id: "apple-lld-4", company: "Apple", type: "lld", difficulty: "medium", question: "Design an App Store app detail page model layer.", tags: ["oop"], askedFor: "ICT3", frequency: "low" },
-  { id: "apple-dsa-5", company: "Apple", type: "dsa", difficulty: "medium", question: "Two Sum IV — input is BST.", tags: ["tree", "hashmap"], askedFor: "ICT3", frequency: "medium" },
+  { id: "apple-dsa-5", company: "Apple", type: "dsa", difficulty: "medium", question: "Two Sum IV: input is BST.", tags: ["tree", "hashmap"], askedFor: "ICT3", frequency: "medium" },
   { id: "apple-dsa-6", company: "Apple", type: "dsa", difficulty: "medium", question: "Move Zeroes in-place.", tags: ["array", "two-pointers"], askedFor: "ICT3", frequency: "high" },
   { id: "apple-dsa-7", company: "Apple", type: "dsa", difficulty: "medium", question: "Sort Colors (Dutch National Flag).", tags: ["two-pointers"], askedFor: "ICT3", frequency: "high" },
   { id: "apple-dsa-8", company: "Apple", type: "dsa", difficulty: "hard",   question: "Number of Digit One (math pattern).", tags: ["math"], askedFor: "ICT4", frequency: "medium" },
@@ -567,12 +567,12 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "netflix-sd-5", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design a chaos engineering platform (Chaos Monkey-like).", tags: ["reliability", "testing"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-sd-6", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design a distributed tracing system (Zipkin/Jaeger-like).", tags: ["observability", "tracing"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-sd-7", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design a feature toggle / experimentation platform.", tags: ["feature-flags", "experimentation"], askedFor: "Senior", frequency: "medium" },
-  { id: "netflix-sd-8", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix billing — subscription, proration, dunning.", tags: ["billing", "payments"], askedFor: "Senior", frequency: "medium" },
+  { id: "netflix-sd-8", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix billing: subscription, proration, dunning.", tags: ["billing", "payments"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-sd-9", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design a service-mesh / sidecar proxy (Envoy-like).", tags: ["service-mesh", "proxy"], askedFor: "Senior", frequency: "low" },
   { id: "netflix-lld-1", company: "Netflix", type: "lld", difficulty: "medium", question: "Design a Movie/Show recommendation engine class hierarchy.", tags: ["oop", "strategy"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-lld-2", company: "Netflix", type: "lld", difficulty: "medium", question: "Design a Video Player with buffering, subtitle, chapter support.", tags: ["oop", "state"], askedFor: "Senior", frequency: "medium" },
   { id: "netflix-dsa-4", company: "Netflix", type: "dsa", difficulty: "medium", question: "Implement Stack using Queues.", tags: ["stack", "queue", "design"], askedFor: "Senior", frequency: "medium" },
-  { id: "netflix-dsa-5", company: "Netflix", type: "dsa", difficulty: "hard",   question: "Word Search II — Trie + DFS on board.", tags: ["trie", "dfs", "backtracking"], askedFor: "Senior", frequency: "high" },
+  { id: "netflix-dsa-5", company: "Netflix", type: "dsa", difficulty: "hard",   question: "Word Search II: Trie + DFS on board.", tags: ["trie", "dfs", "backtracking"], askedFor: "Senior", frequency: "high" },
   { id: "netflix-dsa-6", company: "Netflix", type: "dsa", difficulty: "medium", question: "Number of Connected Components in an Undirected Graph.", tags: ["union-find", "dfs"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -582,19 +582,19 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "uber-sd-7",  company: "Uber", type: "system-design", difficulty: "hard", question: "Design a map-tile serving system.", tags: ["geo", "tiles", "cache"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-8",  company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber's trip lifecycle service (state machine: request → match → ride → end).", tags: ["state-machine", "workflow"], askedFor: "L5", frequency: "high" },
   { id: "uber-sd-9",  company: "Uber", type: "system-design", difficulty: "hard", question: "Design a dynamic ETA prediction service.", tags: ["ml", "geo", "real-time"], askedFor: "L5", frequency: "high" },
-  { id: "uber-sd-10", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber's safety feature — Share Trip, Emergency SOS.", tags: ["safety", "geo", "notifications"], askedFor: "L5", frequency: "medium" },
+  { id: "uber-sd-10", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber's safety feature: Share Trip, Emergency SOS.", tags: ["safety", "geo", "notifications"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-11", company: "Uber", type: "system-design", difficulty: "hard", question: "Design a real-time fraud detection system for rides.", tags: ["fraud", "stream", "ml"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-12", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber's pricing engine (surge, upfront pricing, promotions).", tags: ["pricing", "real-time"], askedFor: "L5–L6", frequency: "high" },
   { id: "uber-sd-13", company: "Uber", type: "system-design", difficulty: "medium", question: "Design a driver incentives / rewards platform.", tags: ["rewards", "ledger"], askedFor: "L5", frequency: "medium" },
-  { id: "uber-sd-14", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber Freight — freight matching + load board.", tags: ["matching", "geo"], askedFor: "L5", frequency: "low" },
+  { id: "uber-sd-14", company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber Freight: freight matching + load board.", tags: ["matching", "geo"], askedFor: "L5", frequency: "low" },
   { id: "uber-sd-15", company: "Uber", type: "system-design", difficulty: "hard", question: "Design a high-throughput event streaming platform (Kafka-based).", tags: ["kafka", "stream", "replication"], askedFor: "L5", frequency: "medium" },
   { id: "uber-lld-3", company: "Uber", type: "lld", difficulty: "medium", question: "Design a Trip History service with paging API.", tags: ["oop", "pagination"], askedFor: "L4", frequency: "medium" },
   { id: "uber-lld-4", company: "Uber", type: "lld", difficulty: "medium", question: "Design a Driver Rating system (rolling average).", tags: ["oop", "math"], askedFor: "L4", frequency: "medium" },
   { id: "uber-lld-5", company: "Uber", type: "lld", difficulty: "hard",   question: "Design a Geo-fence alert service (enter/exit polygons).", tags: ["geo", "oop"], askedFor: "L5", frequency: "medium" },
-  { id: "uber-lld-6", company: "Uber", type: "lld", difficulty: "medium", question: "Design a Notification dispatcher (SMS, push, email — strategy pattern).", tags: ["strategy", "oop"], askedFor: "L4", frequency: "high" },
+  { id: "uber-lld-6", company: "Uber", type: "lld", difficulty: "medium", question: "Design a Notification dispatcher (SMS, push, email: strategy pattern).", tags: ["strategy", "oop"], askedFor: "L4", frequency: "high" },
   { id: "uber-dsa-4", company: "Uber", type: "dsa", difficulty: "medium", question: "Minimum Number of Platforms at a station.", tags: ["intervals", "sorting"], askedFor: "L4", frequency: "high" },
   { id: "uber-dsa-5", company: "Uber", type: "dsa", difficulty: "hard",   question: "Shortest Path in a Weighted Graph (Dijkstra).", tags: ["graph", "heap"], askedFor: "L5", frequency: "high" },
-  { id: "uber-dsa-6", company: "Uber", type: "dsa", difficulty: "medium", question: "Task Scheduler — CPU idle slots.", tags: ["greedy", "heap"], askedFor: "L4–L5", frequency: "high" },
+  { id: "uber-dsa-6", company: "Uber", type: "dsa", difficulty: "medium", question: "Task Scheduler: CPU idle slots.", tags: ["greedy", "heap"], askedFor: "L4–L5", frequency: "high" },
   { id: "uber-dsa-7", company: "Uber", type: "dsa", difficulty: "medium", question: "Find All Pairs with Given Difference.", tags: ["hashmap", "array"], askedFor: "L4", frequency: "medium" },
   { id: "uber-dsa-8", company: "Uber", type: "dsa", difficulty: "hard",   question: "Cheapest Flights Within K Stops (Bellman-Ford / BFS).", tags: ["graph", "dp"], askedFor: "L5", frequency: "high" },
   { id: "uber-dsa-9", company: "Uber", type: "dsa", difficulty: "medium", question: "Max Area of Island.", tags: ["dfs", "grid"], askedFor: "L4", frequency: "high" },
@@ -604,12 +604,12 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // LINKEDIN (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "linkedin-sd-4",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Job Search — full-text, filters, personalisation.", tags: ["search", "elasticsearch", "ml"], askedFor: "Senior", frequency: "high" },
+  { id: "linkedin-sd-4",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Job Search: full-text, filters, personalisation.", tags: ["search", "elasticsearch", "ml"], askedFor: "Senior", frequency: "high" },
   { id: "linkedin-sd-5",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Notifications (in-app, email digest, push).", tags: ["notifications", "fan-out", "queue"], askedFor: "Senior", frequency: "high" },
   { id: "linkedin-sd-6",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn InMail / messaging system.", tags: ["chat", "search"], askedFor: "Senior", frequency: "medium" },
-  { id: "linkedin-sd-7",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Premium analytics — profile views, search appearances.", tags: ["analytics", "time-series"], askedFor: "Senior", frequency: "medium" },
-  { id: "linkedin-sd-8",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design 'Who Viewed Your Profile' with privacy tiers.", tags: ["privacy", "analytics"], askedFor: "Senior", frequency: "high", note: "Classic LinkedIn prompt — privacy settings complicate the naive solution." },
-  { id: "linkedin-sd-9",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Learning — course catalog, progress tracking, certs.", tags: ["catalog", "cdn", "progress"], askedFor: "Senior", frequency: "medium" },
+  { id: "linkedin-sd-7",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Premium analytics: profile views, search appearances.", tags: ["analytics", "time-series"], askedFor: "Senior", frequency: "medium" },
+  { id: "linkedin-sd-8",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design 'Who Viewed Your Profile' with privacy tiers.", tags: ["privacy", "analytics"], askedFor: "Senior", frequency: "high", note: "Classic LinkedIn prompt: privacy settings complicate the naive solution." },
+  { id: "linkedin-sd-9",  company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Learning: course catalog, progress tracking, certs.", tags: ["catalog", "cdn", "progress"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-sd-10", company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design a graph-based 2nd / 3rd degree connection resolver.", tags: ["graph", "bfs", "cache"], askedFor: "Senior", frequency: "high" },
   { id: "linkedin-sd-11", company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design a recruiter search / talent-pipeline tool.", tags: ["search", "filtering"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-sd-12", company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn's data lake / member data platform.", tags: ["data-lake", "kafka", "hadoop"], askedFor: "Senior+", frequency: "low" },
@@ -631,10 +631,10 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // AIRBNB (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "airbnb-sd-4", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb Experiences — discovery, booking, host management.", tags: ["search", "booking"], askedFor: "Senior", frequency: "medium" },
+  { id: "airbnb-sd-4", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb Experiences: discovery, booking, host management.", tags: ["search", "booking"], askedFor: "Senior", frequency: "medium" },
   { id: "airbnb-sd-5", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design a pricing / calendar availability service.", tags: ["calendar", "pricing", "concurrency"], askedFor: "Senior", frequency: "high" },
   { id: "airbnb-sd-6", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design a trust & safety scoring system.", tags: ["ml", "fraud"], askedFor: "Senior", frequency: "medium" },
-  { id: "airbnb-sd-7", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb's payments — split, refund, host payout.", tags: ["payments", "ledger"], askedFor: "Senior", frequency: "medium" },
+  { id: "airbnb-sd-7", company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb's payments: split, refund, host payout.", tags: ["payments", "ledger"], askedFor: "Senior", frequency: "medium" },
   { id: "airbnb-lld-2", company: "Airbnb", type: "lld", difficulty: "medium", question: "Design a Rate Limiter using sliding-window log.", tags: ["rate-limit"], askedFor: "Senior", frequency: "high" },
   { id: "airbnb-lld-3", company: "Airbnb", type: "lld", difficulty: "medium", question: "Design Host Calendar (blocked dates, availability windows).", tags: ["oop", "calendar"], askedFor: "Senior", frequency: "medium" },
   { id: "airbnb-dsa-4", company: "Airbnb", type: "dsa", difficulty: "hard",   question: "First Missing Positive (O(n) time, O(1) space).", tags: ["array"], askedFor: "Senior", frequency: "high" },
@@ -655,8 +655,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // STRIPE (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "stripe-sd-5", company: "Stripe", type: "system-design", difficulty: "hard", question: "Design Stripe Radar — ML-driven fraud scoring at checkout.", tags: ["fraud", "ml", "real-time"], askedFor: "L3–L4", frequency: "high" },
-  { id: "stripe-sd-6", company: "Stripe", type: "system-design", difficulty: "hard", question: "Design Stripe Connect — multi-party payouts (platforms + sellers).", tags: ["payments", "ledger", "multi-party"], askedFor: "L4", frequency: "medium" },
+  { id: "stripe-sd-5", company: "Stripe", type: "system-design", difficulty: "hard", question: "Design Stripe Radar: ML-driven fraud scoring at checkout.", tags: ["fraud", "ml", "real-time"], askedFor: "L3–L4", frequency: "high" },
+  { id: "stripe-sd-6", company: "Stripe", type: "system-design", difficulty: "hard", question: "Design Stripe Connect: multi-party payouts (platforms + sellers).", tags: ["payments", "ledger", "multi-party"], askedFor: "L4", frequency: "medium" },
   { id: "stripe-sd-7", company: "Stripe", type: "system-design", difficulty: "hard", question: "Design a global payment routing engine (PSP fallback).", tags: ["payments", "routing", "retry"], askedFor: "L4", frequency: "medium" },
   { id: "stripe-lld-3", company: "Stripe", type: "lld", difficulty: "medium", question: "Design a pipeline / middleware chain (Express-style).", tags: ["oop", "chain-of-responsibility"], askedFor: "L3", frequency: "medium" },
   { id: "stripe-lld-4", company: "Stripe", type: "lld", difficulty: "medium", question: "Design an idempotency key store.", tags: ["design", "kv-store"], askedFor: "L3", frequency: "high" },
@@ -667,14 +667,14 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ATLASSIAN (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "atlassian-sd-4", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Bitbucket — code hosting, PR review, webhooks.", tags: ["vcs", "git", "webhooks"], askedFor: "P50", frequency: "medium" },
-  { id: "atlassian-sd-5", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Statuspage — incident management, subscriber notifications.", tags: ["reliability", "notifications"], askedFor: "P50", frequency: "medium" },
+  { id: "atlassian-sd-4", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Bitbucket: code hosting, PR review, webhooks.", tags: ["vcs", "git", "webhooks"], askedFor: "P50", frequency: "medium" },
+  { id: "atlassian-sd-5", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Statuspage: incident management, subscriber notifications.", tags: ["reliability", "notifications"], askedFor: "P50", frequency: "medium" },
   { id: "atlassian-sd-6", company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Atlassian Identity (SSO, SAML, OAuth2 multi-tenant).", tags: ["auth", "sso", "multi-tenant"], askedFor: "P50+", frequency: "medium" },
   { id: "atlassian-lld-3", company: "Atlassian", type: "lld", difficulty: "medium", question: "Design an undo/redo system (Command pattern).", tags: ["command", "oop"], askedFor: "P50", frequency: "high" },
   { id: "atlassian-lld-4", company: "Atlassian", type: "lld", difficulty: "medium", question: "Design a Jira-style issue workflow engine.", tags: ["state-machine", "oop"], askedFor: "P50", frequency: "high" },
   { id: "atlassian-dsa-3", company: "Atlassian", type: "dsa", difficulty: "medium", question: "Evaluate Reverse Polish Notation.", tags: ["stack"], askedFor: "P50", frequency: "high" },
   { id: "atlassian-dsa-4", company: "Atlassian", type: "dsa", difficulty: "hard",   question: "Bus Routes (BFS on route sets).", tags: ["bfs", "graph"], askedFor: "P50", frequency: "medium" },
-  { id: "atlassian-dsa-5", company: "Atlassian", type: "dsa", difficulty: "medium", question: "LRU Cache — full O(1) implementation.", tags: ["lru", "design"], askedFor: "P40–P50", frequency: "high" },
+  { id: "atlassian-dsa-5", company: "Atlassian", type: "dsa", difficulty: "medium", question: "LRU Cache: full O(1) implementation.", tags: ["lru", "design"], askedFor: "P40–P50", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // BLOOMBERG (expanded)
@@ -717,13 +717,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ADOBE (expanded)
   // ────────────────────────────────────────────────────────────────────
   { id: "adobe-sd-3",  company: "Adobe", type: "system-design", difficulty: "hard", question: "Design Adobe Sign (e-signature workflow).", tags: ["workflow", "state-machine", "storage"], askedFor: "MTS", frequency: "medium" },
-  { id: "adobe-sd-4",  company: "Adobe", type: "system-design", difficulty: "hard", question: "Design Adobe Analytics — event collection, OLAP query.", tags: ["analytics", "olap", "stream"], askedFor: "MTS", frequency: "medium" },
+  { id: "adobe-sd-4",  company: "Adobe", type: "system-design", difficulty: "hard", question: "Design Adobe Analytics: event collection, OLAP query.", tags: ["analytics", "olap", "stream"], askedFor: "MTS", frequency: "medium" },
   { id: "adobe-sd-5",  company: "Adobe", type: "system-design", difficulty: "medium", question: "Design a media asset management (DAM) system.", tags: ["storage", "cdn", "search"], askedFor: "MTS", frequency: "medium" },
   { id: "adobe-lld-2", company: "Adobe", type: "lld", difficulty: "medium", question: "Design a document undo/redo history stack.", tags: ["command", "oop"], askedFor: "MTS", frequency: "high" },
   { id: "adobe-lld-3", company: "Adobe", type: "lld", difficulty: "medium", question: "Design a color palette tool (hex/RGB/HSL conversions).", tags: ["oop", "math"], askedFor: "MTS", frequency: "low" },
   { id: "adobe-dsa-3", company: "Adobe", type: "dsa", difficulty: "medium", question: "Count Complete Tree Nodes (binary search on height).", tags: ["tree", "binary-search"], askedFor: "MTS", frequency: "medium" },
   { id: "adobe-dsa-4", company: "Adobe", type: "dsa", difficulty: "medium", question: "Non-overlapping Intervals (greedy).", tags: ["greedy", "intervals"], askedFor: "MTS", frequency: "high" },
-  { id: "adobe-dsa-5", company: "Adobe", type: "dsa", difficulty: "hard",   question: "Burst Balloons — interval DP.", tags: ["dp", "interval-dp"], askedFor: "Senior MTS", frequency: "medium" },
+  { id: "adobe-dsa-5", company: "Adobe", type: "dsa", difficulty: "hard",   question: "Burst Balloons: interval DP.", tags: ["dp", "interval-dp"], askedFor: "Senior MTS", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // ORACLE (expanded)
@@ -750,7 +750,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // RAZORPAY (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "razorpay-sd-3",  company: "Razorpay", type: "system-design", difficulty: "hard", question: "Design Razorpay X — banking + payroll for businesses.", tags: ["banking", "payroll", "ledger"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "razorpay-sd-3",  company: "Razorpay", type: "system-design", difficulty: "hard", question: "Design Razorpay X: banking + payroll for businesses.", tags: ["banking", "payroll", "ledger"], askedFor: "SDE-3", frequency: "medium" },
   { id: "razorpay-sd-4",  company: "Razorpay", type: "system-design", difficulty: "hard", question: "Design a fraud detection service for payment APIs.", tags: ["fraud", "ml", "stream"], askedFor: "SDE-2/3", frequency: "high" },
   { id: "razorpay-sd-5",  company: "Razorpay", type: "system-design", difficulty: "hard", question: "Design a subscription billing engine (recurring charges).", tags: ["billing", "cron", "idempotency"], askedFor: "SDE-3", frequency: "high" },
   { id: "razorpay-lld-3", company: "Razorpay", type: "lld", difficulty: "medium", question: "Design a Retry + Exponential Backoff queue.", tags: ["queue", "retry"], askedFor: "SDE-2", frequency: "medium" },
@@ -827,7 +827,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // SHOPIFY (expanded)
   // ────────────────────────────────────────────────────────────────────
   { id: "shopify-sd-3",  company: "Shopify", type: "system-design", difficulty: "hard", question: "Design Shopify Payments (card acquiring + settlements).", tags: ["payments", "ledger"], askedFor: "Senior", frequency: "medium" },
-  { id: "shopify-sd-4",  company: "Shopify", type: "system-design", difficulty: "hard", question: "Design Shopify Shipping — rate estimation + label generation.", tags: ["shipping", "api-integration"], askedFor: "Senior", frequency: "medium" },
+  { id: "shopify-sd-4",  company: "Shopify", type: "system-design", difficulty: "hard", question: "Design Shopify Shipping: rate estimation + label generation.", tags: ["shipping", "api-integration"], askedFor: "Senior", frequency: "medium" },
   { id: "shopify-lld-1", company: "Shopify", type: "lld", difficulty: "medium", question: "Design a Discount engine (percentage, fixed, BOGO, tiered).", tags: ["oop", "strategy"], askedFor: "Senior", frequency: "high" },
   { id: "shopify-dsa-2", company: "Shopify", type: "dsa", difficulty: "medium", question: "Subarray Product Less Than K.", tags: ["sliding-window"], askedFor: "Senior", frequency: "medium" },
   { id: "shopify-dsa-3", company: "Shopify", type: "dsa", difficulty: "medium", question: "Maximum Width of Binary Tree.", tags: ["tree", "bfs"], askedFor: "Senior", frequency: "medium" },
@@ -844,10 +844,10 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ZOOM (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "zoom-sd-3",  company: "Zoom", type: "system-design", difficulty: "hard", question: "Design Zoom Rooms — hardware + software integration.", tags: ["hardware", "media", "scheduling"], askedFor: "Senior", frequency: "low" },
+  { id: "zoom-sd-3",  company: "Zoom", type: "system-design", difficulty: "hard", question: "Design Zoom Rooms: hardware + software integration.", tags: ["hardware", "media", "scheduling"], askedFor: "Senior", frequency: "low" },
   { id: "zoom-sd-4",  company: "Zoom", type: "system-design", difficulty: "hard", question: "Design Zoom AI companion (meeting summary, action items).", tags: ["ml", "nlp", "transcription"], askedFor: "Senior", frequency: "medium" },
   { id: "zoom-lld-1", company: "Zoom", type: "lld", difficulty: "medium", question: "Design a Meeting Scheduler with recurring events.", tags: ["oop", "calendar"], askedFor: "Senior", frequency: "high" },
-  { id: "zoom-dsa-1", company: "Zoom", type: "dsa", difficulty: "medium", question: "Meeting Rooms II — minimum rooms.", tags: ["intervals", "heap"], askedFor: "Senior", frequency: "high" },
+  { id: "zoom-dsa-1", company: "Zoom", type: "dsa", difficulty: "medium", question: "Meeting Rooms II: minimum rooms.", tags: ["intervals", "heap"], askedFor: "Senior", frequency: "high" },
   { id: "zoom-dsa-2", company: "Zoom", type: "dsa", difficulty: "medium", question: "My Calendar I (interval BST).", tags: ["intervals", "binary-search", "design"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -871,7 +871,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ZERODHA (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "zerodha-sd-2",  company: "Zerodha", type: "system-design", difficulty: "hard", question: "Design Kite (trading app) — real-time quotes + order placement.", tags: ["real-time", "trading", "websocket"], askedFor: "Senior", frequency: "high" },
+  { id: "zerodha-sd-2",  company: "Zerodha", type: "system-design", difficulty: "hard", question: "Design Kite (trading app): real-time quotes + order placement.", tags: ["real-time", "trading", "websocket"], askedFor: "Senior", frequency: "high" },
   { id: "zerodha-sd-3",  company: "Zerodha", type: "system-design", difficulty: "hard", question: "Design Coin (mutual fund investment platform).", tags: ["fintech", "payments"], askedFor: "Senior", frequency: "medium" },
   { id: "zerodha-lld-2", company: "Zerodha", type: "lld", difficulty: "medium", question: "Design a Portfolio P&L calculator with FIFO/LIFO accounting.", tags: ["oop", "math"], askedFor: "Senior", frequency: "high" },
   { id: "zerodha-dsa-2", company: "Zerodha", type: "dsa", difficulty: "medium", question: "Design Stock Span Problem (monotonic stack).", tags: ["stack"], askedFor: "Mid", frequency: "high" },
@@ -933,7 +933,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // DATABRICKS (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "databricks-sd-3",  company: "Databricks", type: "system-design", difficulty: "hard", question: "Design Unity Catalog — data governance + lineage.", tags: ["governance", "lineage", "metadata"], askedFor: "Senior", frequency: "medium" },
+  { id: "databricks-sd-3",  company: "Databricks", type: "system-design", difficulty: "hard", question: "Design Unity Catalog: data governance + lineage.", tags: ["governance", "lineage", "metadata"], askedFor: "Senior", frequency: "medium" },
   { id: "databricks-sd-4",  company: "Databricks", type: "system-design", difficulty: "hard", question: "Design MLflow experiment tracking at petabyte scale.", tags: ["ml", "metadata", "storage"], askedFor: "Senior", frequency: "medium" },
   { id: "databricks-lld-1", company: "Databricks", type: "lld", difficulty: "medium", question: "Design a DataFrame abstraction (lazy eval, plan tree).", tags: ["oop", "query-planner"], askedFor: "Senior", frequency: "medium" },
   { id: "databricks-dsa-2", company: "Databricks", type: "dsa", difficulty: "hard",   question: "Maximum Sum of Two Non-Overlapping Subarrays.", tags: ["dp", "sliding-window"], askedFor: "Senior", frequency: "medium" },
@@ -953,7 +953,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "dropbox-sd-3",  company: "Dropbox", type: "system-design", difficulty: "hard", question: "Design Paper (collaborative document editing).", tags: ["crdt", "ot", "websocket"], askedFor: "IC4", frequency: "medium" },
   { id: "dropbox-sd-4",  company: "Dropbox", type: "system-design", difficulty: "medium", question: "Design a file preview / thumbnail generation service.", tags: ["queue", "cdn", "storage"], askedFor: "IC3", frequency: "medium" },
   { id: "dropbox-lld-1", company: "Dropbox", type: "lld", difficulty: "medium", question: "Design a chunked file uploader with resumable uploads.", tags: ["oop", "state"], askedFor: "IC3", frequency: "high" },
-  { id: "dropbox-dsa-2", company: "Dropbox", type: "dsa", difficulty: "medium", question: "Pow(x, n) — fast exponentiation.", tags: ["recursion", "math"], askedFor: "IC3", frequency: "high" },
+  { id: "dropbox-dsa-2", company: "Dropbox", type: "dsa", difficulty: "medium", question: "Pow(x, n): fast exponentiation.", tags: ["recursion", "math"], askedFor: "IC3", frequency: "high" },
   { id: "dropbox-dsa-3", company: "Dropbox", type: "dsa", difficulty: "medium", question: "Flatten 2D Vector (iterator).", tags: ["iterator", "design"], askedFor: "IC3", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -978,16 +978,16 @@ export const interviewQuestions: InterviewQuestion[] = [
   // BLOOMBERG (more DSA)
   // ────────────────────────────────────────────────────────────────────
   { id: "bb-dsa-8",  company: "Bloomberg", type: "dsa", difficulty: "hard",   question: "Employee Free Time (intervals across employees, sorted merge).", tags: ["intervals", "heap"], askedFor: "Senior", frequency: "high" },
-  { id: "bb-dsa-9",  company: "Bloomberg", type: "dsa", difficulty: "medium", question: "Stock Price Fluctuation — streaming, max/min queries.", tags: ["design", "heap", "hashmap"], askedFor: "Senior", frequency: "medium" },
+  { id: "bb-dsa-9",  company: "Bloomberg", type: "dsa", difficulty: "medium", question: "Stock Price Fluctuation: streaming, max/min queries.", tags: ["design", "heap", "hashmap"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // ── NEW COMPANIES ──────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────
 
   // ── SPOTIFY ─────────────────────────────────────────────────────────
-  { id: "spotify-sd-1", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify music streaming — catalog, streaming, offline sync.", tags: ["cdn", "streaming", "sync"], askedFor: "Senior", frequency: "high" },
-  { id: "spotify-sd-2", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify Discover Weekly — personalized playlist generation.", tags: ["ml", "recommendation", "collab-filtering"], askedFor: "Senior", frequency: "high", note: "ML-driven collab filtering + content-based mixing is the core." },
-  { id: "spotify-sd-3", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify for Podcasters — upload, distribution, analytics.", tags: ["cdn", "analytics", "storage"], askedFor: "Senior", frequency: "medium" },
+  { id: "spotify-sd-1", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify music streaming: catalog, streaming, offline sync.", tags: ["cdn", "streaming", "sync"], askedFor: "Senior", frequency: "high" },
+  { id: "spotify-sd-2", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify Discover Weekly: personalized playlist generation.", tags: ["ml", "recommendation", "collab-filtering"], askedFor: "Senior", frequency: "high", note: "ML-driven collab filtering + content-based mixing is the core." },
+  { id: "spotify-sd-3", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify for Podcasters: upload, distribution, analytics.", tags: ["cdn", "analytics", "storage"], askedFor: "Senior", frequency: "medium" },
   { id: "spotify-sd-4", company: "Spotify", type: "system-design", difficulty: "hard", question: "Design Spotify Group Session (synchronized playback).", tags: ["real-time", "sync", "websocket"], askedFor: "Senior", frequency: "medium" },
   { id: "spotify-sd-5", company: "Spotify", type: "system-design", difficulty: "medium", question: "Design a Charts / Top 50 global ranking system.", tags: ["ranking", "stream", "top-k"], askedFor: "Senior", frequency: "medium" },
   { id: "spotify-lld-1", company: "Spotify", type: "lld", difficulty: "medium", question: "Design a Playlist (create, shuffle, repeat, add/remove tracks).", tags: ["oop", "design"], askedFor: "Senior", frequency: "high" },
@@ -997,16 +997,16 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "spotify-dsa-3", company: "Spotify", type: "dsa", difficulty: "hard",   question: "Find Minimum in Rotated Sorted Array II (duplicates).", tags: ["binary-search"], askedFor: "Senior", frequency: "medium" },
 
   // ── GITHUB / GITLAB ─────────────────────────────────────────────────
-  { id: "github-sd-1", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub — repositories, branching, pull requests, code review.", tags: ["vcs", "git", "storage"], askedFor: "Senior", frequency: "high" },
-  { id: "github-sd-2", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub Actions — CI/CD pipeline orchestration.", tags: ["ci-cd", "queue", "containers"], askedFor: "Senior", frequency: "high" },
+  { id: "github-sd-1", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub: repositories, branching, pull requests, code review.", tags: ["vcs", "git", "storage"], askedFor: "Senior", frequency: "high" },
+  { id: "github-sd-2", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub Actions: CI/CD pipeline orchestration.", tags: ["ci-cd", "queue", "containers"], askedFor: "Senior", frequency: "high" },
   { id: "github-sd-3", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub Copilot backend (LLM serving, context retrieval).", tags: ["ml", "llm", "rag"], askedFor: "Senior", frequency: "medium" },
   { id: "github-sd-4", company: "GitHub", type: "system-design", difficulty: "hard", question: "Design GitHub's code search across all public repos.", tags: ["search", "indexing", "trigram"], askedFor: "Senior", frequency: "medium" },
   { id: "github-lld-1", company: "GitHub", type: "lld", difficulty: "medium", question: "Design a Git branch/merge model in code.", tags: ["graph", "oop"], askedFor: "Senior", frequency: "medium" },
-  { id: "github-dsa-1", company: "GitHub", type: "dsa", difficulty: "medium", question: "Count islands after each addLand() — Union-Find.", tags: ["union-find", "grid"], askedFor: "Senior", frequency: "medium" },
+  { id: "github-dsa-1", company: "GitHub", type: "dsa", difficulty: "medium", question: "Count islands after each addLand(): Union-Find.", tags: ["union-find", "grid"], askedFor: "Senior", frequency: "medium" },
   { id: "github-dsa-2", company: "GitHub", type: "dsa", difficulty: "medium", question: "Toeplitz Matrix.", tags: ["matrix"], askedFor: "Mid", frequency: "medium" },
 
   // ── OPENAI ──────────────────────────────────────────────────────────
-  { id: "openai-sd-1", company: "OpenAI", type: "system-design", difficulty: "hard", question: "Design ChatGPT API — token streaming, rate limits, multi-model routing.", tags: ["llm", "streaming", "rate-limit"], askedFor: "Senior", frequency: "high" },
+  { id: "openai-sd-1", company: "OpenAI", type: "system-design", difficulty: "hard", question: "Design ChatGPT API: token streaming, rate limits, multi-model routing.", tags: ["llm", "streaming", "rate-limit"], askedFor: "Senior", frequency: "high" },
   { id: "openai-sd-2", company: "OpenAI", type: "system-design", difficulty: "hard", question: "Design a model training job scheduler (GPU cluster).", tags: ["scheduler", "gpu", "distributed-training"], askedFor: "Senior", frequency: "medium" },
   { id: "openai-sd-3", company: "OpenAI", type: "system-design", difficulty: "hard", question: "Design a RAG (Retrieval-Augmented Generation) pipeline.", tags: ["rag", "embedding", "vector-db"], askedFor: "Senior", frequency: "high" },
   { id: "openai-sd-4", company: "OpenAI", type: "system-design", difficulty: "hard", question: "Design a vector database for embedding search at scale.", tags: ["vector-db", "ann", "indexing"], askedFor: "Senior", frequency: "high" },
@@ -1015,7 +1015,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "openai-dsa-2", company: "OpenAI", type: "dsa", difficulty: "hard",   question: "Find K Nearest Vectors (priority queue + cosine similarity).", tags: ["heap", "math"], askedFor: "Senior", frequency: "medium" },
 
   // ── PALANTIR ─────────────────────────────────────────────────────────
-  { id: "palantir-sd-1", company: "Palantir", type: "system-design", difficulty: "hard", question: "Design Palantir Gotham — data fusion from heterogeneous sources.", tags: ["etl", "graph", "search"], askedFor: "SWE", frequency: "medium" },
+  { id: "palantir-sd-1", company: "Palantir", type: "system-design", difficulty: "hard", question: "Design Palantir Gotham: data fusion from heterogeneous sources.", tags: ["etl", "graph", "search"], askedFor: "SWE", frequency: "medium" },
   { id: "palantir-sd-2", company: "Palantir", type: "system-design", difficulty: "hard", question: "Design an access-control / RBAC system for sensitive data.", tags: ["rbac", "security", "multi-tenant"], askedFor: "SWE", frequency: "high" },
   { id: "palantir-sd-3", company: "Palantir", type: "system-design", difficulty: "hard", question: "Design a time-travel query engine (point-in-time reads).", tags: ["olap", "versioning", "snapshot"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "palantir-lld-1", company: "Palantir", type: "lld", difficulty: "hard",   question: "Design a type-safe pipeline operator chain (generic functional).", tags: ["oop", "generics"], askedFor: "SWE", frequency: "medium" },
@@ -1052,12 +1052,12 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "nvidia-dsa-2", company: "NVIDIA", type: "dsa", difficulty: "medium", question: "Find the Kth Largest Element in a Stream.", tags: ["heap"], askedFor: "SWE", frequency: "high" },
 
   // ── BOOKING.COM ──────────────────────────────────────────────────────
-  { id: "booking-sd-1", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design Booking.com hotel search — availability, pricing, ranking.", tags: ["search", "ranking", "availability"], askedFor: "Senior", frequency: "high" },
+  { id: "booking-sd-1", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design Booking.com hotel search: availability, pricing, ranking.", tags: ["search", "ranking", "availability"], askedFor: "Senior", frequency: "high" },
   { id: "booking-sd-2", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design a reservation system (no double-booking, cancellations).", tags: ["booking", "concurrency"], askedFor: "Senior", frequency: "high" },
   { id: "booking-sd-3", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design a dynamic pricing engine for hotel inventory.", tags: ["pricing", "ml", "real-time"], askedFor: "Senior", frequency: "medium" },
   { id: "booking-sd-4", company: "Booking.com", type: "system-design", difficulty: "medium", question: "Design Booking.com review system + ranking.", tags: ["reviews", "ranking"], askedFor: "Senior", frequency: "medium" },
   { id: "booking-lld-1", company: "Booking.com", type: "lld", difficulty: "medium", question: "Design a Room Availability Calendar.", tags: ["oop", "calendar", "intervals"], askedFor: "Senior", frequency: "high" },
-  { id: "booking-dsa-1", company: "Booking.com", type: "dsa", difficulty: "medium", question: "Car Fleet — how many fleets reach destination.", tags: ["stack", "sorting"], askedFor: "Senior", frequency: "medium" },
+  { id: "booking-dsa-1", company: "Booking.com", type: "dsa", difficulty: "medium", question: "Car Fleet: how many fleets reach destination.", tags: ["stack", "sorting"], askedFor: "Senior", frequency: "medium" },
   { id: "booking-dsa-2", company: "Booking.com", type: "dsa", difficulty: "medium", question: "Find the Duplicate Number (Floyd's tortoise).", tags: ["array", "cycle-detection"], askedFor: "Senior", frequency: "high" },
 
   // ── OLA ────────────────────────────────────────────────────────────
@@ -1078,7 +1078,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "hotstar-dsa-2", company: "Hotstar", type: "dsa", difficulty: "medium", question: "Sliding Window of Comments (bounded buffer).", tags: ["queue", "sliding-window"], askedFor: "SDE-2", frequency: "medium" },
 
   // ── MAKEMYTRIP ────────────────────────────────────────────────────────
-  { id: "mmt-sd-1", company: "MakeMyTrip", type: "system-design", difficulty: "hard", question: "Design flight search — aggregating multiple airline APIs, caching, sorting.", tags: ["search", "aggregation", "cache"], askedFor: "SDE-3", frequency: "high" },
+  { id: "mmt-sd-1", company: "MakeMyTrip", type: "system-design", difficulty: "hard", question: "Design flight search: aggregating multiple airline APIs, caching, sorting.", tags: ["search", "aggregation", "cache"], askedFor: "SDE-3", frequency: "high" },
   { id: "mmt-sd-2", company: "MakeMyTrip", type: "system-design", difficulty: "hard", question: "Design hotel + flight booking with seat/room lock.", tags: ["booking", "concurrency"], askedFor: "SDE-2/3", frequency: "high" },
   { id: "mmt-sd-3", company: "MakeMyTrip", type: "system-design", difficulty: "hard", question: "Design a dynamic price alert system for flights.", tags: ["alerts", "cache", "pricing"], askedFor: "SDE-2", frequency: "medium" },
   { id: "mmt-lld-1", company: "MakeMyTrip", type: "lld", difficulty: "medium", question: "Design a Flight Booking engine (seats, classes, PNR).", tags: ["oop", "state-machine"], askedFor: "SDE-2", frequency: "high" },
@@ -1087,8 +1087,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "mmt-dsa-2", company: "MakeMyTrip", type: "dsa", difficulty: "medium", question: "Course Schedule (can you finish all courses?).", tags: ["graph", "topo-sort"], askedFor: "SDE-2", frequency: "high" },
 
   // ── ZOHO ─────────────────────────────────────────────────────────────
-  { id: "zoho-sd-1", company: "Zoho", type: "system-design", difficulty: "hard", question: "Design Zoho CRM — multi-tenant, workflow automation.", tags: ["multi-tenant", "workflow", "crm"], askedFor: "Senior", frequency: "high" },
-  { id: "zoho-sd-2", company: "Zoho", type: "system-design", difficulty: "hard", question: "Design Zoho Mail — email server, storage, spam filter.", tags: ["email", "storage", "spam"], askedFor: "Senior", frequency: "medium" },
+  { id: "zoho-sd-1", company: "Zoho", type: "system-design", difficulty: "hard", question: "Design Zoho CRM: multi-tenant, workflow automation.", tags: ["multi-tenant", "workflow", "crm"], askedFor: "Senior", frequency: "high" },
+  { id: "zoho-sd-2", company: "Zoho", type: "system-design", difficulty: "hard", question: "Design Zoho Mail: email server, storage, spam filter.", tags: ["email", "storage", "spam"], askedFor: "Senior", frequency: "medium" },
   { id: "zoho-lld-1", company: "Zoho", type: "lld", difficulty: "medium", question: "Design a spreadsheet formula engine.", tags: ["graph", "topo-sort", "oop"], askedFor: "Senior", frequency: "high" },
   { id: "zoho-lld-2", company: "Zoho", type: "lld", difficulty: "medium", question: "Design a CRM deal pipeline with drag-drop stages.", tags: ["state-machine", "oop"], askedFor: "Senior", frequency: "medium" },
   { id: "zoho-dsa-1", company: "Zoho", type: "dsa", difficulty: "medium", question: "Balanced Parentheses generation (backtracking).", tags: ["backtracking", "string"], askedFor: "Senior", frequency: "high" },
@@ -1096,8 +1096,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "zoho-dsa-3", company: "Zoho", type: "dsa", difficulty: "medium", question: "Pascal's Triangle II.", tags: ["dp", "math"], askedFor: "Mid", frequency: "medium" },
 
   // ── FRESHWORKS ───────────────────────────────────────────────────────
-  { id: "freshworks-sd-1", company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design Freshdesk — multi-tenant customer support ticketing.", tags: ["multi-tenant", "workflow", "search"], askedFor: "Senior", frequency: "high" },
-  { id: "freshworks-sd-2", company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design Freshchat — live chat with agents + bots.", tags: ["chat", "websocket", "bot"], askedFor: "Senior", frequency: "medium" },
+  { id: "freshworks-sd-1", company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design Freshdesk: multi-tenant customer support ticketing.", tags: ["multi-tenant", "workflow", "search"], askedFor: "Senior", frequency: "high" },
+  { id: "freshworks-sd-2", company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design Freshchat: live chat with agents + bots.", tags: ["chat", "websocket", "bot"], askedFor: "Senior", frequency: "medium" },
   { id: "freshworks-lld-1", company: "Freshworks", type: "lld", difficulty: "medium", question: "Design a Support Ticket lifecycle (open, assigned, resolved, closed).", tags: ["state-machine", "oop"], askedFor: "Senior", frequency: "high" },
   { id: "freshworks-lld-2", company: "Freshworks", type: "lld", difficulty: "medium", question: "Design SLA timer engine (breach alerts).", tags: ["scheduler", "oop"], askedFor: "Senior", frequency: "medium" },
   { id: "freshworks-dsa-1", company: "Freshworks", type: "dsa", difficulty: "medium", question: "Count Number of Texts (phone keypad combinations).", tags: ["dp", "string"], askedFor: "Senior", frequency: "medium" },
@@ -1151,14 +1151,14 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "hcl-dsa-1", company: "HCL", type: "dsa", difficulty: "easy",   question: "Anagram check.", tags: ["hashmap", "string"], askedFor: "Entry", frequency: "high" },
 
   // ── INTUIT ───────────────────────────────────────────────────────────
-  { id: "intuit-sd-1", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design TurboTax — multi-user tax filing, calculations, audit trail.", tags: ["workflow", "audit", "privacy"], askedFor: "Senior", frequency: "high" },
-  { id: "intuit-sd-2", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design QuickBooks — double-entry accounting + reports.", tags: ["ledger", "accounting", "reporting"], askedFor: "Senior", frequency: "high" },
+  { id: "intuit-sd-1", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design TurboTax: multi-user tax filing, calculations, audit trail.", tags: ["workflow", "audit", "privacy"], askedFor: "Senior", frequency: "high" },
+  { id: "intuit-sd-2", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design QuickBooks: double-entry accounting + reports.", tags: ["ledger", "accounting", "reporting"], askedFor: "Senior", frequency: "high" },
   { id: "intuit-lld-1", company: "Intuit", type: "lld", difficulty: "medium", question: "Design a personal budget tracker.", tags: ["oop"], askedFor: "Senior", frequency: "medium" },
   { id: "intuit-dsa-1", company: "Intuit", type: "dsa", difficulty: "medium", question: "Number of Islands.", tags: ["dfs", "grid"], askedFor: "Senior", frequency: "high" },
   { id: "intuit-dsa-2", company: "Intuit", type: "dsa", difficulty: "medium", question: "Partition Equal Subset Sum (0/1 knapsack DP).", tags: ["dp"], askedFor: "Senior", frequency: "medium" },
 
   // ── SQUARE / BLOCK ────────────────────────────────────────────────────
-  { id: "square-sd-1", company: "Square / Block", type: "system-design", difficulty: "hard", question: "Design Square POS — card-present payment, offline mode.", tags: ["payments", "pos", "offline"], askedFor: "Senior", frequency: "high" },
+  { id: "square-sd-1", company: "Square / Block", type: "system-design", difficulty: "hard", question: "Design Square POS: card-present payment, offline mode.", tags: ["payments", "pos", "offline"], askedFor: "Senior", frequency: "high" },
   { id: "square-sd-2", company: "Square / Block", type: "system-design", difficulty: "hard", question: "Design Cash App P2P transfer + bank linking.", tags: ["payments", "ach", "kyc"], askedFor: "Senior", frequency: "high" },
   { id: "square-lld-1", company: "Square / Block", type: "lld", difficulty: "medium", question: "Design a POS receipt generator.", tags: ["oop"], askedFor: "Senior", frequency: "medium" },
   { id: "square-dsa-1", company: "Square / Block", type: "dsa", difficulty: "medium", question: "Roman Numeral Converter.", tags: ["math", "string"], askedFor: "Senior", frequency: "medium" },
@@ -1170,13 +1170,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "wise-dsa-1", company: "Wise", type: "dsa", difficulty: "medium", question: "Find currency path with minimum conversion cost (Bellman-Ford).", tags: ["graph", "dp"], askedFor: "Senior", frequency: "medium" },
 
   // ── TWILIO ────────────────────────────────────────────────────────────
-  { id: "twilio-sd-1", company: "Twilio", type: "system-design", difficulty: "hard", question: "Design Twilio SMS/voice — carrier routing, delivery receipts.", tags: ["messaging", "carrier", "webhooks"], askedFor: "Senior", frequency: "high" },
-  { id: "twilio-sd-2", company: "Twilio", type: "system-design", difficulty: "hard", question: "Design Twilio Verify — OTP generation, delivery, validation.", tags: ["otp", "sms", "rate-limit"], askedFor: "Senior", frequency: "high" },
+  { id: "twilio-sd-1", company: "Twilio", type: "system-design", difficulty: "hard", question: "Design Twilio SMS/voice: carrier routing, delivery receipts.", tags: ["messaging", "carrier", "webhooks"], askedFor: "Senior", frequency: "high" },
+  { id: "twilio-sd-2", company: "Twilio", type: "system-design", difficulty: "hard", question: "Design Twilio Verify: OTP generation, delivery, validation.", tags: ["otp", "sms", "rate-limit"], askedFor: "Senior", frequency: "high" },
   { id: "twilio-lld-1", company: "Twilio", type: "lld", difficulty: "medium", question: "Design an OTP generator with expiry + throttling.", tags: ["security", "rate-limit", "oop"], askedFor: "Senior", frequency: "high" },
   { id: "twilio-dsa-1", company: "Twilio", type: "dsa", difficulty: "medium", question: "Phone Directory (Trie + autocomplete).", tags: ["trie"], askedFor: "Senior", frequency: "medium" },
 
   // ── SENDGRID / MAILCHIMP ──────────────────────────────────────────────
-  { id: "sendgrid-sd-1", company: "SendGrid", type: "system-design", difficulty: "hard", question: "Design an email delivery system — queuing, retries, bounce handling.", tags: ["email", "queue", "retry"], askedFor: "Senior", frequency: "high" },
+  { id: "sendgrid-sd-1", company: "SendGrid", type: "system-design", difficulty: "hard", question: "Design an email delivery system: queuing, retries, bounce handling.", tags: ["email", "queue", "retry"], askedFor: "Senior", frequency: "high" },
   { id: "sendgrid-lld-1", company: "SendGrid", type: "lld", difficulty: "medium", question: "Design an email template engine (variable substitution).", tags: ["oop", "template"], askedFor: "Senior", frequency: "medium" },
   { id: "sendgrid-dsa-1", company: "SendGrid", type: "dsa", difficulty: "medium", question: "Count Unique Email Addresses.", tags: ["string", "hashmap"], askedFor: "Senior", frequency: "high" },
 
@@ -1194,25 +1194,25 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "datadog-dsa-1", company: "Datadog", type: "dsa", difficulty: "medium", question: "Design a moving average from data stream.", tags: ["queue", "design"], askedFor: "Senior", frequency: "high" },
 
   // ── ELASTIC ────────────────────────────────────────────────────────
-  { id: "elastic-sd-1", company: "Elastic", type: "system-design", difficulty: "hard", question: "Design Elasticsearch — inverted index, sharding, replication.", tags: ["search", "inverted-index", "lucene"], askedFor: "Senior", frequency: "high" },
+  { id: "elastic-sd-1", company: "Elastic", type: "system-design", difficulty: "hard", question: "Design Elasticsearch: inverted index, sharding, replication.", tags: ["search", "inverted-index", "lucene"], askedFor: "Senior", frequency: "high" },
   { id: "elastic-sd-2", company: "Elastic", type: "system-design", difficulty: "hard", question: "Design Kibana dashboards at large-scale (aggregation caching).", tags: ["analytics", "cache"], askedFor: "Senior", frequency: "medium" },
   { id: "elastic-lld-1", company: "Elastic", type: "lld", difficulty: "medium", question: "Design an inverted index in memory.", tags: ["data-structures", "search", "oop"], askedFor: "Senior", frequency: "high" },
   { id: "elastic-dsa-1", company: "Elastic", type: "dsa", difficulty: "medium", question: "Design a Search Autocomplete System (trie + frequency rank).", tags: ["trie", "heap"], askedFor: "Senior", frequency: "high" },
 
   // ── CONFLUENT (Kafka) ────────────────────────────────────────────────
-  { id: "confluent-sd-1", company: "Confluent", type: "system-design", difficulty: "hard", question: "Design Kafka — log-structured storage, consumer groups, compaction.", tags: ["kafka", "log", "replication"], askedFor: "Senior", frequency: "high" },
+  { id: "confluent-sd-1", company: "Confluent", type: "system-design", difficulty: "hard", question: "Design Kafka: log-structured storage, consumer groups, compaction.", tags: ["kafka", "log", "replication"], askedFor: "Senior", frequency: "high" },
   { id: "confluent-sd-2", company: "Confluent", type: "system-design", difficulty: "hard", question: "Design a schema registry for Kafka topics.", tags: ["schema", "registry", "compatibility"], askedFor: "Senior", frequency: "medium" },
   { id: "confluent-lld-1", company: "Confluent", type: "lld", difficulty: "medium", question: "Design an in-memory pub/sub with topic partitioning.", tags: ["pubsub", "oop"], askedFor: "Senior", frequency: "medium" },
   { id: "confluent-dsa-1", company: "Confluent", type: "dsa", difficulty: "medium", question: "Number of Recent Calls (sliding window).", tags: ["queue", "sliding-window"], askedFor: "Senior", frequency: "high" },
 
   // ── REDIS LABS ────────────────────────────────────────────────────────
-  { id: "redis-sd-1", company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design Redis — in-memory kv, persistence (AOF/RDB), replication.", tags: ["kv-store", "replication", "persistence"], askedFor: "Senior", frequency: "high" },
-  { id: "redis-sd-2", company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design Redis Cluster — consistent hashing, hash slots, resharding.", tags: ["partitioning", "consistency", "cluster"], askedFor: "Senior", frequency: "medium" },
+  { id: "redis-sd-1", company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design Redis: in-memory kv, persistence (AOF/RDB), replication.", tags: ["kv-store", "replication", "persistence"], askedFor: "Senior", frequency: "high" },
+  { id: "redis-sd-2", company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design Redis Cluster: consistent hashing, hash slots, resharding.", tags: ["partitioning", "consistency", "cluster"], askedFor: "Senior", frequency: "medium" },
   { id: "redis-lld-1", company: "Redis Labs", type: "lld", difficulty: "hard",   question: "Design an in-memory sorted set (skip list).", tags: ["data-structures", "skip-list"], askedFor: "Senior", frequency: "medium" },
   { id: "redis-dsa-1", company: "Redis Labs", type: "dsa", difficulty: "medium", question: "Implement a Hash Map from scratch.", tags: ["design", "hashmap"], askedFor: "Senior", frequency: "high" },
 
   // ── MONGODB ────────────────────────────────────────────────────────
-  { id: "mongodb-sd-1", company: "MongoDB", type: "system-design", difficulty: "hard", question: "Design MongoDB — document store, WiredTiger, replication, sharding.", tags: ["document-store", "replication", "sharding"], askedFor: "Senior", frequency: "medium" },
+  { id: "mongodb-sd-1", company: "MongoDB", type: "system-design", difficulty: "hard", question: "Design MongoDB: document store, WiredTiger, replication, sharding.", tags: ["document-store", "replication", "sharding"], askedFor: "Senior", frequency: "medium" },
   { id: "mongodb-sd-2", company: "MongoDB", type: "system-design", difficulty: "hard", question: "Design Atlas Search (Lucene on top of Mongo).", tags: ["search", "lucene"], askedFor: "Senior", frequency: "medium" },
   { id: "mongodb-lld-1", company: "MongoDB", type: "lld", difficulty: "medium", question: "Design a document validator (schema + type check).", tags: ["oop", "validation"], askedFor: "Senior", frequency: "medium" },
   { id: "mongodb-dsa-1", company: "MongoDB", type: "dsa", difficulty: "medium", question: "Insert into a Sorted Circular Linked List.", tags: ["linked-list"], askedFor: "Senior", frequency: "medium" },
@@ -1222,24 +1222,24 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "cockroach-dsa-1", company: "CockroachDB", type: "dsa", difficulty: "hard",   question: "Implement Raft consensus log replay.", tags: ["consensus", "design"], askedFor: "Senior", frequency: "medium" },
 
   // ── HASHICORP ─────────────────────────────────────────────────────────
-  { id: "hashicorp-sd-1", company: "HashiCorp", type: "system-design", difficulty: "hard", question: "Design Vault — secrets management, dynamic credentials, lease renewal.", tags: ["secrets", "security", "leases"], askedFor: "Senior", frequency: "medium" },
-  { id: "hashicorp-sd-2", company: "HashiCorp", type: "system-design", difficulty: "hard", question: "Design Consul — service discovery + health checking.", tags: ["service-discovery", "health-check", "kv-store"], askedFor: "Senior", frequency: "medium" },
+  { id: "hashicorp-sd-1", company: "HashiCorp", type: "system-design", difficulty: "hard", question: "Design Vault: secrets management, dynamic credentials, lease renewal.", tags: ["secrets", "security", "leases"], askedFor: "Senior", frequency: "medium" },
+  { id: "hashicorp-sd-2", company: "HashiCorp", type: "system-design", difficulty: "hard", question: "Design Consul: service discovery + health checking.", tags: ["service-discovery", "health-check", "kv-store"], askedFor: "Senior", frequency: "medium" },
   { id: "hashicorp-lld-1", company: "HashiCorp", type: "lld", difficulty: "medium", question: "Design a leader-election library (ZooKeeper-like).", tags: ["consensus", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // ── TWITCH ───────────────────────────────────────────────────────────
-  { id: "twitch-sd-1", company: "Twitch", type: "system-design", difficulty: "hard", question: "Design Twitch live streaming — ingest, transcode, distribution.", tags: ["streaming", "cdn", "hls"], askedFor: "Senior", frequency: "high" },
-  { id: "twitch-sd-2", company: "Twitch", type: "system-design", difficulty: "hard", question: "Design Twitch chat — millions of concurrent chat rooms.", tags: ["chat", "pubsub", "scaling"], askedFor: "Senior", frequency: "high" },
+  { id: "twitch-sd-1", company: "Twitch", type: "system-design", difficulty: "hard", question: "Design Twitch live streaming: ingest, transcode, distribution.", tags: ["streaming", "cdn", "hls"], askedFor: "Senior", frequency: "high" },
+  { id: "twitch-sd-2", company: "Twitch", type: "system-design", difficulty: "hard", question: "Design Twitch chat: millions of concurrent chat rooms.", tags: ["chat", "pubsub", "scaling"], askedFor: "Senior", frequency: "high" },
   { id: "twitch-lld-1", company: "Twitch", type: "lld", difficulty: "medium", question: "Design a bits/donation leaderboard.", tags: ["heap", "design"], askedFor: "Senior", frequency: "medium" },
   { id: "twitch-dsa-1", company: "Twitch", type: "dsa", difficulty: "medium", question: "Minimum Difficulty of a Job Schedule (DP).", tags: ["dp"], askedFor: "Senior", frequency: "medium" },
 
   // ── REDDIT ────────────────────────────────────────────────────────────
-  { id: "reddit-sd-1", company: "Reddit", type: "system-design", difficulty: "hard", question: "Design Reddit feed — subreddit posts, upvotes/downvotes, hot ranking.", tags: ["feed", "ranking", "voting"], askedFor: "Senior", frequency: "high" },
+  { id: "reddit-sd-1", company: "Reddit", type: "system-design", difficulty: "hard", question: "Design Reddit feed: subreddit posts, upvotes/downvotes, hot ranking.", tags: ["feed", "ranking", "voting"], askedFor: "Senior", frequency: "high" },
   { id: "reddit-sd-2", company: "Reddit", type: "system-design", difficulty: "hard", question: "Design Reddit's comment tree (nested, collapsed).", tags: ["tree", "graph", "ranking"], askedFor: "Senior", frequency: "medium" },
   { id: "reddit-lld-1", company: "Reddit", type: "lld", difficulty: "medium", question: "Design a voting system (up/down, with undo).", tags: ["oop", "design"], askedFor: "Senior", frequency: "medium" },
   { id: "reddit-dsa-1", company: "Reddit", type: "dsa", difficulty: "medium", question: "Random Pick Index (reservoir sampling).", tags: ["reservoir-sampling"], askedFor: "Senior", frequency: "medium" },
 
   // ── DISCORD ───────────────────────────────────────────────────────────
-  { id: "discord-sd-1", company: "Discord", type: "system-design", difficulty: "hard", question: "Design Discord — servers, channels, real-time messaging, voice.", tags: ["chat", "websocket", "webrtc", "pubsub"], askedFor: "Senior", frequency: "high" },
+  { id: "discord-sd-1", company: "Discord", type: "system-design", difficulty: "hard", question: "Design Discord: servers, channels, real-time messaging, voice.", tags: ["chat", "websocket", "webrtc", "pubsub"], askedFor: "Senior", frequency: "high" },
   { id: "discord-sd-2", company: "Discord", type: "system-design", difficulty: "hard", question: "Design Discord's read-state tracking (which messages are unread).", tags: ["kv-store", "design"], askedFor: "Senior", frequency: "medium" },
   { id: "discord-lld-1", company: "Discord", type: "lld", difficulty: "medium", question: "Design permission/role model for Discord servers.", tags: ["rbac", "oop"], askedFor: "Senior", frequency: "medium" },
   { id: "discord-dsa-1", company: "Discord", type: "dsa", difficulty: "medium", question: "Find the Winner of an Array Game.", tags: ["simulation"], askedFor: "Senior", frequency: "medium" },
@@ -1248,8 +1248,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "doordash-dsa-4", company: "DoorDash", type: "dsa", difficulty: "medium", question: "Kth Smallest Element in Sorted Matrix.", tags: ["heap", "binary-search", "matrix"], askedFor: "Senior", frequency: "medium" },
 
   // ── SNAPCHAT ──────────────────────────────────────────────────────────
-  { id: "snapchat-sd-1", company: "Snapchat", type: "system-design", difficulty: "hard", question: "Design Snapchat — ephemeral media upload, view-once, streaks.", tags: ["storage", "ttl", "cdn"], askedFor: "Senior", frequency: "high" },
-  { id: "snapchat-sd-2", company: "Snapchat", type: "system-design", difficulty: "hard", question: "Design Snap Map — real-time location sharing.", tags: ["geo", "real-time", "privacy"], askedFor: "Senior", frequency: "medium" },
+  { id: "snapchat-sd-1", company: "Snapchat", type: "system-design", difficulty: "hard", question: "Design Snapchat: ephemeral media upload, view-once, streaks.", tags: ["storage", "ttl", "cdn"], askedFor: "Senior", frequency: "high" },
+  { id: "snapchat-sd-2", company: "Snapchat", type: "system-design", difficulty: "hard", question: "Design Snap Map: real-time location sharing.", tags: ["geo", "real-time", "privacy"], askedFor: "Senior", frequency: "medium" },
   { id: "snapchat-lld-1", company: "Snapchat", type: "lld", difficulty: "medium", question: "Design a TTL-based media store.", tags: ["cache", "ttl", "oop"], askedFor: "Senior", frequency: "medium" },
   { id: "snapchat-dsa-1", company: "Snapchat", type: "dsa", difficulty: "medium", question: "Zigzag Level Order Traversal.", tags: ["tree", "bfs"], askedFor: "Senior", frequency: "medium" },
 
@@ -1257,60 +1257,60 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "bytedance-dsa-6", company: "ByteDance / TikTok", type: "dsa", difficulty: "medium", question: "Partition Labels (greedy).", tags: ["greedy", "string"], askedFor: "Senior", frequency: "medium" },
 
   // ── FIGMA ─────────────────────────────────────────────────────────────
-  { id: "figma-sd-1", company: "Figma", type: "system-design", difficulty: "hard", question: "Design Figma — real-time collaborative vector design (CRDT).", tags: ["crdt", "ot", "canvas", "collaboration"], askedFor: "Senior", frequency: "high" },
-  { id: "figma-sd-2", company: "Figma", type: "system-design", difficulty: "hard", question: "Design Figma Dev Mode — design token sync, code export.", tags: ["sync", "api"], askedFor: "Senior", frequency: "medium" },
+  { id: "figma-sd-1", company: "Figma", type: "system-design", difficulty: "hard", question: "Design Figma: real-time collaborative vector design (CRDT).", tags: ["crdt", "ot", "canvas", "collaboration"], askedFor: "Senior", frequency: "high" },
+  { id: "figma-sd-2", company: "Figma", type: "system-design", difficulty: "hard", question: "Design Figma Dev Mode: design token sync, code export.", tags: ["sync", "api"], askedFor: "Senior", frequency: "medium" },
   { id: "figma-lld-1", company: "Figma", type: "lld", difficulty: "hard",   question: "Design a vector canvas scene graph (nodes, transforms, layers).", tags: ["oop", "tree", "canvas"], askedFor: "Senior", frequency: "medium" },
   { id: "figma-dsa-1", company: "Figma", type: "dsa", difficulty: "medium", question: "Merge Overlapping Rectangles.", tags: ["intervals", "geometry"], askedFor: "Senior", frequency: "medium" },
 
   // ── CANVA ─────────────────────────────────────────────────────────────
-  { id: "canva-sd-1", company: "Canva", type: "system-design", difficulty: "hard", question: "Design Canva — design editor, template catalog, asset CDN.", tags: ["cdn", "storage", "editor"], askedFor: "Senior", frequency: "high" },
+  { id: "canva-sd-1", company: "Canva", type: "system-design", difficulty: "hard", question: "Design Canva: design editor, template catalog, asset CDN.", tags: ["cdn", "storage", "editor"], askedFor: "Senior", frequency: "high" },
   { id: "canva-sd-2", company: "Canva", type: "system-design", difficulty: "hard", question: "Design collaborative Canva editing (multi-user, presence).", tags: ["crdt", "websocket", "presence"], askedFor: "Senior", frequency: "medium" },
   { id: "canva-lld-1", company: "Canva", type: "lld", difficulty: "medium", question: "Design a Design Template versioning system.", tags: ["oop", "versioning"], askedFor: "Senior", frequency: "medium" },
   { id: "canva-dsa-1", company: "Canva", type: "dsa", difficulty: "medium", question: "Maximum Number of Balloons (character frequency).", tags: ["hashmap", "string"], askedFor: "Senior", frequency: "medium" },
 
   // ── LOOM ─────────────────────────────────────────────────────────────
-  { id: "loom-sd-1", company: "Loom", type: "system-design", difficulty: "hard", question: "Design Loom — async video recording, processing, sharing.", tags: ["video", "cdn", "storage"], askedFor: "Senior", frequency: "medium" },
+  { id: "loom-sd-1", company: "Loom", type: "system-design", difficulty: "hard", question: "Design Loom: async video recording, processing, sharing.", tags: ["video", "cdn", "storage"], askedFor: "Senior", frequency: "medium" },
   { id: "loom-dsa-1", company: "Loom", type: "dsa", difficulty: "medium", question: "Check if string has all unique characters.", tags: ["hashmap", "bit-manipulation"], askedFor: "Senior", frequency: "medium" },
 
   // ── LINEAR ────────────────────────────────────────────────────────────
-  { id: "linear-sd-1", company: "Linear", type: "system-design", difficulty: "hard", question: "Design Linear — issue tracker with offline-first CRDT sync.", tags: ["crdt", "offline", "sync"], askedFor: "Senior", frequency: "medium" },
+  { id: "linear-sd-1", company: "Linear", type: "system-design", difficulty: "hard", question: "Design Linear: issue tracker with offline-first CRDT sync.", tags: ["crdt", "offline", "sync"], askedFor: "Senior", frequency: "medium" },
   { id: "linear-lld-1", company: "Linear", type: "lld", difficulty: "medium", question: "Design an issue priority queue with cycles (sprint planning).", tags: ["oop", "priority-queue"], askedFor: "Senior", frequency: "medium" },
 
   // ── NOTION ────────────────────────────────────────────────────────────
-  { id: "notion-sd-1", company: "Notion", type: "system-design", difficulty: "hard", question: "Design Notion — block-based document editor, nested pages, databases.", tags: ["blocks", "collaboration", "storage"], askedFor: "Senior", frequency: "high" },
-  { id: "notion-sd-2", company: "Notion", type: "system-design", difficulty: "hard", question: "Design Notion AI — in-context LLM, block completion, summarization.", tags: ["llm", "rag", "editor"], askedFor: "Senior", frequency: "medium" },
+  { id: "notion-sd-1", company: "Notion", type: "system-design", difficulty: "hard", question: "Design Notion: block-based document editor, nested pages, databases.", tags: ["blocks", "collaboration", "storage"], askedFor: "Senior", frequency: "high" },
+  { id: "notion-sd-2", company: "Notion", type: "system-design", difficulty: "hard", question: "Design Notion AI: in-context LLM, block completion, summarization.", tags: ["llm", "rag", "editor"], askedFor: "Senior", frequency: "medium" },
   { id: "notion-lld-1", company: "Notion", type: "lld", difficulty: "medium", question: "Design a block document model (paragraph, heading, list, DB row).", tags: ["oop", "composite"], askedFor: "Senior", frequency: "medium" },
 
   // ── VERCEL / NETLIFY ─────────────────────────────────────────────────
-  { id: "vercel-sd-1", company: "Vercel", type: "system-design", difficulty: "hard", question: "Design Vercel — git-connected deployment, edge functions, CDN.", tags: ["ci-cd", "edge", "cdn"], askedFor: "Senior", frequency: "medium" },
+  { id: "vercel-sd-1", company: "Vercel", type: "system-design", difficulty: "hard", question: "Design Vercel: git-connected deployment, edge functions, CDN.", tags: ["ci-cd", "edge", "cdn"], askedFor: "Senior", frequency: "medium" },
   { id: "vercel-dsa-1", company: "Vercel", type: "dsa", difficulty: "medium", question: "Longest Common Prefix.", tags: ["string", "trie"], askedFor: "Senior", frequency: "medium" },
 
   // ── SENTRY ────────────────────────────────────────────────────────────
-  { id: "sentry-sd-1", company: "Sentry", type: "system-design", difficulty: "hard", question: "Design Sentry error tracking — ingest, group, alert.", tags: ["logging", "alerting", "dedup"], askedFor: "Senior", frequency: "medium" },
+  { id: "sentry-sd-1", company: "Sentry", type: "system-design", difficulty: "hard", question: "Design Sentry error tracking: ingest, group, alert.", tags: ["logging", "alerting", "dedup"], askedFor: "Senior", frequency: "medium" },
   { id: "sentry-lld-1", company: "Sentry", type: "lld", difficulty: "medium", question: "Design error fingerprinting for deduplication.", tags: ["hashing", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // ── SEGMENT ────────────────────────────────────────────────────────────
-  { id: "segment-sd-1", company: "Segment", type: "system-design", difficulty: "hard", question: "Design Segment CDP — event collection, routing to 300+ destinations.", tags: ["etl", "fan-out", "stream"], askedFor: "Senior", frequency: "medium" },
+  { id: "segment-sd-1", company: "Segment", type: "system-design", difficulty: "hard", question: "Design Segment CDP: event collection, routing to 300+ destinations.", tags: ["etl", "fan-out", "stream"], askedFor: "Senior", frequency: "medium" },
   { id: "segment-dsa-1", company: "Segment", type: "dsa", difficulty: "medium", question: "Design a fan-out queue (1 producer → N consumers).", tags: ["queue", "design"], askedFor: "Senior", frequency: "medium" },
 
   // ── AMPLITUDE / MIXPANEL ─────────────────────────────────────────────
-  { id: "amplitude-sd-1", company: "Amplitude", type: "system-design", difficulty: "hard", question: "Design a product analytics platform — event funnels, retention.", tags: ["analytics", "olap", "funnel"], askedFor: "Senior", frequency: "medium" },
+  { id: "amplitude-sd-1", company: "Amplitude", type: "system-design", difficulty: "hard", question: "Design a product analytics platform: event funnels, retention.", tags: ["analytics", "olap", "funnel"], askedFor: "Senior", frequency: "medium" },
   { id: "amplitude-lld-1", company: "Amplitude", type: "lld", difficulty: "medium", question: "Design a funnel analysis engine (multi-step event sequence).", tags: ["oop", "analytics"], askedFor: "Senior", frequency: "medium" },
   { id: "amplitude-dsa-1", company: "Amplitude", type: "dsa", difficulty: "medium", question: "Consecutive Characters (max repeat run).", tags: ["string", "sliding-window"], askedFor: "Senior", frequency: "medium" },
 
   // ── GRAB ─────────────────────────────────────────────────────────────
-  { id: "grab-sd-1", company: "Grab", type: "system-design", difficulty: "hard", question: "Design GrabCar — driver-rider matching in SEA.", tags: ["geo", "matching", "real-time"], askedFor: "Senior", frequency: "high" },
-  { id: "grab-sd-2", company: "Grab", type: "system-design", difficulty: "hard", question: "Design GrabFood — restaurant, order, delivery matching.", tags: ["matching", "geo"], askedFor: "Senior", frequency: "medium" },
+  { id: "grab-sd-1", company: "Grab", type: "system-design", difficulty: "hard", question: "Design GrabCar: driver-rider matching in SEA.", tags: ["geo", "matching", "real-time"], askedFor: "Senior", frequency: "high" },
+  { id: "grab-sd-2", company: "Grab", type: "system-design", difficulty: "hard", question: "Design GrabFood: restaurant, order, delivery matching.", tags: ["matching", "geo"], askedFor: "Senior", frequency: "medium" },
   { id: "grab-lld-1", company: "Grab", type: "lld", difficulty: "medium", question: "Design GrabPay wallet.", tags: ["oop", "wallet"], askedFor: "Senior", frequency: "medium" },
   { id: "grab-dsa-1", company: "Grab", type: "dsa", difficulty: "medium", question: "Minimum Cost to Make at Least One Valid Path in a Grid.", tags: ["bfs", "deque", "grid"], askedFor: "Senior", frequency: "medium" },
 
   // ── GOJEK ─────────────────────────────────────────────────────────────
-  { id: "gojek-sd-1", company: "Gojek", type: "system-design", difficulty: "hard", question: "Design Gojek — super-app: ride, food, payments at Indonesia scale.", tags: ["geo", "matching", "payments"], askedFor: "Senior", frequency: "high" },
+  { id: "gojek-sd-1", company: "Gojek", type: "system-design", difficulty: "hard", question: "Design Gojek: super-app: ride, food, payments at Indonesia scale.", tags: ["geo", "matching", "payments"], askedFor: "Senior", frequency: "high" },
   { id: "gojek-lld-1", company: "Gojek", type: "lld", difficulty: "medium", question: "Design GoPay wallet with top-up + transfer.", tags: ["oop", "wallet"], askedFor: "Senior", frequency: "medium" },
   { id: "gojek-dsa-1", company: "Gojek", type: "dsa", difficulty: "medium", question: "Rotting Oranges (multi-source BFS).", tags: ["bfs", "grid"], askedFor: "Senior", frequency: "high" },
 
   // ── SEA / SHOPEE ─────────────────────────────────────────────────────
-  { id: "shopee-sd-1", company: "Shopee", type: "system-design", difficulty: "hard", question: "Design Shopee flash sale — million users competing for limited items.", tags: ["flash-sale", "queue", "inventory"], askedFor: "Senior", frequency: "high" },
+  { id: "shopee-sd-1", company: "Shopee", type: "system-design", difficulty: "hard", question: "Design Shopee flash sale: million users competing for limited items.", tags: ["flash-sale", "queue", "inventory"], askedFor: "Senior", frequency: "high" },
   { id: "shopee-sd-2", company: "Shopee", type: "system-design", difficulty: "hard", question: "Design Shopee Live streaming commerce.", tags: ["streaming", "commerce"], askedFor: "Senior", frequency: "medium" },
   { id: "shopee-lld-1", company: "Shopee", type: "lld", difficulty: "medium", question: "Design a product recommendation carousel.", tags: ["oop", "recommendation"], askedFor: "Senior", frequency: "medium" },
   { id: "shopee-dsa-1", company: "Shopee", type: "dsa", difficulty: "medium", question: "Maximum Frequency Elements.", tags: ["hashmap", "sorting"], askedFor: "Senior", frequency: "medium" },
@@ -1332,8 +1332,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "microsoft-dsa-17", company: "Microsoft", type: "dsa", difficulty: "hard",   question: "K Empty Slots (ordered set / sliding window).", tags: ["ordered-set", "sliding-window"], askedFor: "L63", frequency: "medium" },
 
   // ── AMAZON (more SD) ──────────────────────────────────────────────────
-  { id: "amazon-sd-16", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Go (cashierless store) — computer vision + billing.", tags: ["cv", "iot", "payments"], askedFor: "SDE-3", frequency: "medium" },
-  { id: "amazon-sd-17", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Kindle — e-book delivery, sync, DRM.", tags: ["cdn", "drm", "sync"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "amazon-sd-16", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Go (cashierless store): computer vision + billing.", tags: ["cv", "iot", "payments"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "amazon-sd-17", company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Kindle: e-book delivery, sync, DRM.", tags: ["cdn", "drm", "sync"], askedFor: "SDE-2", frequency: "medium" },
 
   // ── GOOGLE (more LLD) ─────────────────────────────────────────────────
   { id: "google-lld-7", company: "Google", type: "lld", difficulty: "medium", question: "Design a thread-safe event dispatcher.", tags: ["concurrency", "oop"], askedFor: "L5", frequency: "medium" },
@@ -1397,7 +1397,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // NETFLIX (additional)
   // ────────────────────────────────────────────────────────────────────
   { id: "netflix-dsa-7", company: "Netflix", type: "dsa", difficulty: "medium", question: "Spiral Order Matrix II (generation).", tags: ["matrix"], askedFor: "Senior", frequency: "medium" },
-  { id: "netflix-sd-10", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix Profiles — per-profile watch history, parental controls.", tags: ["profile", "access-control"], askedFor: "Senior", frequency: "medium" },
+  { id: "netflix-sd-10", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix Profiles: per-profile watch history, parental controls.", tags: ["profile", "access-control"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // UBER (additional)
@@ -1433,14 +1433,14 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // OLA (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "ola-sd-4",  company: "Ola", type: "system-design", difficulty: "hard", question: "Design Ola Maps — routing, ETA, tile serving.", tags: ["geo", "routing", "tiles"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "ola-sd-4",  company: "Ola", type: "system-design", difficulty: "hard", question: "Design Ola Maps: routing, ETA, tile serving.", tags: ["geo", "routing", "tiles"], askedFor: "SDE-3", frequency: "medium" },
   { id: "ola-lld-2", company: "Ola", type: "lld", difficulty: "medium", question: "Design a Surge Pricing rule engine.", tags: ["oop", "rules"], askedFor: "SDE-2", frequency: "medium" },
   { id: "ola-dsa-3", company: "Ola", type: "dsa", difficulty: "medium", question: "Number of Ways to Split Array.", tags: ["prefix-sum"], askedFor: "SDE-2", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // HOTSTAR (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "hotstar-sd-5",  company: "Hotstar", type: "system-design", difficulty: "hard", question: "Design Hotstar Ads — pre-roll, mid-roll insertion at scale.", tags: ["ads", "cdn", "real-time"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "hotstar-sd-5",  company: "Hotstar", type: "system-design", difficulty: "hard", question: "Design Hotstar Ads: pre-roll, mid-roll insertion at scale.", tags: ["ads", "cdn", "real-time"], askedFor: "SDE-3", frequency: "medium" },
   { id: "hotstar-lld-2", company: "Hotstar", type: "lld", difficulty: "medium", question: "Design a content entitlement / access-control service.", tags: ["rbac", "oop"], askedFor: "SDE-2", frequency: "medium" },
   { id: "hotstar-dsa-3", company: "Hotstar", type: "dsa", difficulty: "medium", question: "Design a bounded buffer / producer-consumer.", tags: ["concurrency", "queue"], askedFor: "SDE-2", frequency: "medium" },
 
@@ -1466,13 +1466,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // FRESHWORKS (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "freshworks-sd-3",  company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design FreshService — IT service management (ITSM).", tags: ["workflow", "multi-tenant"], askedFor: "Senior", frequency: "medium" },
+  { id: "freshworks-sd-3",  company: "Freshworks", type: "system-design", difficulty: "hard", question: "Design FreshService: IT service management (ITSM).", tags: ["workflow", "multi-tenant"], askedFor: "Senior", frequency: "medium" },
   { id: "freshworks-dsa-3", company: "Freshworks", type: "dsa", difficulty: "medium", question: "Find Words Containing Character.", tags: ["string", "hashmap"], askedFor: "Mid", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // INTUIT (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "intuit-sd-3",  company: "Intuit", type: "system-design", difficulty: "hard", question: "Design Intuit Mint — bank account aggregation, categorization.", tags: ["aggregation", "ml"], askedFor: "Senior", frequency: "medium" },
+  { id: "intuit-sd-3",  company: "Intuit", type: "system-design", difficulty: "hard", question: "Design Intuit Mint: bank account aggregation, categorization.", tags: ["aggregation", "ml"], askedFor: "Senior", frequency: "medium" },
   { id: "intuit-lld-2", company: "Intuit", type: "lld", difficulty: "medium", question: "Design a tax rule evaluation engine.", tags: ["rules", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1490,7 +1490,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // DISCORD (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "discord-sd-3",  company: "Discord", type: "system-design", difficulty: "hard", question: "Design Discord Nitro — subscription + perks.", tags: ["subscription", "cdn"], askedFor: "Senior", frequency: "medium" },
+  { id: "discord-sd-3",  company: "Discord", type: "system-design", difficulty: "hard", question: "Design Discord Nitro: subscription + perks.", tags: ["subscription", "cdn"], askedFor: "Senior", frequency: "medium" },
   { id: "discord-dsa-2", company: "Discord", type: "dsa", difficulty: "medium", question: "Design Ordered Stream.", tags: ["design", "queue"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1556,7 +1556,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // WISE (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "wise-sd-3",  company: "Wise", type: "system-design", difficulty: "hard", question: "Design Wise Business — batch payroll, bulk transfers.", tags: ["payments", "batch", "ach"], askedFor: "Senior", frequency: "medium" },
+  { id: "wise-sd-3",  company: "Wise", type: "system-design", difficulty: "hard", question: "Design Wise Business: batch payroll, bulk transfers.", tags: ["payments", "batch", "ach"], askedFor: "Senior", frequency: "medium" },
   { id: "wise-dsa-2", company: "Wise", type: "dsa", difficulty: "medium", question: "Count Valid Transactions (simulation).", tags: ["simulation", "hashmap"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1574,7 +1574,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // ELASTIC (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "elastic-sd-3",  company: "Elastic", type: "system-design", difficulty: "hard", question: "Design Elastic APM — distributed tracing + performance monitoring.", tags: ["tracing", "observability", "apm"], askedFor: "Senior", frequency: "medium" },
+  { id: "elastic-sd-3",  company: "Elastic", type: "system-design", difficulty: "hard", question: "Design Elastic APM: distributed tracing + performance monitoring.", tags: ["tracing", "observability", "apm"], askedFor: "Senior", frequency: "medium" },
   { id: "elastic-dsa-2", company: "Elastic", type: "dsa", difficulty: "medium", question: "Search Suggestions System (trie + top-3).", tags: ["trie", "heap"], askedFor: "Senior", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1586,7 +1586,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // SHOPEE (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "shopee-sd-3",  company: "Shopee", type: "system-design", difficulty: "hard", question: "Design ShopeePay — digital wallet, QR code payments.", tags: ["wallet", "payments", "qr"], askedFor: "Senior", frequency: "medium" },
+  { id: "shopee-sd-3",  company: "Shopee", type: "system-design", difficulty: "hard", question: "Design ShopeePay: digital wallet, QR code payments.", tags: ["wallet", "payments", "qr"], askedFor: "Senior", frequency: "medium" },
   { id: "shopee-dsa-2", company: "Shopee", type: "dsa", difficulty: "medium", question: "Maximum Number of Events Attended.", tags: ["greedy", "heap", "intervals"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1598,13 +1598,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // CANVA (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "canva-sd-3",  company: "Canva", type: "system-design", difficulty: "hard", question: "Design Canva Print — submit designs to printing factories.", tags: ["workflow", "printing"], askedFor: "Senior", frequency: "medium" },
+  { id: "canva-sd-3",  company: "Canva", type: "system-design", difficulty: "hard", question: "Design Canva Print: submit designs to printing factories.", tags: ["workflow", "printing"], askedFor: "Senior", frequency: "medium" },
   { id: "canva-dsa-2", company: "Canva", type: "dsa", difficulty: "medium", question: "Determine if Two Strings Are Close.", tags: ["hashmap", "string"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // SENTRY (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "sentry-sd-2",  company: "Sentry", type: "system-design", difficulty: "hard", question: "Design Sentry Replays — record and replay browser sessions.", tags: ["recording", "cdn", "playback"], askedFor: "Senior", frequency: "medium" },
+  { id: "sentry-sd-2",  company: "Sentry", type: "system-design", difficulty: "hard", question: "Design Sentry Replays: record and replay browser sessions.", tags: ["recording", "cdn", "playback"], askedFor: "Senior", frequency: "medium" },
   { id: "sentry-dsa-1", company: "Sentry", type: "dsa", difficulty: "medium", question: "Find All Duplicates in Array.", tags: ["array", "hashmap"], askedFor: "Senior", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1629,13 +1629,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // REDIS LABS (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "redis-sd-3",  company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design RedisSearch — full-text search on top of Redis.", tags: ["search", "inverted-index", "redis"], askedFor: "Senior", frequency: "medium" },
+  { id: "redis-sd-3",  company: "Redis Labs", type: "system-design", difficulty: "hard", question: "Design RedisSearch: full-text search on top of Redis.", tags: ["search", "inverted-index", "redis"], askedFor: "Senior", frequency: "medium" },
   { id: "redis-dsa-2", company: "Redis Labs", type: "dsa", difficulty: "medium", question: "Implement Least Frequently Used (LFU) cache.", tags: ["cache", "design"], askedFor: "Senior", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // CONFLUENT (additional)
   // ────────────────────────────────────────────────────────────────────
-  { id: "confluent-sd-3",  company: "Confluent", type: "system-design", difficulty: "hard", question: "Design Kafka Connect — source/sink connector framework.", tags: ["kafka", "etl", "connectors"], askedFor: "Senior", frequency: "medium" },
+  { id: "confluent-sd-3",  company: "Confluent", type: "system-design", difficulty: "hard", question: "Design Kafka Connect: source/sink connector framework.", tags: ["kafka", "etl", "connectors"], askedFor: "Senior", frequency: "medium" },
   { id: "confluent-dsa-2", company: "Confluent", type: "dsa", difficulty: "medium", question: "Design a Queue using Two Stacks.", tags: ["queue", "stack", "design"], askedFor: "Senior", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -1661,18 +1661,18 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // FINAL TOP-UP — reaching 1000+
   // ────────────────────────────────────────────────────────────────────
-  { id: "google-sd-19",  company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Translate — batch + streaming NMT inference.", tags: ["ml", "nlp", "inference"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-19",  company: "Google", type: "system-design", difficulty: "hard", question: "Design Google Translate: batch + streaming NMT inference.", tags: ["ml", "nlp", "inference"], askedFor: "L5", frequency: "medium" },
   { id: "meta-sd-17",    company: "Meta", type: "system-design", difficulty: "hard", question: "Design Meta Quest / VR social space.", tags: ["vr", "real-time", "spatial"], askedFor: "E5", frequency: "low" },
-  { id: "amazon-sd-18",  company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Rekognition — image classification at scale.", tags: ["ml", "cv", "inference"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "amazon-sd-18",  company: "Amazon", type: "system-design", difficulty: "hard", question: "Design Amazon Rekognition: image classification at scale.", tags: ["ml", "cv", "inference"], askedFor: "SDE-3", frequency: "medium" },
   { id: "microsoft-sd-12",company: "Microsoft", type: "system-design", difficulty: "hard", question: "Design Microsoft Loop (collaborative workspace).", tags: ["crdt", "collaboration"], askedFor: "L63", frequency: "medium" },
-  { id: "apple-sd-11",   company: "Apple", type: "system-design", difficulty: "hard", question: "Design Find My — device location broadcast, privacy-preserving.", tags: ["ble", "privacy", "geo"], askedFor: "ICT4", frequency: "medium" },
+  { id: "apple-sd-11",   company: "Apple", type: "system-design", difficulty: "hard", question: "Design Find My: device location broadcast, privacy-preserving.", tags: ["ble", "privacy", "geo"], askedFor: "ICT4", frequency: "medium" },
   { id: "netflix-sd-11", company: "Netflix", type: "system-design", difficulty: "hard", question: "Design Netflix Downloads (offline viewing, DRM).", tags: ["drm", "storage", "offline"], askedFor: "Senior", frequency: "medium" },
   { id: "uber-sd-17",    company: "Uber", type: "system-design", difficulty: "hard", question: "Design Uber's A/B testing platform for pricing experiments.", tags: ["experimentation", "metrics"], askedFor: "L5", frequency: "medium" },
   { id: "linkedin-sd-15",company: "LinkedIn", type: "system-design", difficulty: "hard", question: "Design LinkedIn Open to Work feature (signal to recruiters).", tags: ["privacy", "graph", "signal"], askedFor: "Senior", frequency: "medium" },
-  { id: "airbnb-sd-8",   company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb Luxe — high-end listing with concierge services.", tags: ["marketplace", "workflow"], askedFor: "Senior", frequency: "low" },
+  { id: "airbnb-sd-8",   company: "Airbnb", type: "system-design", difficulty: "hard", question: "Design Airbnb Luxe: high-end listing with concierge services.", tags: ["marketplace", "workflow"], askedFor: "Senior", frequency: "low" },
   { id: "stripe-sd-8",   company: "Stripe", type: "system-design", difficulty: "hard", question: "Design Stripe Terminal (in-person payments SDK).", tags: ["sdk", "pos", "payments"], askedFor: "L3–L4", frequency: "medium" },
   { id: "twitter-sd-8",  company: "Twitter / X", type: "system-design", difficulty: "hard", question: "Design X Premium subscriptions + paywalled content.", tags: ["subscription", "paywall"], askedFor: "Senior", frequency: "medium" },
-  { id: "bytedance-sd-7",company: "ByteDance / TikTok", type: "system-design", difficulty: "hard", question: "Design TikTok Shop — in-app social commerce checkout.", tags: ["commerce", "checkout", "live"], askedFor: "Senior", frequency: "medium" },
+  { id: "bytedance-sd-7",company: "ByteDance / TikTok", type: "system-design", difficulty: "hard", question: "Design TikTok Shop: in-app social commerce checkout.", tags: ["commerce", "checkout", "live"], askedFor: "Senior", frequency: "medium" },
   { id: "atlassian-sd-8",company: "Atlassian", type: "system-design", difficulty: "hard", question: "Design Atlassian Forge (serverless extensibility platform).", tags: ["serverless", "sandboxing"], askedFor: "P50+", frequency: "medium" },
   { id: "flipkart-sd-7", company: "Flipkart", type: "system-design", difficulty: "hard", question: "Design Flipkart Ads platform (seller-sponsored listings).", tags: ["ads", "ranking", "auction"], askedFor: "SDE-3", frequency: "medium" },
   { id: "swiggy-sd-7",   company: "Swiggy", type: "system-design", difficulty: "hard", question: "Design Swiggy Genie (instant courier delivery).", tags: ["geo", "matching", "real-time"], askedFor: "SDE-3", frequency: "medium" },
@@ -1708,7 +1708,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
 
   // --- Uber (deep-dive) ---
-  { id: "uber-sd-18",  company: "Uber", type: "system-design", difficulty: "hard",   question: "Design Uber Freight — connecting shippers with truck carriers.", tags: ["matching", "geo", "marketplace"], askedFor: "L5", frequency: "medium" },
+  { id: "uber-sd-18",  company: "Uber", type: "system-design", difficulty: "hard",   question: "Design Uber Freight: connecting shippers with truck carriers.", tags: ["matching", "geo", "marketplace"], askedFor: "L5", frequency: "medium" },
   { id: "uber-sd-19",  company: "Uber", type: "system-design", difficulty: "hard",   question: "Design Uber's real-time driver-location ingestion pipeline (millions of GPS pings/sec).", tags: ["stream", "geo", "kafka", "kv-store"], askedFor: "L5–L6", frequency: "high", note: "Core infra question. Focus on write fan-out, hotspot sharding, and geo-index freshness." },
   { id: "uber-sd-20",  company: "Uber", type: "system-design", difficulty: "hard",   question: "Design Uber's map-matching service (snap GPS trace to road network).", tags: ["geo", "graph", "hmm"], askedFor: "L5", frequency: "medium" },
   { id: "uber-lld-7",  company: "Uber", type: "lld", difficulty: "medium",            question: "Design a Trip state-machine (requested→accepted→started→completed/cancelled).", tags: ["state-machine", "oop"], askedFor: "L4", frequency: "high" },
@@ -1719,18 +1719,18 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "uber-dsa-17", company: "Uber", type: "dsa", difficulty: "medium",            question: "Design Underground System (check-in/check-out average travel time).", tags: ["hashmap", "design"], askedFor: "L4", frequency: "high" },
 
   // --- LinkedIn (deep-dive) ---
-  { id: "linkedin-sd-16", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn Salary Insights — crowdsourced salary data with privacy.", tags: ["privacy", "aggregation", "dp"], askedFor: "Senior", frequency: "medium" },
-  { id: "linkedin-sd-17", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn Learning — video course platform with progress tracking.", tags: ["video", "cdn", "progress"], askedFor: "Senior", frequency: "medium" },
+  { id: "linkedin-sd-16", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn Salary Insights: crowdsourced salary data with privacy.", tags: ["privacy", "aggregation", "dp"], askedFor: "Senior", frequency: "medium" },
+  { id: "linkedin-sd-17", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn Learning: video course platform with progress tracking.", tags: ["video", "cdn", "progress"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-sd-18", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn Job Recommendation engine.", tags: ["recommendation", "ml", "graph"], askedFor: "Senior", frequency: "high" },
   { id: "linkedin-sd-19", company: "LinkedIn", type: "system-design", difficulty: "hard",   question: "Design LinkedIn InMail delivery with read receipts and spam filtering.", tags: ["messaging", "spam", "ml"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-lld-5b", company: "LinkedIn", type: "lld", difficulty: "medium",            question: "Design a Connection Request workflow (send/accept/withdraw/ignore).", tags: ["oop", "state-machine"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-lld-6", company: "LinkedIn", type: "lld", difficulty: "medium",            question: "Design a Newsfeed ranking pipeline (multi-signal scoring).", tags: ["strategy", "ranking"], askedFor: "Senior", frequency: "medium" },
   { id: "linkedin-dsa-16", company: "LinkedIn", type: "dsa", difficulty: "medium",           question: "Find the Celebrity (implicit graph).", tags: ["graph", "two-pointers"], askedFor: "Senior", frequency: "high" },
   { id: "linkedin-dsa-17", company: "LinkedIn", type: "dsa", difficulty: "medium",           question: "Nested List Weight Sum II (reverse level sum).", tags: ["dfs", "bfs"], askedFor: "Senior", frequency: "medium" },
-  { id: "linkedin-dsa-18", company: "LinkedIn", type: "dsa", difficulty: "hard",             question: "Paint House III — DP with neighborhood cost constraint.", tags: ["dp"], askedFor: "Senior", frequency: "medium" },
+  { id: "linkedin-dsa-18", company: "LinkedIn", type: "dsa", difficulty: "hard",             question: "Paint House III: DP with neighborhood cost constraint.", tags: ["dp"], askedFor: "Senior", frequency: "medium" },
 
   // --- Google (more) ---
-  { id: "google-sd-20",  company: "Google", type: "system-design", difficulty: "hard",  question: "Design Google Meet — large group video conferencing.", tags: ["webrtc", "sfu", "media"], askedFor: "L5", frequency: "medium" },
+  { id: "google-sd-20",  company: "Google", type: "system-design", difficulty: "hard",  question: "Design Google Meet: large group video conferencing.", tags: ["webrtc", "sfu", "media"], askedFor: "L5", frequency: "medium" },
   { id: "google-sd-21",  company: "Google", type: "system-design", difficulty: "hard",  question: "Design Google Pay UPI backend.", tags: ["upi", "payments", "idempotency"], askedFor: "L5", frequency: "medium" },
   { id: "google-lld-8b",  company: "Google", type: "lld", difficulty: "medium",           question: "Design a thread-safe object pool.", tags: ["concurrency", "pool"], askedFor: "L5", frequency: "medium" },
   { id: "google-dsa-30", company: "Google", type: "dsa", difficulty: "hard",             question: "Smallest Range Covering Elements from K Lists.", tags: ["heap", "sliding-window"], askedFor: "L5", frequency: "medium" },
@@ -1742,10 +1742,10 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "meta-sd-19",  company: "Meta", type: "system-design", difficulty: "hard",   question: "Design Threads (text microblogging on ActivityPub).", tags: ["federation", "feed", "graph"], askedFor: "E5–E6", frequency: "medium" },
   { id: "meta-lld-7",  company: "Meta", type: "lld", difficulty: "medium",            question: "Design a DOM event system (addEventListener/dispatchEvent).", tags: ["observer", "oop"], askedFor: "E5", frequency: "medium" },
   { id: "meta-dsa-28", company: "Meta", type: "dsa", difficulty: "medium",            question: "Merge Intervals.", tags: ["intervals", "sorting"], askedFor: "E4", frequency: "high" },
-  { id: "meta-dsa-29", company: "Meta", type: "dsa", difficulty: "hard",              question: "Burst Balloons — interval DP.", tags: ["dp", "interval-dp"], askedFor: "E5", frequency: "medium" },
+  { id: "meta-dsa-29", company: "Meta", type: "dsa", difficulty: "hard",              question: "Burst Balloons: interval DP.", tags: ["dp", "interval-dp"], askedFor: "E5", frequency: "medium" },
 
   // --- Amazon (more) ---
-  { id: "amazon-sd-19", company: "Amazon", type: "system-design", difficulty: "hard",  question: "Design AWS Lambda — serverless function execution platform.", tags: ["serverless", "sandbox", "scaling"], askedFor: "SDE-3", frequency: "high" },
+  { id: "amazon-sd-19", company: "Amazon", type: "system-design", difficulty: "hard",  question: "Design AWS Lambda: serverless function execution platform.", tags: ["serverless", "sandbox", "scaling"], askedFor: "SDE-3", frequency: "high" },
   { id: "amazon-sd-20", company: "Amazon", type: "system-design", difficulty: "hard",  question: "Design Amazon DynamoDB partitioning & replication.", tags: ["kv-store", "partitioning", "consistency"], askedFor: "SDE-3", frequency: "medium" },
   { id: "amazon-lld-7b", company: "Amazon", type: "lld", difficulty: "medium",           question: "Design Amazon Go (cashierless store) checkout system.", tags: ["oop", "sensors", "inventory"], askedFor: "SDE-2", frequency: "low" },
   { id: "amazon-dsa-28", company: "Amazon", type: "dsa", difficulty: "medium",          question: "Partition Labels.", tags: ["greedy", "two-pointers"], askedFor: "SDE-2", frequency: "high" },
@@ -1780,7 +1780,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // --- Bloomberg (more) ---
   { id: "bloomberg-sd-5",  company: "Bloomberg", type: "system-design", difficulty: "hard",  question: "Design a market data entitlements service (who can see which tickers).", tags: ["rbac", "entitlements", "cache"], askedFor: "Senior", frequency: "medium" },
   { id: "bloomberg-lld-5", company: "Bloomberg", type: "lld", difficulty: "medium",           question: "Design a financial time-series store (OHLCV per symbol).", tags: ["data-structures", "time-series"], askedFor: "Senior", frequency: "medium" },
-  { id: "bloomberg-dsa-13", company: "Bloomberg", type: "dsa", difficulty: "medium",          question: "Stock Price Fluctuation — min/max with removals.", tags: ["hashmap", "ordered-set"], askedFor: "Senior", frequency: "high" },
+  { id: "bloomberg-dsa-13", company: "Bloomberg", type: "dsa", difficulty: "medium",          question: "Stock Price Fluctuation: min/max with removals.", tags: ["hashmap", "ordered-set"], askedFor: "Senior", frequency: "high" },
 
   // --- Flipkart (more) ---
   { id: "flipkart-sd-8",  company: "Flipkart", type: "system-design", difficulty: "hard",  question: "Design Flipkart SuperCoin rewards ledger.", tags: ["ledger", "rewards", "consistency"], askedFor: "SDE-3", frequency: "medium" },
@@ -1792,11 +1792,11 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "razorpay-lld-4b", company: "Razorpay", type: "lld", difficulty: "medium",           question: "Design a Payment Link expiry + one-time-use token system.", tags: ["tokens", "ttl", "oop"], askedFor: "SDE-2", frequency: "medium" },
 
   // --- Swiggy (more) ---
-  { id: "swiggy-sd-8",  company: "Swiggy", type: "system-design", difficulty: "hard",  question: "Design Swiggy Instamart — 10-min grocery delivery slot allocation.", tags: ["inventory", "geo", "slot"], askedFor: "SDE-3", frequency: "high" },
+  { id: "swiggy-sd-8",  company: "Swiggy", type: "system-design", difficulty: "hard",  question: "Design Swiggy Instamart: 10-min grocery delivery slot allocation.", tags: ["inventory", "geo", "slot"], askedFor: "SDE-3", frequency: "high" },
   { id: "swiggy-lld-4", company: "Swiggy", type: "lld", difficulty: "medium",           question: "Design the Menu/Catalog versioning service for restaurants.", tags: ["versioning", "oop"], askedFor: "SDE-2", frequency: "medium" },
 
   // --- PhonePe (more) ---
-  { id: "phonepe-sd-7",  company: "PhonePe", type: "system-design", difficulty: "hard",  question: "Design PhonePe Switch — mini-app platform.", tags: ["mini-apps", "sandbox", "platform"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "phonepe-sd-7",  company: "PhonePe", type: "system-design", difficulty: "hard",  question: "Design PhonePe Switch: mini-app platform.", tags: ["mini-apps", "sandbox", "platform"], askedFor: "SDE-3", frequency: "medium" },
   { id: "phonepe-lld-4", company: "PhonePe", type: "lld", difficulty: "medium",           question: "Design a QR code payment flow (merchant side).", tags: ["qr", "state-machine", "oop"], askedFor: "SDE-2", frequency: "medium" },
 
   // --- Paytm (more) ---
@@ -1817,11 +1817,11 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "walmart-lld-3", company: "Walmart Labs", type: "lld", difficulty: "medium",          question: "Design a Store Price-override system (manager discounts).", tags: ["oop", "rules", "strategy"], askedFor: "SDE-2", frequency: "medium" },
 
   // --- CRED (more) ---
-  { id: "cred-sd-3b",  company: "CRED", type: "system-design", difficulty: "hard",   question: "Design CRED Store — curated product discovery + purchase flow.", tags: ["commerce", "recommendations"], askedFor: "Senior SDE", frequency: "medium" },
+  { id: "cred-sd-3b",  company: "CRED", type: "system-design", difficulty: "hard",   question: "Design CRED Store: curated product discovery + purchase flow.", tags: ["commerce", "recommendations"], askedFor: "Senior SDE", frequency: "medium" },
   { id: "cred-lld-3", company: "CRED", type: "lld", difficulty: "medium",            question: "Design a Scratch-card / Spin-the-wheel reward reveal engine.", tags: ["oop", "probability", "animation"], askedFor: "Senior SDE", frequency: "medium" },
 
   // --- Spotify (more) ---
-  { id: "spotify-sd-5b",  company: "Spotify", type: "system-design", difficulty: "hard",  question: "Design Spotify Wrapped — annual stats pipeline.", tags: ["batch", "aggregation", "analytics"], askedFor: "Senior", frequency: "medium" },
+  { id: "spotify-sd-5b",  company: "Spotify", type: "system-design", difficulty: "hard",  question: "Design Spotify Wrapped: annual stats pipeline.", tags: ["batch", "aggregation", "analytics"], askedFor: "Senior", frequency: "medium" },
   { id: "spotify-lld-4", company: "Spotify", type: "lld", difficulty: "medium",           question: "Design a Playlist collaborative editing (real-time, conflict-free).", tags: ["crdt", "collaboration", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // --- GitHub (more) ---
@@ -1838,16 +1838,16 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "twitter-lld-4", company: "Twitter / X", type: "lld", difficulty: "medium",           question: "Design a Tweet threading / reply chain data structure.", tags: ["trees", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // --- Salesforce (more) ---
-  { id: "sfdc-sd-5b",  company: "Salesforce", type: "system-design", difficulty: "hard",  question: "Design Salesforce Lightning — component framework on a multi-tenant platform.", tags: ["multi-tenant", "ui-framework", "caching"], askedFor: "MTS+", frequency: "medium" },
+  { id: "sfdc-sd-5b",  company: "Salesforce", type: "system-design", difficulty: "hard",  question: "Design Salesforce Lightning: component framework on a multi-tenant platform.", tags: ["multi-tenant", "ui-framework", "caching"], askedFor: "MTS+", frequency: "medium" },
   { id: "sfdc-lld-3b", company: "Salesforce", type: "lld", difficulty: "medium",           question: "Design an Approval Process engine (multi-step, parallel paths).", tags: ["workflow", "state-machine", "oop"], askedFor: "MTS", frequency: "medium" },
 
   // --- Adobe (more) ---
   { id: "adobe-sd-4b",  company: "Adobe", type: "system-design", difficulty: "hard",  question: "Design Adobe Sign (e-signature) with audit trail.", tags: ["workflow", "audit", "compliance"], askedFor: "MTS", frequency: "medium" },
   { id: "adobe-lld-4", company: "Adobe", type: "lld", difficulty: "medium",           question: "Design Photoshop Layer/History (undo/redo stack with branching).", tags: ["command-pattern", "memento", "oop"], askedFor: "MTS", frequency: "medium" },
-  { id: "adobe-dsa-5b", company: "Adobe", type: "dsa", difficulty: "medium",           question: "Non-overlapping Intervals — minimum removals.", tags: ["greedy", "intervals"], askedFor: "MTS", frequency: "high" },
+  { id: "adobe-dsa-5b", company: "Adobe", type: "dsa", difficulty: "medium",           question: "Non-overlapping Intervals: minimum removals.", tags: ["greedy", "intervals"], askedFor: "MTS", frequency: "high" },
 
   // --- Oracle (more) ---
-  { id: "oracle-sd-3b",  company: "Oracle", type: "system-design", difficulty: "hard",  question: "Design Oracle Autonomous Database — auto-tuning + auto-scaling.", tags: ["db", "ml", "scaling"], askedFor: "IC5", frequency: "low" },
+  { id: "oracle-sd-3b",  company: "Oracle", type: "system-design", difficulty: "hard",  question: "Design Oracle Autonomous Database: auto-tuning + auto-scaling.", tags: ["db", "ml", "scaling"], askedFor: "IC5", frequency: "low" },
   { id: "oracle-lld-3b", company: "Oracle", type: "lld", difficulty: "medium",           question: "Design a Connection Pool library (max-size, timeout, validation).", tags: ["concurrency", "pool", "oop"], askedFor: "IC4", frequency: "medium" },
 
   // --- ByteDance (more) ---
@@ -1908,7 +1908,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "figma-lld-3", company: "Figma", type: "lld", difficulty: "medium",           question: "Design a vector scene graph with transform inheritance.", tags: ["tree", "math", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // --- Notion (more) ---
-  { id: "notion-sd-3b",  company: "Notion", type: "system-design", difficulty: "hard",  question: "Design Notion AI — on-demand LLM block completions in docs.", tags: ["llm", "streaming", "latency"], askedFor: "Senior", frequency: "medium" },
+  { id: "notion-sd-3b",  company: "Notion", type: "system-design", difficulty: "hard",  question: "Design Notion AI: on-demand LLM block completions in docs.", tags: ["llm", "streaming", "latency"], askedFor: "Senior", frequency: "medium" },
   { id: "notion-lld-3", company: "Notion", type: "lld", difficulty: "medium",           question: "Design a Block-based document model (Notion-style nested blocks).", tags: ["tree", "crdt", "oop"], askedFor: "Senior", frequency: "medium" },
 
   // --- Canva (more) ---
@@ -1957,7 +1957,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "freshworks-lld-3", company: "Freshworks", type: "lld", difficulty: "medium",           question: "Design a SLA timer that pauses on weekends and business hours.", tags: ["time", "state-machine", "oop"], askedFor: "SDE-2", frequency: "medium" },
 
   // --- Zoho (more) ---
-  { id: "zoho-sd-3b",  company: "Zoho", type: "system-design", difficulty: "hard",  question: "Design Zoho Analytics — scheduled report generation + delivery.", tags: ["batch", "scheduling", "email"], askedFor: "SDE-2/3", frequency: "medium" },
+  { id: "zoho-sd-3b",  company: "Zoho", type: "system-design", difficulty: "hard",  question: "Design Zoho Analytics: scheduled report generation + delivery.", tags: ["batch", "scheduling", "email"], askedFor: "SDE-2/3", frequency: "medium" },
   { id: "zoho-lld-3b", company: "Zoho", type: "lld", difficulty: "medium",           question: "Design a spreadsheet formula evaluation engine (topological order).", tags: ["graph", "topo-sort", "oop"], askedFor: "SDE-2", frequency: "high" },
 
   // --- Intuit (more) ---
@@ -1993,7 +1993,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // RUBRIK  (cloud data management / cyber-resilience)
   // ────────────────────────────────────────────────────────────────────
-  { id: "rubrik-sd-1", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design Rubrik's incremental-forever backup pipeline — dedup, change-block tracking, retention policies.", tags: ["backup", "dedup", "storage", "immutability"], askedFor: "Senior SWE", frequency: "high", note: "Core domain question. Focus on CDC, chunking dedup, and immutable snapshot chain." },
+  { id: "rubrik-sd-1", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design Rubrik's incremental-forever backup pipeline: dedup, change-block tracking, retention policies.", tags: ["backup", "dedup", "storage", "immutability"], askedFor: "Senior SWE", frequency: "high", note: "Core domain question. Focus on CDC, chunking dedup, and immutable snapshot chain." },
   { id: "rubrik-sd-2", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a ransomware anomaly-detection service over backup telemetry.", tags: ["ml", "anomaly", "stream"], askedFor: "Senior SWE", frequency: "high" },
   { id: "rubrik-sd-3", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a metadata catalog for billions of files across cloud & on-prem.", tags: ["metadata", "search", "distributed-db"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "rubrik-sd-4", company: "Rubrik", type: "system-design", difficulty: "hard", question: "Design a cloud archive tiering system (hot → warm → cold → glacier).", tags: ["storage", "tiering", "cost"], askedFor: "Senior SWE", frequency: "medium" },
@@ -2007,9 +2007,9 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // RIPPLING  (HR / IT / finance platform)
   // ────────────────────────────────────────────────────────────────────
-  { id: "rippling-sd-1", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design Rippling's compound app platform — HR, IT, and finance modules sharing one employee graph.", tags: ["multi-module", "graph", "rbac"], askedFor: "Senior SWE", frequency: "high", note: "Their core differentiator. Focus on cross-module data consistency and permissioning." },
+  { id: "rippling-sd-1", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design Rippling's compound app platform: HR, IT, and finance modules sharing one employee graph.", tags: ["multi-module", "graph", "rbac"], askedFor: "Senior SWE", frequency: "high", note: "Their core differentiator. Focus on cross-module data consistency and permissioning." },
   { id: "rippling-sd-2", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design an automated payroll engine (tax withholding, direct deposit, off-cycle runs).", tags: ["payroll", "compliance", "batch"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "rippling-sd-3", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design device management at scale — zero-touch provisioning of laptops for new hires.", tags: ["mdm", "provisioning", "iot"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "rippling-sd-3", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design device management at scale: zero-touch provisioning of laptops for new hires.", tags: ["mdm", "provisioning", "iot"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "rippling-sd-4", company: "Rippling", type: "system-design", difficulty: "hard", question: "Design an employee lifecycle workflow (hire → onboard → transfer → offboard).", tags: ["workflow", "saga", "state-machine"], askedFor: "Senior SWE", frequency: "high" },
   { id: "rippling-sd-5", company: "Rippling", type: "system-design", difficulty: "medium", question: "Design an SSO + app-provisioning bridge (SCIM 2.0 at scale).", tags: ["sso", "scim", "identity"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "rippling-lld-1", company: "Rippling", type: "lld", difficulty: "medium", question: "Design a rule engine for benefits eligibility (age, tenure, location conditions).", tags: ["rules", "dsl", "oop"], askedFor: "Senior SWE", frequency: "high" },
@@ -2021,14 +2021,14 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // GLEAN  (enterprise AI search)
   // ────────────────────────────────────────────────────────────────────
-  { id: "glean-sd-1", company: "Glean", type: "system-design", difficulty: "hard", question: "Design Glean's enterprise search — crawl, index, and permission-aware retrieval across 100+ SaaS apps.", tags: ["search", "indexing", "rbac", "crawler"], askedFor: "Senior SWE", frequency: "high", note: "Core product. Permissions must be enforced at query time, not just index time." },
+  { id: "glean-sd-1", company: "Glean", type: "system-design", difficulty: "hard", question: "Design Glean's enterprise search: crawl, index, and permission-aware retrieval across 100+ SaaS apps.", tags: ["search", "indexing", "rbac", "crawler"], askedFor: "Senior SWE", frequency: "high", note: "Core product. Permissions must be enforced at query time, not just index time." },
   { id: "glean-sd-2", company: "Glean", type: "system-design", difficulty: "hard", question: "Design a real-time document change-feed pipeline (connectors for Slack, Drive, Confluence).", tags: ["connector", "stream", "kafka"], askedFor: "Senior SWE", frequency: "high" },
   { id: "glean-sd-3", company: "Glean", type: "system-design", difficulty: "hard", question: "Design a semantic search layer using embeddings + ANN index.", tags: ["vector-db", "ann", "embeddings", "llm"], askedFor: "Senior SWE", frequency: "high" },
   { id: "glean-sd-4", company: "Glean", type: "system-design", difficulty: "medium", question: "Design a search result re-ranking pipeline combining text-score and ML signals.", tags: ["ranking", "ml", "search"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "glean-lld-1", company: "Glean", type: "lld", difficulty: "medium", question: "Design a document permission inheritance model (folder → file, with overrides).", tags: ["rbac", "tree", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "glean-lld-2", company: "Glean", type: "lld", difficulty: "medium", question: "Design a connector SDK (polling vs webhook modes, incremental sync).", tags: ["sdk", "strategy", "oop"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "glean-dsa-1", company: "Glean", type: "dsa", difficulty: "medium", question: "Search a 2D Matrix II.", tags: ["binary-search", "matrix"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "glean-dsa-2", company: "Glean", type: "dsa", difficulty: "hard", question: "Word Search II — Trie + DFS backtracking.", tags: ["trie", "dfs"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "glean-dsa-2", company: "Glean", type: "dsa", difficulty: "hard", question: "Word Search II: Trie + DFS backtracking.", tags: ["trie", "dfs"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "glean-dsa-3", company: "Glean", type: "dsa", difficulty: "medium", question: "LRU Cache.", tags: ["cache", "design"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -2040,7 +2040,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "newrelic-sd-4", company: "New Relic", type: "system-design", difficulty: "medium", question: "Design a log management pipeline with live-tail and full-text search.", tags: ["logs", "elasticsearch", "stream"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "newrelic-lld-1", company: "New Relic", type: "lld", difficulty: "medium", question: "Design a configurable dashboard widget system.", tags: ["composite", "oop", "strategy"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "newrelic-lld-2", company: "New Relic", type: "lld", difficulty: "medium", question: "Design a query plan cache for NRQL.", tags: ["cache", "oop"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "newrelic-dsa-1", company: "New Relic", type: "dsa", difficulty: "medium", question: "Range Sum Query — Immutable (prefix sum).", tags: ["prefix-sum"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "newrelic-dsa-1", company: "New Relic", type: "dsa", difficulty: "medium", question: "Range Sum Query: Immutable (prefix sum).", tags: ["prefix-sum"], askedFor: "Senior SWE", frequency: "high" },
   { id: "newrelic-dsa-2", company: "New Relic", type: "dsa", difficulty: "hard", question: "Count of Range Sum (merge sort).", tags: ["divide-conquer", "merge-sort"], askedFor: "Senior SWE", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
@@ -2057,13 +2057,13 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // COUPANG  (South Korean e-commerce / logistics)
   // ────────────────────────────────────────────────────────────────────
-  { id: "coupang-sd-1", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design Coupang Rocket Delivery — same-day fulfilment routing for millions of SKUs.", tags: ["routing", "inventory", "geo"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "coupang-sd-1", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design Coupang Rocket Delivery: same-day fulfilment routing for millions of SKUs.", tags: ["routing", "inventory", "geo"], askedFor: "Senior SWE", frequency: "high" },
   { id: "coupang-sd-2", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design a warehouse picking-path optimisation system.", tags: ["routing", "graph", "optimisation"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "coupang-sd-3", company: "Coupang", type: "system-design", difficulty: "hard", question: "Design a real-time inventory sync across thousands of fulfilment centres.", tags: ["inventory", "consistency", "stream"], askedFor: "Senior SWE", frequency: "high" },
   { id: "coupang-sd-4", company: "Coupang", type: "system-design", difficulty: "medium", question: "Design a product review + Q&A system with machine translation.", tags: ["reviews", "i18n", "ml"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "coupang-lld-1", company: "Coupang", type: "lld", difficulty: "medium", question: "Design a delivery slot reservation system (time windows, capacity).", tags: ["booking", "intervals", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "coupang-dsa-1", company: "Coupang", type: "dsa", difficulty: "medium", question: "Minimum Cost to Connect All Points (Prim's MST).", tags: ["graph", "mst"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "coupang-dsa-2", company: "Coupang", type: "dsa", difficulty: "medium", question: "Jump Game II — minimum jumps (greedy).", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "coupang-dsa-2", company: "Coupang", type: "dsa", difficulty: "medium", question: "Jump Game II: minimum jumps (greedy).", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // AMBIENT AI  (physical security AI / video intelligence)
@@ -2073,7 +2073,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "ambientai-sd-3", company: "Ambient AI", type: "system-design", difficulty: "medium", question: "Design a site access-control audit log system.", tags: ["audit", "compliance", "storage"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "ambientai-lld-1", company: "Ambient AI", type: "lld", difficulty: "medium", question: "Design a multi-camera alert deduplication engine.", tags: ["dedup", "state-machine", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "ambientai-dsa-1", company: "Ambient AI", type: "dsa", difficulty: "medium", question: "Sliding Window Maximum.", tags: ["deque", "sliding-window"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "ambientai-dsa-2", company: "Ambient AI", type: "dsa", difficulty: "medium", question: "Meeting Rooms II — minimum conference rooms.", tags: ["intervals", "heap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "ambientai-dsa-2", company: "Ambient AI", type: "dsa", difficulty: "medium", question: "Meeting Rooms II: minimum conference rooms.", tags: ["intervals", "heap"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // HARNESS  (software delivery / CI-CD platform)
@@ -2084,8 +2084,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "harness-sd-4", company: "Harness", type: "system-design", difficulty: "medium", question: "Design a canary deployment orchestrator with automated rollback.", tags: ["deploy", "canary", "metrics"], askedFor: "Senior SWE", frequency: "high" },
   { id: "harness-lld-1", company: "Harness", type: "lld", difficulty: "medium", question: "Design a DAG-based pipeline step executor with dependency resolution.", tags: ["dag", "topological-sort", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "harness-lld-2", company: "Harness", type: "lld", difficulty: "medium", question: "Design a plugin marketplace for pipeline steps.", tags: ["plugin", "registry", "oop"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "harness-dsa-1", company: "Harness", type: "dsa", difficulty: "medium", question: "Parallel Courses — topological sort (min time to complete all).", tags: ["graph", "topo-sort", "bfs"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "harness-dsa-2", company: "Harness", type: "dsa", difficulty: "medium", question: "Task Scheduler — greedy with cooldown.", tags: ["greedy", "heap"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-dsa-1", company: "Harness", type: "dsa", difficulty: "medium", question: "Parallel Courses: topological sort (min time to complete all).", tags: ["graph", "topo-sort", "bfs"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "harness-dsa-2", company: "Harness", type: "dsa", difficulty: "medium", question: "Task Scheduler: greedy with cooldown.", tags: ["greedy", "heap"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // CUSTOMER.IO  (messaging automation platform)
@@ -2127,7 +2127,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // APPWRITE  (open-source BaaS)
   // ────────────────────────────────────────────────────────────────────
   { id: "appwrite-sd-1", company: "Appwrite", type: "system-design", difficulty: "hard", question: "Design a multi-tenant BaaS platform (auth, DB, storage, functions) on Kubernetes.", tags: ["multi-tenant", "k8s", "baas"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "appwrite-sd-2", company: "Appwrite", type: "system-design", difficulty: "medium", question: "Design Appwrite Realtime — WebSocket fanout to database change events.", tags: ["websocket", "fan-out", "stream"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "appwrite-sd-2", company: "Appwrite", type: "system-design", difficulty: "medium", question: "Design Appwrite Realtime: WebSocket fanout to database change events.", tags: ["websocket", "fan-out", "stream"], askedFor: "Senior SWE", frequency: "high" },
   { id: "appwrite-lld-1", company: "Appwrite", type: "lld", difficulty: "medium", question: "Design a declarative permission model (document-level security rules).", tags: ["rbac", "abac", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "appwrite-dsa-1", company: "Appwrite", type: "dsa", difficulty: "medium", question: "Implement a simple in-memory document query engine (filter, sort, paginate).", tags: ["design", "sorting", "hashmap"], askedFor: "Senior SWE", frequency: "medium" },
 
@@ -2144,11 +2144,11 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // CAREEM  (super-app / ride-hailing / MENA)
   // ────────────────────────────────────────────────────────────────────
-  { id: "careem-sd-1", company: "Careem", type: "system-design", difficulty: "hard", question: "Design Careem's super-app backend — shared identity across rides, food, payments.", tags: ["super-app", "identity", "api-gateway"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "careem-sd-1", company: "Careem", type: "system-design", difficulty: "hard", question: "Design Careem's super-app backend: shared identity across rides, food, payments.", tags: ["super-app", "identity", "api-gateway"], askedFor: "Senior SWE", frequency: "high" },
   { id: "careem-sd-2", company: "Careem", type: "system-design", difficulty: "hard", question: "Design a real-time driver tracking and ETA prediction service for MENA cities.", tags: ["geo", "ml", "real-time"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "careem-sd-3", company: "Careem", type: "system-design", difficulty: "medium", question: "Design Careem Pay — digital wallet with cross-currency transfers.", tags: ["wallet", "fx", "ledger"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "careem-sd-3", company: "Careem", type: "system-design", difficulty: "medium", question: "Design Careem Pay: digital wallet with cross-currency transfers.", tags: ["wallet", "fx", "ledger"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "careem-lld-1", company: "Careem", type: "lld", difficulty: "medium", question: "Design a promotional code engine with usage limits and expiry.", tags: ["rules", "ttl", "oop"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "careem-dsa-1", company: "Careem", type: "dsa", difficulty: "medium", question: "Network Delay Time — Dijkstra's shortest path.", tags: ["graph", "dijkstra"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "careem-dsa-1", company: "Careem", type: "dsa", difficulty: "medium", question: "Network Delay Time: Dijkstra's shortest path.", tags: ["graph", "dijkstra"], askedFor: "Senior SWE", frequency: "high" },
 
   // ════════════════════════════════════════════════════════════════════
   // CAT B — SOLID PAYING COMPANIES (new additions)
@@ -2164,7 +2164,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // AGODA  (online travel / Booking Holdings)
   // ────────────────────────────────────────────────────────────────────
-  { id: "agoda-sd-1", company: "Agoda", type: "system-design", difficulty: "hard", question: "Design Agoda's hotel search — availability check at scale across millions of properties.", tags: ["search", "availability", "cache"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "agoda-sd-1", company: "Agoda", type: "system-design", difficulty: "hard", question: "Design Agoda's hotel search: availability check at scale across millions of properties.", tags: ["search", "availability", "cache"], askedFor: "Senior SWE", frequency: "high" },
   { id: "agoda-sd-2", company: "Agoda", type: "system-design", difficulty: "hard", question: "Design a rate and availability sync pipeline from hotel PMS/GDS.", tags: ["connector", "stream", "cache"], askedFor: "Senior SWE", frequency: "high" },
   { id: "agoda-sd-3", company: "Agoda", type: "system-design", difficulty: "medium", question: "Design a personalised hotel recommendation engine.", tags: ["recommendation", "ml", "user-profile"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "agoda-lld-1", company: "Agoda", type: "lld", difficulty: "medium", question: "Design a room booking hold + confirmation state machine.", tags: ["state-machine", "ttl", "oop"], askedFor: "Senior SWE", frequency: "high" },
@@ -2174,7 +2174,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // INDEED  (job search marketplace)
   // ────────────────────────────────────────────────────────────────────
-  { id: "indeed-sd-1", company: "Indeed", type: "system-design", difficulty: "hard", question: "Design Indeed's job search — index, query, and rank billions of job postings.", tags: ["search", "indexing", "ranking"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "indeed-sd-1", company: "Indeed", type: "system-design", difficulty: "hard", question: "Design Indeed's job search: index, query, and rank billions of job postings.", tags: ["search", "indexing", "ranking"], askedFor: "Senior SWE", frequency: "high" },
   { id: "indeed-sd-2", company: "Indeed", type: "system-design", difficulty: "hard", question: "Design a resume parsing + skill-extraction pipeline.", tags: ["nlp", "ml", "pipeline"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "indeed-sd-3", company: "Indeed", type: "system-design", difficulty: "medium", question: "Design a job-seeker recommendation service (jobs-for-you feed).", tags: ["recommendation", "ml", "graph"], askedFor: "Senior SWE", frequency: "high" },
   { id: "indeed-lld-1", company: "Indeed", type: "lld", difficulty: "medium", question: "Design a job alert subscription system (email + push on new matches).", tags: ["observer", "scheduler", "oop"], askedFor: "Senior SWE", frequency: "medium" },
@@ -2186,7 +2186,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   { id: "devrev-sd-1", company: "DevRev", type: "system-design", difficulty: "hard", question: "Design a bi-directional sync between a CRM and issue-tracker (conflict-free).", tags: ["sync", "crdt", "conflict-resolution"], askedFor: "Senior SWE", frequency: "high" },
   { id: "devrev-sd-2", company: "DevRev", type: "system-design", difficulty: "hard", question: "Design an AI support agent that resolves tickets using product docs + past tickets.", tags: ["llm", "rag", "search"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "devrev-sd-3", company: "DevRev", type: "system-design", difficulty: "medium", question: "Design a developer activity graph (commits, PRs, tickets — unified timeline).", tags: ["graph", "timeline", "aggregation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "devrev-sd-3", company: "DevRev", type: "system-design", difficulty: "medium", question: "Design a developer activity graph (commits, PRs, tickets: unified timeline).", tags: ["graph", "timeline", "aggregation"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "devrev-lld-1", company: "DevRev", type: "lld", difficulty: "medium", question: "Design a smart inbox with AI triage (priority, routing, auto-label).", tags: ["ml", "rules", "oop"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "devrev-dsa-1", company: "DevRev", type: "dsa", difficulty: "medium", question: "Design a Trie for product-doc autocomplete.", tags: ["trie"], askedFor: "Senior SWE", frequency: "high" },
 
@@ -2194,7 +2194,7 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ROBLOX  (gaming / UGC metaverse platform)
   // ────────────────────────────────────────────────────────────────────
   { id: "roblox-sd-1", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design Roblox's real-time multiplayer game server infrastructure.", tags: ["gaming", "real-time", "udp", "matchmaking"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "roblox-sd-2", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design the Roblox Avatar Marketplace — item listing, purchase, inventory.", tags: ["marketplace", "inventory", "economy"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "roblox-sd-2", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design the Roblox Avatar Marketplace: item listing, purchase, inventory.", tags: ["marketplace", "inventory", "economy"], askedFor: "Senior SWE", frequency: "high" },
   { id: "roblox-sd-3", company: "Roblox", type: "system-design", difficulty: "hard", question: "Design Roblox's virtual economy (Robux) with fraud prevention.", tags: ["ledger", "fraud", "economy"], askedFor: "Senior SWE", frequency: "high" },
   { id: "roblox-sd-4", company: "Roblox", type: "system-design", difficulty: "medium", question: "Design a UGC content moderation pipeline (text, image, 3D assets).", tags: ["moderation", "ml", "queue"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "roblox-lld-1", company: "Roblox", type: "lld", difficulty: "medium", question: "Design a game-session matchmaking engine.", tags: ["matching", "oop", "queue"], askedFor: "Senior SWE", frequency: "high" },
@@ -2204,8 +2204,8 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // WALT DISNEY  (media / streaming / theme parks)
   // ────────────────────────────────────────────────────────────────────
-  { id: "disney-sd-1", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design Disney+ — video streaming with DRM, multi-profile, and offline downloads.", tags: ["streaming", "drm", "cdn", "offline"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "disney-sd-2", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design a theme-park virtual queue (Lightning Lane) — slot booking for millions.", tags: ["booking", "queue", "capacity"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "disney-sd-1", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design Disney+: video streaming with DRM, multi-profile, and offline downloads.", tags: ["streaming", "drm", "cdn", "offline"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "disney-sd-2", company: "Walt Disney", type: "system-design", difficulty: "hard", question: "Design a theme-park virtual queue (Lightning Lane): slot booking for millions.", tags: ["booking", "queue", "capacity"], askedFor: "Senior SWE", frequency: "high" },
   { id: "disney-sd-3", company: "Walt Disney", type: "system-design", difficulty: "medium", question: "Design MagicBand RFID-based park experience personalisation.", tags: ["iot", "rfid", "personalisation"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "disney-lld-1", company: "Walt Disney", type: "lld", difficulty: "medium", question: "Design a content entitlement engine (subscription tiers + regional rights).", tags: ["entitlements", "rbac", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "disney-dsa-1", company: "Walt Disney", type: "dsa", difficulty: "medium", question: "Count Islands with BFS in a dynamic grid.", tags: ["bfs", "grid"], askedFor: "Senior SWE", frequency: "high" },
@@ -2259,9 +2259,9 @@ export const interviewQuestions: InterviewQuestion[] = [
   // DATABRICKS  (expanded)
   // ────────────────────────────────────────────────────────────────────
   { id: "databricks-sd-3b", company: "Databricks", type: "system-design", difficulty: "hard", question: "Design a cluster auto-scaler that minimises cost while meeting SLA.", tags: ["autoscaling", "cost", "scheduler"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "databricks-sd-4b", company: "Databricks", type: "system-design", difficulty: "hard", question: "Design Unity Catalog — fine-grained data governance across lakehouse tables.", tags: ["governance", "rbac", "metadata"], askedFor: "Staff SWE", frequency: "high" },
+  { id: "databricks-sd-4b", company: "Databricks", type: "system-design", difficulty: "hard", question: "Design Unity Catalog: fine-grained data governance across lakehouse tables.", tags: ["governance", "rbac", "metadata"], askedFor: "Staff SWE", frequency: "high" },
   { id: "databricks-lld-2", company: "Databricks", type: "lld", difficulty: "medium", question: "Design a query result cache (cluster-scoped, invalidated on table write).", tags: ["cache", "invalidation", "oop"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "databricks-dsa-2b", company: "Databricks", type: "dsa", difficulty: "hard", question: "Meeting Rooms III — assign each meeting to minimum-indexed free room.", tags: ["heap", "intervals"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "databricks-dsa-2b", company: "Databricks", type: "dsa", difficulty: "hard", question: "Meeting Rooms III: assign each meeting to minimum-indexed free room.", tags: ["heap", "intervals"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // SNOWFLAKE  (expanded)
@@ -2274,23 +2274,23 @@ export const interviewQuestions: InterviewQuestion[] = [
   // ────────────────────────────────────────────────────────────────────
   // CLOUDFLARE  (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "cloudflare-sd-3b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare Workers — serverless compute at the edge (V8 isolates).", tags: ["edge", "serverless", "isolates"], askedFor: "Senior SWE", frequency: "high" },
-  { id: "cloudflare-sd-4b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare R2 — S3-compatible object storage with zero egress fees.", tags: ["storage", "s3-compat", "cdn"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "cloudflare-sd-3b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare Workers: serverless compute at the edge (V8 isolates).", tags: ["edge", "serverless", "isolates"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cloudflare-sd-4b", company: "Cloudflare", type: "system-design", difficulty: "hard", question: "Design Cloudflare R2: S3-compatible object storage with zero egress fees.", tags: ["storage", "s3-compat", "cdn"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "cloudflare-lld-2", company: "Cloudflare", type: "lld", difficulty: "medium", question: "Design a WAF rule engine (IP allow/deny lists, rate-limit by header).", tags: ["rules", "rate-limit", "oop"], askedFor: "Senior SWE", frequency: "high" },
   { id: "cloudflare-dsa-2b", company: "Cloudflare", type: "dsa", difficulty: "medium", question: "Most Common Word excluding banned words.", tags: ["string", "hashmap"], askedFor: "Senior SWE", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // SALESFORCE  (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "sfdc-sd-6", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce Einstein GPT — AI-generated CRM content at scale.", tags: ["llm", "rag", "multi-tenant"], askedFor: "MTS+", frequency: "high" },
-  { id: "sfdc-sd-7", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce MuleSoft integration runtime — API gateway + transformation.", tags: ["api-gateway", "transformation", "connector"], askedFor: "MTS+", frequency: "medium" },
+  { id: "sfdc-sd-6", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce Einstein GPT: AI-generated CRM content at scale.", tags: ["llm", "rag", "multi-tenant"], askedFor: "MTS+", frequency: "high" },
+  { id: "sfdc-sd-7", company: "Salesforce", type: "system-design", difficulty: "hard", question: "Design Salesforce MuleSoft integration runtime: API gateway + transformation.", tags: ["api-gateway", "transformation", "connector"], askedFor: "MTS+", frequency: "medium" },
   { id: "sfdc-lld-4", company: "Salesforce", type: "lld", difficulty: "medium", question: "Design a dynamic report builder with cross-object filters.", tags: ["builder-pattern", "query", "oop"], askedFor: "MTS", frequency: "medium" },
   { id: "sfdc-dsa-3b", company: "Salesforce", type: "dsa", difficulty: "medium", question: "Evaluate Boolean Expression.", tags: ["stack", "string"], askedFor: "MTS", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // BOOKING.COM  (expanded)
   // ────────────────────────────────────────────────────────────────────
-  { id: "booking-sd-5b", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design Booking.com Genius loyalty tier — dynamic discounts for repeat customers.", tags: ["loyalty", "pricing", "segmentation"], askedFor: "Senior SWE", frequency: "medium" },
+  { id: "booking-sd-5b", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design Booking.com Genius loyalty tier: dynamic discounts for repeat customers.", tags: ["loyalty", "pricing", "segmentation"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "booking-sd-6", company: "Booking.com", type: "system-design", difficulty: "hard", question: "Design a fraud-prevention layer for OTA bookings (stolen card, chargeback).", tags: ["fraud", "ml", "payments"], askedFor: "Senior SWE", frequency: "high" },
   { id: "booking-lld-4", company: "Booking.com", type: "lld", difficulty: "medium", question: "Design a property listing ranking model interface.", tags: ["strategy", "ranking", "oop"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "booking-dsa-3b", company: "Booking.com", type: "dsa", difficulty: "medium", question: "Count Unique Hotel Deals (interval deduplication).", tags: ["intervals", "sorting"], askedFor: "Senior SWE", frequency: "medium" },
@@ -2301,28 +2301,28 @@ export const interviewQuestions: InterviewQuestion[] = [
   { id: "intuit-sd-4", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design QuickBooks Online real-time bank feed sync.", tags: ["sync", "open-banking", "stream"], askedFor: "Senior SWE", frequency: "high" },
   { id: "intuit-sd-5", company: "Intuit", type: "system-design", difficulty: "hard", question: "Design a tax calculation engine with jurisdictional rules (federal + state + local).", tags: ["rules", "tax", "compliance"], askedFor: "Senior SWE", frequency: "high" },
   { id: "intuit-lld-4", company: "Intuit", type: "lld", difficulty: "medium", question: "Design a financial reconciliation module (match bank lines to transactions).", tags: ["matching", "oop"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "intuit-dsa-4", company: "Intuit", type: "dsa", difficulty: "medium", question: "Two Sum variants — with sorted array, BST, and data stream.", tags: ["hashmap", "binary-search", "bst"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "intuit-dsa-4", company: "Intuit", type: "dsa", difficulty: "medium", question: "Two Sum variants: with sorted array, BST, and data stream.", tags: ["hashmap", "binary-search", "bst"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // FLIPKART  (more)
   // ────────────────────────────────────────────────────────────────────
-  { id: "flipkart-sd-9",  company: "Flipkart", type: "system-design", difficulty: "hard", question: "Design Flipkart Seller Hub — seller analytics dashboard (real-time + batch).", tags: ["analytics", "batch", "stream"], askedFor: "SDE-3", frequency: "medium" },
+  { id: "flipkart-sd-9",  company: "Flipkart", type: "system-design", difficulty: "hard", question: "Design Flipkart Seller Hub: seller analytics dashboard (real-time + batch).", tags: ["analytics", "batch", "stream"], askedFor: "SDE-3", frequency: "medium" },
   { id: "flipkart-lld-6", company: "Flipkart", type: "lld", difficulty: "medium", question: "Design a configurable product attribute system (category-specific attributes).", tags: ["oop", "builder-pattern"], askedFor: "SDE-2", frequency: "medium" },
-  { id: "flipkart-dsa-7", company: "Flipkart", type: "dsa", difficulty: "medium", question: "4Sum — generalise k-sum with sorting + recursion.", tags: ["two-pointers", "sorting"], askedFor: "SDE-2", frequency: "medium" },
+  { id: "flipkart-dsa-7", company: "Flipkart", type: "dsa", difficulty: "medium", question: "4Sum: generalise k-sum with sorting + recursion.", tags: ["two-pointers", "sorting"], askedFor: "SDE-2", frequency: "medium" },
 
   // ────────────────────────────────────────────────────────────────────
   // CRED  (more)
   // ────────────────────────────────────────────────────────────────────
   { id: "cred-sd-4",  company: "CRED", type: "system-design", difficulty: "hard", question: "Design CRED Mint (peer-to-peer lending marketplace).", tags: ["fintech", "matching", "ledger"], askedFor: "Senior SWE", frequency: "medium" },
   { id: "cred-lld-4", company: "CRED", type: "lld", difficulty: "medium", question: "Design a gamified challenge engine (daily tasks → rewards → levels).", tags: ["gamification", "state-machine", "oop"], askedFor: "Senior SWE", frequency: "medium" },
-  { id: "cred-dsa-3b", company: "CRED", type: "dsa", difficulty: "medium", question: "Jump Game (can reach end) — greedy.", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
+  { id: "cred-dsa-3b", company: "CRED", type: "dsa", difficulty: "medium", question: "Jump Game (can reach end): greedy.", tags: ["greedy"], askedFor: "Senior SWE", frequency: "high" },
 
   // ────────────────────────────────────────────────────────────────────
   // PHONEPE  (more)
   // ────────────────────────────────────────────────────────────────────
   { id: "phonepe-sd-8",  company: "PhonePe", type: "system-design", difficulty: "hard", question: "Design PhonePe's UPI fraud detection in <100ms.", tags: ["fraud", "ml", "latency"], askedFor: "SDE-3", frequency: "high" },
   { id: "phonepe-lld-5", company: "PhonePe", type: "lld", difficulty: "medium", question: "Design a transaction retry + idempotency layer for UPI APIs.", tags: ["idempotency", "retry", "oop"], askedFor: "SDE-2", frequency: "high" },
-  { id: "phonepe-dsa-4", company: "PhonePe", type: "dsa", difficulty: "medium", question: "Daily Temperatures — monotonic stack.", tags: ["stack", "array"], askedFor: "SDE-2", frequency: "high" },
+  { id: "phonepe-dsa-4", company: "PhonePe", type: "dsa", difficulty: "medium", question: "Daily Temperatures: monotonic stack.", tags: ["stack", "array"], askedFor: "SDE-2", frequency: "high" },
 ];
 
 // ────────────────────────────────────────────────────────────────────
