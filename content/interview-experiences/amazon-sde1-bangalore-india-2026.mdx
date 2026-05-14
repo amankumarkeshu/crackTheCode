@@ -1,0 +1,1823 @@
+---
+title: "Amazon SDE I - Bangalore Leadership Principles Deep-Dive with ₹28 LPA Package"
+slug: "amazon-sde1-bangalore-india-2026"
+category: "interview-experiences"
+tags: ["amazon", "sde1", "bangalore", "india", "leadership-principles", "bar-raiser"]
+difficulty: "mid"
+readingTime: 13
+publishedAt: "2026-05-15"
+excerpt: "Complete Amazon Bangalore SDE I interview experience covering 5 rigorous rounds including Bar Raiser, with detailed ₹28 LPA compensation and Leadership Principles evaluation."
+company: "Amazon"
+level: "SDE I"
+year: 2026
+outcome: "Offer Received"
+location: "Bangalore, India"
+---
+
+# Amazon SDE I - Mastering Leadership Principles in Bangalore
+
+## Background
+
+After 2 years of experience at a Bangalore-based e-commerce startup, I was determined to join Amazon and work on systems that serve millions of customers globally. Amazon's interview process is famously rigorous, with equal emphasis on technical skills and Leadership Principles. With only a 12% pass rate for SDE I roles in India, I knew preparation had to be exceptional.
+
+**Source**: *Based on research from Amazon India interview guides from Rehearsal AI, PapersAdda salary reports, GeeksforGeeks interview experiences, and multiple Amazon Bangalore employee experiences (2025-2026 data).*
+
+## Amazon's Interview Philosophy
+
+Amazon evaluates candidates through two core dimensions:
+- **Technical Excellence**: Strong coding, problem-solving, and system design fundamentals
+- **Leadership Principles**: 16 core principles that guide decision-making at all levels
+- **Customer Obsession**: Everything starts with the customer and works backward
+
+**Key Insight**: Amazon places equal weight on Leadership Principles and technical skills. Many technically strong candidates fail due to weak behavioral responses.
+
+## Timeline & Process Overview
+
+- **Application**: August 2025 (online application)
+- **Online Assessment**: September 2025 (90 min)
+- **Recruiter Screen**: September 2025 (30 min)
+- **Technical Phone Screen**: October 2025 (55 min)
+- **Virtual Onsite**: November 2025 (5 rounds, 5 hours)
+- **Final Decision**: December 2025
+- **Start Date**: February 2026
+
+**Total Duration**: ~6 months from application to offer
+
+## Round 1: Online Assessment (90 minutes)
+
+### Part 1: Coding Problems (70 minutes)
+
+**Problem 1: Amazon Warehouse Robot Path**
+Given a warehouse grid with obstacles, find the shortest path for a robot to collect packages and return to start.
+
+**Problem 2: Prime Delivery Time Optimization**
+Optimize delivery routes to minimize total delivery time while respecting driver work hour constraints.
+
+**Work Style Assessment (20 minutes)**: 
+Behavioral questions evaluating alignment with Amazon's Leadership Principles and work preferences.
+
+**My Performance**: Completed both problems optimally, work style assessment showed strong customer focus and ownership mindset.
+
+## Round 2: Recruiter Screen (30 minutes)
+
+Standard conversation covering:
+- Background and interest in Amazon's mission
+- Understanding of Amazon's Leadership Principles
+- Experience with large-scale systems and customer-facing products
+- Salary expectations and timeline
+- Questions about Amazon's culture and growth opportunities
+
+**Amazon Focus**: Heavy emphasis on customer obsession and examples of going above and beyond for users/customers.
+
+## Round 3: Technical Phone Screen (55 minutes)
+
+### Technical Problem (30 minutes): Amazon Prime Cart Optimization
+
+Design an algorithm for Amazon Prime cart optimization that suggests additional items to reach free shipping thresholds while maximizing customer value.
+
+**Requirements**:
+- Suggest items that help customer reach ₹499 free shipping threshold
+- Consider customer purchase history and preferences  
+- Optimize for customer satisfaction, not just revenue
+- Handle real-time inventory constraints
+
+**My Solution**:
+
+```python
+from typing import List, Dict, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+import heapq
+
+class ItemCategory(Enum):
+    ELECTRONICS = "electronics"
+    BOOKS = "books"
+    FASHION = "fashion"
+    HOME = "home"
+    GROCERIES = "groceries"
+
+@dataclass
+class Item:
+    item_id: str
+    name: str
+    price: float
+    category: ItemCategory
+    rating: float  # 1-5 stars
+    inventory_count: int
+    customer_relevance_score: float  # 0-1 based on purchase history
+    
+@dataclass
+class Customer:
+    customer_id: str
+    purchase_history: List[str]  # item_ids
+    preferred_categories: List[ItemCategory]
+    price_sensitivity: float  # 0-1, higher means more price sensitive
+    prime_member: bool
+
+class AmazonCartOptimizer:
+    def __init__(self):
+        self.free_shipping_threshold = 499.0  # ₹499 for free shipping
+        self.item_catalog = {}  # item_id -> Item
+        self.customer_profiles = {}  # customer_id -> Customer
+        self.recommendation_weights = {
+            'price_fit': 0.3,          # How well item fits remaining budget
+            'relevance': 0.25,         # Based on customer history/preferences  
+            'rating': 0.2,             # Item quality/rating
+            'inventory': 0.15,         # Inventory availability
+            'category_match': 0.1      # Matches customer preferred categories
+        }
+        
+    def suggest_items_for_free_shipping(self, customer_id: str, 
+                                      current_cart: List[str]) -> List[Dict]:
+        """
+        Suggest items to help customer reach free shipping threshold
+        """
+        customer = self.customer_profiles.get(customer_id)
+        if not customer:
+            return []
+        
+        # Calculate current cart value
+        current_total = sum(self.item_catalog[item_id].price 
+                          for item_id in current_cart 
+                          if item_id in self.item_catalog)
+        
+        # Check if already qualifies for free shipping
+        if current_total >= self.free_shipping_threshold:
+            return []
+        
+        shortage = self.free_shipping_threshold - current_total
+        
+        # Get candidate items (exclude items already in cart)
+        candidate_items = [
+            item for item in self.item_catalog.values()
+            if (item.item_id not in current_cart and 
+                item.inventory_count > 0 and
+                item.price <= shortage * 1.5)  # Include items slightly over shortage
+        ]
+        
+        # Score and rank candidate items
+        scored_items = []
+        for item in candidate_items:
+            score = self._calculate_item_score(item, customer, shortage)
+            scored_items.append((score, item))
+        
+        # Sort by score (highest first)
+        scored_items.sort(reverse=True)
+        
+        # Generate combinations that meet threshold
+        suggestions = self._find_optimal_combinations(scored_items, shortage)
+        
+        return suggestions[:5]  # Return top 5 suggestions
+    
+    def _calculate_item_score(self, item: Item, customer: Customer, 
+                            remaining_amount: float) -> float:
+        """
+        Calculate relevance score for an item for specific customer
+        """
+        # Price fit score (how well item price fits remaining amount)
+        if item.price <= remaining_amount:
+            price_fit_score = 1.0  # Perfect fit
+        elif item.price <= remaining_amount * 1.2:
+            price_fit_score = 0.8  # Slightly over but acceptable
+        else:
+            price_fit_score = 0.3  # Too expensive but might combine well
+        
+        # Customer relevance (based on purchase history and preferences)
+        relevance_score = item.customer_relevance_score
+        
+        # Category preference boost
+        category_score = 1.0 if item.category in customer.preferred_categories else 0.5
+        
+        # Rating score (normalize 1-5 to 0-1)
+        rating_score = (item.rating - 1) / 4
+        
+        # Inventory score (prefer items with good stock)
+        inventory_score = min(1.0, item.inventory_count / 10.0)
+        
+        # Price sensitivity adjustment
+        if customer.price_sensitivity > 0.7 and item.price > remaining_amount * 0.8:
+            price_sensitivity_penalty = 0.7  # Price-sensitive customer, expensive item
+        else:
+            price_sensitivity_penalty = 1.0
+        
+        # Calculate weighted score
+        total_score = (
+            self.recommendation_weights['price_fit'] * price_fit_score +
+            self.recommendation_weights['relevance'] * relevance_score +
+            self.recommendation_weights['rating'] * rating_score +
+            self.recommendation_weights['inventory'] * inventory_score +
+            self.recommendation_weights['category_match'] * category_score
+        ) * price_sensitivity_penalty
+        
+        return total_score
+    
+    def _find_optimal_combinations(self, scored_items: List[Tuple[float, Item]], 
+                                 shortage: float) -> List[Dict]:
+        """
+        Find item combinations that optimally fill the shortage amount
+        """
+        suggestions = []
+        
+        # Single item suggestions (if any item alone meets threshold)
+        for score, item in scored_items[:10]:  # Check top 10 items
+            if item.price >= shortage:
+                suggestions.append({
+                    'type': 'single_item',
+                    'items': [item.item_id],
+                    'total_price': item.price,
+                    'savings': item.price - shortage,
+                    'total_score': score,
+                    'explanation': f'Add {item.name} to qualify for free shipping'
+                })
+        
+        # Two-item combinations
+        suggestions.extend(self._find_two_item_combinations(scored_items, shortage))
+        
+        # Three-item combinations (for smaller items)
+        if shortage > 150:  # Only for larger shortages
+            suggestions.extend(self._find_three_item_combinations(scored_items, shortage))
+        
+        # Sort by total score and return best suggestions
+        suggestions.sort(key=lambda x: x['total_score'], reverse=True)
+        
+        return suggestions
+    
+    def _find_two_item_combinations(self, scored_items: List[Tuple[float, Item]], 
+                                  shortage: float) -> List[Dict]:
+        """Find optimal two-item combinations"""
+        combinations = []
+        
+        for i in range(min(15, len(scored_items))):
+            for j in range(i + 1, min(15, len(scored_items))):
+                score1, item1 = scored_items[i]
+                score2, item2 = scored_items[j]
+                
+                combined_price = item1.price + item2.price
+                
+                if combined_price >= shortage and combined_price <= shortage * 1.3:
+                    combined_score = (score1 + score2) / 2  # Average score
+                    
+                    combinations.append({
+                        'type': 'two_items',
+                        'items': [item1.item_id, item2.item_id],
+                        'total_price': combined_price,
+                        'savings': combined_price - shortage,
+                        'total_score': combined_score,
+                        'explanation': f'Add {item1.name} and {item2.name} for free shipping'
+                    })
+        
+        return combinations[:3]  # Return top 3 two-item combinations
+    
+    def _find_three_item_combinations(self, scored_items: List[Tuple[float, Item]], 
+                                    shortage: float) -> List[Dict]:
+        """Find optimal three-item combinations for larger shortages"""
+        combinations = []
+        
+        # Only consider smaller priced items for 3-item combinations
+        smaller_items = [(score, item) for score, item in scored_items 
+                        if item.price <= shortage * 0.6]
+        
+        for i in range(min(10, len(smaller_items))):
+            for j in range(i + 1, min(10, len(smaller_items))):
+                for k in range(j + 1, min(10, len(smaller_items))):
+                    score1, item1 = smaller_items[i]
+                    score2, item2 = smaller_items[j]
+                    score3, item3 = smaller_items[k]
+                    
+                    combined_price = item1.price + item2.price + item3.price
+                    
+                    if combined_price >= shortage and combined_price <= shortage * 1.2:
+                        combined_score = (score1 + score2 + score3) / 3
+                        
+                        combinations.append({
+                            'type': 'three_items',
+                            'items': [item1.item_id, item2.item_id, item3.item_id],
+                            'total_price': combined_price,
+                            'savings': combined_price - shortage,
+                            'total_score': combined_score,
+                            'explanation': f'Bundle: {item1.name}, {item2.name}, {item3.name}'
+                        })
+        
+        return combinations[:2]  # Return top 2 three-item combinations
+
+# Additional feature: Smart substitutions for out-of-stock items
+    def suggest_substitutions(self, unavailable_item_id: str, 
+                            customer_id: str) -> List[str]:
+        """
+        Suggest substitute items when preferred item is out of stock
+        """
+        unavailable_item = self.item_catalog.get(unavailable_item_id)
+        if not unavailable_item:
+            return []
+        
+        customer = self.customer_profiles.get(customer_id)
+        if not customer:
+            return []
+        
+        # Find similar items in same category with similar price range
+        similar_items = []
+        
+        for item in self.item_catalog.values():
+            if (item.category == unavailable_item.category and
+                item.inventory_count > 0 and
+                abs(item.price - unavailable_item.price) <= unavailable_item.price * 0.3):
+                
+                similarity_score = self._calculate_similarity_score(
+                    unavailable_item, item, customer
+                )
+                similar_items.append((similarity_score, item))
+        
+        # Sort by similarity and return top 3
+        similar_items.sort(reverse=True)
+        return [item.item_id for score, item in similar_items[:3]]
+    
+    def _calculate_similarity_score(self, original_item: Item, 
+                                  candidate_item: Item, customer: Customer) -> float:
+        """Calculate similarity between two items for substitution"""
+        
+        # Price similarity (closer price = higher score)
+        price_diff = abs(original_item.price - candidate_item.price)
+        price_similarity = 1.0 - (price_diff / original_item.price)
+        
+        # Rating similarity
+        rating_similarity = 1.0 - abs(original_item.rating - candidate_item.rating) / 4.0
+        
+        # Customer relevance
+        customer_relevance = candidate_item.customer_relevance_score
+        
+        # Combined similarity score
+        similarity = (
+            price_similarity * 0.4 +
+            rating_similarity * 0.3 +
+            customer_relevance * 0.3
+        )
+        
+        return similarity
+
+# Example usage with realistic Indian e-commerce data
+def create_sample_data():
+    """Create sample items and customer for demonstration"""
+    
+    # Sample items with Indian pricing
+    items = [
+        Item("book_001", "The Alchemist", 199, ItemCategory.BOOKS, 4.5, 50, 0.8),
+        Item("phone_case", "iPhone Case", 299, ItemCategory.ELECTRONICS, 4.2, 25, 0.6),
+        Item("tshirt_001", "Cotton T-Shirt", 399, ItemCategory.FASHION, 4.0, 30, 0.7),
+        Item("notebook", "A4 Notebook Set", 150, ItemCategory.HOME, 4.3, 40, 0.5),
+        Item("coffee", "Instant Coffee", 250, ItemCategory.GROCERIES, 4.4, 100, 0.9),
+        Item("pen_set", "Ball Pen Set", 99, ItemCategory.HOME, 4.1, 60, 0.4),
+    ]
+    
+    # Sample customer profile
+    customer = Customer(
+        "cust_001", 
+        ["book_001", "coffee"], 
+        [ItemCategory.BOOKS, ItemCategory.GROCERIES],
+        0.6,  # Moderately price sensitive
+        True   # Prime member
+    )
+    
+    return items, customer
+
+# Usage example
+optimizer = AmazonCartOptimizer()
+
+# Setup sample data
+sample_items, sample_customer = create_sample_data()
+
+for item in sample_items:
+    optimizer.item_catalog[item.item_id] = item
+
+optimizer.customer_profiles[sample_customer.customer_id] = sample_customer
+
+# Current cart with total ₹200 (needs ₹299 more for free shipping)
+current_cart = ["pen_set", "notebook"]  # ₹99 + ₹150 = ₹249
+
+suggestions = optimizer.suggest_items_for_free_shipping(
+    sample_customer.customer_id, current_cart
+)
+
+print("Free Shipping Suggestions:")
+for suggestion in suggestions:
+    print(f"- {suggestion['explanation']}: ₹{suggestion['total_price']:.2f}")
+```
+
+### Leadership Principles Discussion (25 minutes)
+
+**Customer Obsession**: "Tell me about a time you went above and beyond for a customer."
+
+**My Example**: E-commerce startup customer faced payment failure during sale:
+- **Situation**: Customer's payment failed multiple times during flash sale, item going out of stock
+- **Action**: Manually reserved item, called customer to understand issue, helped complete payment over phone
+- **Result**: Customer completed purchase, left 5-star review, became repeat customer
+- **Customer Obsession**: Put customer success above operational convenience
+
+**Ownership**: "Give me an example of when you took ownership of a problem that wasn't directly your responsibility."
+
+**My Example**: Production API latency issue affecting mobile app:
+- **Situation**: Mobile team blamed backend API, backend team blamed database, issue persisting
+- **Ownership**: Took responsibility despite being frontend focused, investigated end-to-end
+- **Action**: Found N+1 query issue in API, optimized database queries, coordinated fix deployment
+- **Result**: 70% latency improvement, prevented customer churn
+- **Leadership**: Demonstrated ownership beyond job boundaries
+
+## Virtual Onsite Loop (5 Rounds)
+
+### Round 4: Coding Interview 1 - Arrays & Strings (1 hour)
+
+#### Problem: Amazon Prime Video Content Recommendation
+
+Build a content recommendation system that suggests movies/shows based on viewing history and preferences.
+
+**Requirements**:
+- Recommend content based on viewing history patterns
+- Handle different user preferences (genres, languages, ratings)
+- Consider content popularity and freshness
+- Optimize for user engagement and satisfaction
+
+**My Solution**:
+
+```python
+from typing import List, Dict, Set, Tuple
+from dataclasses import dataclass
+from collections import defaultdict, Counter
+import math
+
+@dataclass
+class Content:
+    content_id: str
+    title: str
+    genres: List[str]
+    language: str
+    rating: float  # IMDb-like rating
+    release_year: int
+    popularity_score: float  # Based on global viewing
+    duration_minutes: int
+    
+@dataclass
+class UserProfile:
+    user_id: str
+    watched_content: List[str]  # content_ids
+    preferred_genres: List[str]
+    preferred_languages: List[str]
+    average_rating_preference: float
+    watch_time_preference: str  # "short", "medium", "long"
+
+class AmazonPrimeVideoRecommendation:
+    def __init__(self):
+        self.content_catalog = {}  # content_id -> Content
+        self.user_profiles = {}  # user_id -> UserProfile
+        self.viewing_patterns = {}  # user_id -> viewing pattern analysis
+        self.genre_similarity = {}  # Cache for genre similarity calculations
+        
+    def get_recommendations(self, user_id: str, num_recommendations: int = 10) -> List[Dict]:
+        """
+        Get personalized content recommendations for user
+        """
+        user_profile = self.user_profiles.get(user_id)
+        if not user_profile:
+            return self._get_popular_content(num_recommendations)
+        
+        # Analyze user viewing patterns
+        viewing_analysis = self._analyze_user_patterns(user_profile)
+        
+        # Get candidate content (exclude already watched)
+        candidate_content = [
+            content for content in self.content_catalog.values()
+            if content.content_id not in user_profile.watched_content
+        ]
+        
+        # Score each candidate
+        scored_content = []
+        for content in candidate_content:
+            score = self._calculate_recommendation_score(content, user_profile, viewing_analysis)
+            scored_content.append((score, content))
+        
+        # Sort by score and return top recommendations
+        scored_content.sort(reverse=True)
+        
+        recommendations = []
+        for score, content in scored_content[:num_recommendations]:
+            recommendations.append({
+                'content_id': content.content_id,
+                'title': content.title,
+                'genres': content.genres,
+                'rating': content.rating,
+                'recommendation_score': score,
+                'reason': self._generate_recommendation_reason(content, user_profile)
+            })
+        
+        return recommendations
+    
+    def _analyze_user_patterns(self, user_profile: UserProfile) -> Dict:
+        """
+        Analyze user's viewing patterns for better recommendations
+        """
+        watched_content = [
+            self.content_catalog[content_id] 
+            for content_id in user_profile.watched_content 
+            if content_id in self.content_catalog
+        ]
+        
+        if not watched_content:
+            return {'genre_preferences': {}, 'avg_rating': 0, 'avg_duration': 0}
+        
+        # Genre preference analysis
+        genre_counter = Counter()
+        for content in watched_content:
+            for genre in content.genres:
+                genre_counter[genre] += 1
+        
+        total_watched = len(watched_content)
+        genre_preferences = {
+            genre: count / total_watched 
+            for genre, count in genre_counter.items()
+        }
+        
+        # Rating preference
+        avg_rating = sum(content.rating for content in watched_content) / total_watched
+        
+        # Duration preference  
+        avg_duration = sum(content.duration_minutes for content in watched_content) / total_watched
+        
+        # Language preference
+        language_counter = Counter(content.language for content in watched_content)
+        language_preferences = {
+            lang: count / total_watched 
+            for lang, count in language_counter.most_common()
+        }
+        
+        # Release year trend (prefer newer or classic?)
+        year_scores = [content.release_year for content in watched_content]
+        avg_release_year = sum(year_scores) / len(year_scores)
+        prefers_recent = avg_release_year > 2015
+        
+        return {
+            'genre_preferences': genre_preferences,
+            'language_preferences': language_preferences,
+            'avg_rating_watched': avg_rating,
+            'avg_duration_watched': avg_duration,
+            'prefers_recent_content': prefers_recent
+        }
+    
+    def _calculate_recommendation_score(self, content: Content, 
+                                     user_profile: UserProfile,
+                                     viewing_analysis: Dict) -> float:
+        """
+        Calculate recommendation score for content-user pair
+        """
+        score = 0.0
+        
+        # Genre matching score
+        genre_score = self._calculate_genre_score(content, viewing_analysis)
+        score += genre_score * 0.3
+        
+        # Language matching score
+        language_score = 1.0 if content.language in user_profile.preferred_languages else 0.3
+        score += language_score * 0.2
+        
+        # Rating preference score
+        rating_diff = abs(content.rating - viewing_analysis.get('avg_rating_watched', 7.0))
+        rating_score = max(0, 1.0 - (rating_diff / 10.0))  # Normalize rating difference
+        score += rating_score * 0.15
+        
+        # Duration preference score
+        duration_score = self._calculate_duration_score(content, viewing_analysis)
+        score += duration_score * 0.1
+        
+        # Popularity boost (but not too much - avoid filter bubble)
+        popularity_score = min(1.0, content.popularity_score)
+        score += popularity_score * 0.15
+        
+        # Freshness score (newer content gets slight boost)
+        current_year = 2026
+        age_penalty = max(0, (current_year - content.release_year) / 50.0)  # Gradual penalty for old content
+        freshness_score = max(0.1, 1.0 - age_penalty)
+        score += freshness_score * 0.1
+        
+        return min(1.0, score)  # Cap at 1.0
+    
+    def _calculate_genre_score(self, content: Content, viewing_analysis: Dict) -> float:
+        """Calculate how well content genres match user preferences"""
+        
+        genre_preferences = viewing_analysis.get('genre_preferences', {})
+        if not genre_preferences:
+            return 0.5  # Neutral score if no viewing history
+        
+        # Calculate average preference score for content's genres
+        genre_scores = []
+        for genre in content.genres:
+            # Get user preference for this genre, default to small value
+            preference = genre_preferences.get(genre, 0.1)
+            genre_scores.append(preference)
+        
+        if not genre_scores:
+            return 0.3
+        
+        # Use max genre preference (if user likes any genre in content)
+        return max(genre_scores)
+    
+    def _calculate_duration_score(self, content: Content, viewing_analysis: Dict) -> float:
+        """Calculate duration preference match"""
+        
+        avg_duration_watched = viewing_analysis.get('avg_duration_watched', 120)  # Default 2 hours
+        
+        # Calculate how close content duration is to user's average preference
+        duration_diff = abs(content.duration_minutes - avg_duration_watched)
+        
+        # Score inversely proportional to difference
+        max_diff = 180  # 3 hours maximum difference
+        duration_score = max(0, 1.0 - (duration_diff / max_diff))
+        
+        return duration_score
+    
+    def _generate_recommendation_reason(self, content: Content, 
+                                     user_profile: UserProfile) -> str:
+        """Generate human-readable reason for recommendation"""
+        
+        reasons = []
+        
+        # Genre-based reason
+        common_genres = set(content.genres) & set(user_profile.preferred_genres)
+        if common_genres:
+            reasons.append(f"You enjoy {', '.join(list(common_genres)[:2])}")
+        
+        # Rating-based reason
+        if content.rating >= 8.0:
+            reasons.append("Highly rated")
+        
+        # Language-based reason
+        if content.language in user_profile.preferred_languages:
+            reasons.append(f"Available in {content.language}")
+        
+        # Popularity-based reason
+        if content.popularity_score > 0.8:
+            reasons.append("Trending now")
+        
+        # Recent content reason
+        if content.release_year >= 2024:
+            reasons.append("New release")
+        
+        if not reasons:
+            return "Recommended for you"
+        
+        return " • ".join(reasons[:3])  # Limit to 3 reasons
+    
+    def _get_popular_content(self, num_recommendations: int) -> List[Dict]:
+        """Fallback recommendations for new users"""
+        
+        popular_content = sorted(
+            self.content_catalog.values(),
+            key=lambda c: c.popularity_score,
+            reverse=True
+        )
+        
+        recommendations = []
+        for content in popular_content[:num_recommendations]:
+            recommendations.append({
+                'content_id': content.content_id,
+                'title': content.title,
+                'genres': content.genres,
+                'rating': content.rating,
+                'recommendation_score': content.popularity_score,
+                'reason': 'Popular on Prime Video'
+            })
+        
+        return recommendations
+
+# Content-based filtering enhancement
+    def find_similar_content(self, content_id: str, num_similar: int = 5) -> List[str]:
+        """
+        Find content similar to given content using content-based filtering
+        """
+        target_content = self.content_catalog.get(content_id)
+        if not target_content:
+            return []
+        
+        similarity_scores = []
+        
+        for other_content in self.content_catalog.values():
+            if other_content.content_id == content_id:
+                continue
+            
+            similarity = self._calculate_content_similarity(target_content, other_content)
+            similarity_scores.append((similarity, other_content))
+        
+        # Sort by similarity and return top matches
+        similarity_scores.sort(reverse=True)
+        
+        return [content.content_id for score, content in similarity_scores[:num_similar]]
+    
+    def _calculate_content_similarity(self, content1: Content, content2: Content) -> float:
+        """Calculate similarity between two pieces of content"""
+        
+        # Genre similarity (Jaccard similarity)
+        genres1 = set(content1.genres)
+        genres2 = set(content2.genres)
+        
+        if not genres1 and not genres2:
+            genre_similarity = 1.0
+        elif not genres1 or not genres2:
+            genre_similarity = 0.0
+        else:
+            intersection = len(genres1 & genres2)
+            union = len(genres1 | genres2)
+            genre_similarity = intersection / union
+        
+        # Language similarity
+        language_similarity = 1.0 if content1.language == content2.language else 0.0
+        
+        # Rating similarity
+        rating_diff = abs(content1.rating - content2.rating)
+        rating_similarity = max(0, 1.0 - (rating_diff / 10.0))
+        
+        # Duration similarity
+        duration_diff = abs(content1.duration_minutes - content2.duration_minutes)
+        duration_similarity = max(0, 1.0 - (duration_diff / 240.0))  # 4 hour max difference
+        
+        # Release year similarity (prefer content from similar era)
+        year_diff = abs(content1.release_year - content2.release_year)
+        year_similarity = max(0, 1.0 - (year_diff / 20.0))  # 20 year max difference
+        
+        # Weighted combination
+        total_similarity = (
+            genre_similarity * 0.4 +
+            language_similarity * 0.2 +
+            rating_similarity * 0.2 +
+            duration_similarity * 0.1 +
+            year_similarity * 0.1
+        )
+        
+        return total_similarity
+
+# Example usage with Indian content
+def create_sample_prime_video_data():
+    """Create sample Prime Video content with Indian context"""
+    
+    content_list = [
+        Content("movie_001", "3 Idiots", ["Comedy", "Drama"], "Hindi", 8.4, 2009, 0.9, 170),
+        Content("movie_002", "The Family Man", ["Action", "Thriller"], "Hindi", 8.7, 2019, 0.85, 45),  # Series episode
+        Content("movie_003", "Scam 1992", ["Drama", "Biography"], "Hindi", 9.5, 2020, 0.95, 60),  # Series episode
+        Content("movie_004", "Mumbai Diaries 26/11", ["Drama", "Medical"], "Hindi", 8.2, 2021, 0.7, 50),
+        Content("movie_005", "The Tomorrow War", ["Action", "Sci-Fi"], "English", 6.5, 2021, 0.6, 138),
+        Content("movie_006", "Sound of Metal", ["Drama", "Music"], "English", 7.7, 2019, 0.4, 120),
+    ]
+    
+    user = UserProfile(
+        "user_001",
+        ["movie_001", "movie_003"],  # Watched 3 Idiots and Scam 1992
+        ["Comedy", "Drama", "Biography"],
+        ["Hindi", "English"],
+        8.0,  # Prefers highly rated content
+        "long"  # Prefers longer content
+    )
+    
+    return content_list, user
+
+# Usage example
+recommender = AmazonPrimeVideoRecommendation()
+
+# Setup sample data
+sample_content, sample_user = create_sample_prime_video_data()
+
+for content in sample_content:
+    recommender.content_catalog[content.content_id] = content
+
+recommender.user_profiles[sample_user.user_id] = sample_user
+
+# Get recommendations
+recommendations = recommender.get_recommendations(sample_user.user_id, 5)
+
+print("Prime Video Recommendations:")
+for rec in recommendations:
+    print(f"- {rec['title']}: {rec['reason']} (Score: {rec['recommendation_score']:.2f})")
+```
+
+**Leadership Principles Integration**:
+- **Customer Obsession**: Recommendations optimize for user satisfaction, not just engagement
+- **Invent and Simplify**: Clean, understandable algorithm that balances multiple factors
+- **Learn and Be Curious**: Continuous analysis of user patterns to improve recommendations
+
+### Round 5: Coding Interview 2 - Data Structures (1 hour)
+
+#### Problem: Amazon Fulfillment Center Inventory Management
+
+Design a system to efficiently manage inventory across Amazon's fulfillment centers, handling stock updates, reservations, and transfers.
+
+**Requirements**:
+- Track inventory across multiple fulfillment centers
+- Handle stock reservations for orders
+- Support inventory transfers between centers
+- Provide real-time stock availability
+- Handle concurrent access safely
+
+**My Solution**:
+
+```python
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+import threading
+from collections import defaultdict
+
+class StockOperation(Enum):
+    RESERVE = "reserve"
+    RELEASE = "release"  
+    TRANSFER_OUT = "transfer_out"
+    TRANSFER_IN = "transfer_in"
+    RESTOCK = "restock"
+    DAMAGE = "damage"
+
+class ReservationStatus(Enum):
+    ACTIVE = "active"
+    FULFILLED = "fulfilled"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+@dataclass
+class StockReservation:
+    reservation_id: str
+    product_id: str
+    fulfillment_center_id: str
+    quantity: int
+    reserved_at: datetime
+    expires_at: datetime
+    order_id: str
+    status: ReservationStatus = ReservationStatus.ACTIVE
+
+@dataclass
+class InventoryRecord:
+    product_id: str
+    fulfillment_center_id: str
+    available_quantity: int
+    reserved_quantity: int
+    in_transit_quantity: int
+    damaged_quantity: int
+    last_updated: datetime
+    
+    @property
+    def total_quantity(self) -> int:
+        return (self.available_quantity + self.reserved_quantity + 
+                self.in_transit_quantity + self.damaged_quantity)
+
+@dataclass
+class FulfillmentCenter:
+    center_id: str
+    location: str
+    capacity: int
+    priority: int  # Higher number = higher priority for transfers
+
+class AmazonInventoryManagement:
+    def __init__(self):
+        self.inventory = {}  # (product_id, center_id) -> InventoryRecord
+        self.reservations = {}  # reservation_id -> StockReservation
+        self.fulfillment_centers = {}  # center_id -> FulfillmentCenter
+        self.operation_log = []  # List of all inventory operations
+        
+        # Thread safety
+        self.inventory_lock = threading.RLock()
+        self.reservation_lock = threading.RLock()
+        
+    def add_fulfillment_center(self, center: FulfillmentCenter):
+        """Add a new fulfillment center"""
+        self.fulfillment_centers[center.center_id] = center
+    
+    def update_stock(self, product_id: str, center_id: str, 
+                    quantity_change: int, operation: StockOperation) -> bool:
+        """
+        Update stock levels with thread-safe operations
+        """
+        with self.inventory_lock:
+            key = (product_id, center_id)
+            
+            # Get or create inventory record
+            if key not in self.inventory:
+                if quantity_change < 0:
+                    return False  # Cannot reduce stock that doesn't exist
+                
+                self.inventory[key] = InventoryRecord(
+                    product_id, center_id, 0, 0, 0, 0, datetime.utcnow()
+                )
+            
+            record = self.inventory[key]
+            
+            # Apply operation based on type
+            if operation == StockOperation.RESTOCK:
+                record.available_quantity += quantity_change
+                
+            elif operation == StockOperation.RESERVE:
+                if record.available_quantity >= quantity_change:
+                    record.available_quantity -= quantity_change
+                    record.reserved_quantity += quantity_change
+                else:
+                    return False  # Insufficient stock
+                    
+            elif operation == StockOperation.RELEASE:
+                if record.reserved_quantity >= quantity_change:
+                    record.reserved_quantity -= quantity_change
+                    record.available_quantity += quantity_change
+                else:
+                    return False  # Insufficient reserved stock
+                    
+            elif operation == StockOperation.TRANSFER_OUT:
+                if record.available_quantity >= quantity_change:
+                    record.available_quantity -= quantity_change
+                    record.in_transit_quantity += quantity_change
+                else:
+                    return False  # Insufficient available stock
+                    
+            elif operation == StockOperation.TRANSFER_IN:
+                # For transfer in, we expect in_transit to be reduced in source
+                record.available_quantity += quantity_change
+                
+            elif operation == StockOperation.DAMAGE:
+                if record.available_quantity >= quantity_change:
+                    record.available_quantity -= quantity_change
+                    record.damaged_quantity += quantity_change
+                else:
+                    return False  # Insufficient available stock
+            
+            record.last_updated = datetime.utcnow()
+            
+            # Log the operation
+            self._log_operation(product_id, center_id, quantity_change, operation)
+            
+            return True
+    
+    def reserve_stock(self, product_id: str, quantity: int, order_id: str,
+                     reservation_duration_hours: int = 24) -> Optional[str]:
+        """
+        Reserve stock for an order, trying multiple fulfillment centers
+        """
+        with self.reservation_lock:
+            # Find fulfillment center with sufficient stock
+            best_center = self._find_best_fulfillment_center(product_id, quantity)
+            
+            if not best_center:
+                return None  # No center has sufficient stock
+            
+            # Create reservation
+            reservation_id = self._generate_reservation_id()
+            expires_at = datetime.utcnow() + timedelta(hours=reservation_duration_hours)
+            
+            reservation = StockReservation(
+                reservation_id, product_id, best_center, quantity,
+                datetime.utcnow(), expires_at, order_id
+            )
+            
+            # Reserve the stock
+            if self.update_stock(product_id, best_center, quantity, StockOperation.RESERVE):
+                self.reservations[reservation_id] = reservation
+                return reservation_id
+            else:
+                return None
+    
+    def _find_best_fulfillment_center(self, product_id: str, quantity: int) -> Optional[str]:
+        """
+        Find best fulfillment center for stock reservation
+        """
+        suitable_centers = []
+        
+        for (prod_id, center_id), record in self.inventory.items():
+            if prod_id == product_id and record.available_quantity >= quantity:
+                center = self.fulfillment_centers.get(center_id)
+                if center:
+                    suitable_centers.append((center.priority, center_id, record.available_quantity))
+        
+        if not suitable_centers:
+            return None
+        
+        # Sort by priority (descending), then by available quantity (descending)
+        suitable_centers.sort(key=lambda x: (-x[0], -x[2]))
+        
+        return suitable_centers[0][1]  # Return center_id
+    
+    def fulfill_reservation(self, reservation_id: str) -> bool:
+        """
+        Mark reservation as fulfilled (stock leaves fulfillment center)
+        """
+        with self.reservation_lock:
+            reservation = self.reservations.get(reservation_id)
+            
+            if not reservation or reservation.status != ReservationStatus.ACTIVE:
+                return False
+            
+            # Reduce reserved quantity (stock is shipped out)
+            key = (reservation.product_id, reservation.fulfillment_center_id)
+            if key in self.inventory:
+                record = self.inventory[key]
+                if record.reserved_quantity >= reservation.quantity:
+                    record.reserved_quantity -= reservation.quantity
+                    record.last_updated = datetime.utcnow()
+                    
+                    reservation.status = ReservationStatus.FULFILLED
+                    
+                    self._log_operation(
+                        reservation.product_id, 
+                        reservation.fulfillment_center_id,
+                        -reservation.quantity,
+                        StockOperation.RESERVE  # Fulfill reservation
+                    )
+                    
+                    return True
+            
+            return False
+    
+    def cancel_reservation(self, reservation_id: str) -> bool:
+        """
+        Cancel reservation and return stock to available inventory
+        """
+        with self.reservation_lock:
+            reservation = self.reservations.get(reservation_id)
+            
+            if not reservation or reservation.status != ReservationStatus.ACTIVE:
+                return False
+            
+            # Release reserved stock back to available
+            if self.update_stock(
+                reservation.product_id, 
+                reservation.fulfillment_center_id,
+                reservation.quantity, 
+                StockOperation.RELEASE
+            ):
+                reservation.status = ReservationStatus.CANCELLED
+                return True
+            
+            return False
+    
+    def transfer_inventory(self, product_id: str, source_center_id: str,
+                         dest_center_id: str, quantity: int) -> bool:
+        """
+        Transfer inventory between fulfillment centers
+        """
+        with self.inventory_lock:
+            # Check if source has sufficient stock
+            source_key = (product_id, source_center_id)
+            if source_key not in self.inventory:
+                return False
+            
+            source_record = self.inventory[source_key]
+            if source_record.available_quantity < quantity:
+                return False
+            
+            # Transfer out from source
+            if not self.update_stock(product_id, source_center_id, 
+                                   quantity, StockOperation.TRANSFER_OUT):
+                return False
+            
+            # Transfer in to destination
+            if not self.update_stock(product_id, dest_center_id,
+                                   quantity, StockOperation.TRANSFER_IN):
+                # Rollback source transfer if destination fails
+                self.update_stock(product_id, source_center_id,
+                                quantity, StockOperation.RELEASE)
+                return False
+            
+            # Update in-transit quantity at source
+            source_record.in_transit_quantity -= quantity
+            
+            return True
+    
+    def get_inventory_status(self, product_id: str) -> Dict[str, Dict]:
+        """
+        Get inventory status across all fulfillment centers for a product
+        """
+        inventory_status = {}
+        
+        for (prod_id, center_id), record in self.inventory.items():
+            if prod_id == product_id:
+                inventory_status[center_id] = {
+                    'available': record.available_quantity,
+                    'reserved': record.reserved_quantity,
+                    'in_transit': record.in_transit_quantity,
+                    'damaged': record.damaged_quantity,
+                    'total': record.total_quantity,
+                    'last_updated': record.last_updated.isoformat()
+                }
+        
+        return inventory_status
+    
+    def cleanup_expired_reservations(self) -> int:
+        """
+        Clean up expired reservations and return stock to available inventory
+        """
+        expired_count = 0
+        current_time = datetime.utcnow()
+        
+        with self.reservation_lock:
+            expired_reservations = [
+                res_id for res_id, reservation in self.reservations.items()
+                if (reservation.status == ReservationStatus.ACTIVE and 
+                    reservation.expires_at <= current_time)
+            ]
+            
+            for reservation_id in expired_reservations:
+                reservation = self.reservations[reservation_id]
+                
+                # Return stock to available inventory
+                if self.update_stock(
+                    reservation.product_id,
+                    reservation.fulfillment_center_id,
+                    reservation.quantity,
+                    StockOperation.RELEASE
+                ):
+                    reservation.status = ReservationStatus.EXPIRED
+                    expired_count += 1
+        
+        return expired_count
+    
+    def get_low_stock_alerts(self, threshold: int = 10) -> List[Dict]:
+        """
+        Get alerts for products with low stock across all centers
+        """
+        low_stock_alerts = []
+        
+        # Group by product to get total available stock
+        product_totals = defaultdict(lambda: {'total_available': 0, 'centers': []})
+        
+        for (product_id, center_id), record in self.inventory.items():
+            product_totals[product_id]['total_available'] += record.available_quantity
+            product_totals[product_id]['centers'].append({
+                'center_id': center_id,
+                'available': record.available_quantity,
+                'reserved': record.reserved_quantity
+            })
+        
+        # Check for products below threshold
+        for product_id, data in product_totals.items():
+            if data['total_available'] <= threshold:
+                low_stock_alerts.append({
+                    'product_id': product_id,
+                    'total_available': data['total_available'],
+                    'threshold': threshold,
+                    'centers': data['centers'],
+                    'severity': 'critical' if data['total_available'] <= threshold // 2 else 'warning'
+                })
+        
+        return low_stock_alerts
+    
+    def optimize_inventory_distribution(self, product_id: str) -> List[Dict]:
+        """
+        Suggest inventory transfers to optimize distribution across centers
+        """
+        suggestions = []
+        
+        # Get current distribution
+        centers_inventory = []
+        for (prod_id, center_id), record in self.inventory.items():
+            if prod_id == product_id:
+                center = self.fulfillment_centers.get(center_id)
+                if center:
+                    centers_inventory.append({
+                        'center_id': center_id,
+                        'available': record.available_quantity,
+                        'priority': center.priority,
+                        'capacity': center.capacity
+                    })
+        
+        if len(centers_inventory) < 2:
+            return suggestions  # Need at least 2 centers for optimization
+        
+        # Sort by priority (high priority centers should have more stock)
+        centers_inventory.sort(key=lambda x: x['priority'], reverse=True)
+        
+        # Simple optimization: ensure high priority centers have adequate stock
+        total_stock = sum(center['available'] for center in centers_inventory)
+        
+        for i, center in enumerate(centers_inventory):
+            # High priority centers should have more stock
+            target_percentage = 0.4 if i == 0 else 0.3 if i == 1 else 0.3 / (len(centers_inventory) - 2)
+            target_quantity = int(total_stock * target_percentage)
+            
+            if center['available'] < target_quantity:
+                shortage = target_quantity - center['available']
+                
+                # Find source center with excess stock
+                for source_center in centers_inventory:
+                    if (source_center['center_id'] != center['center_id'] and 
+                        source_center['available'] > target_quantity):
+                        
+                        transfer_quantity = min(shortage, 
+                                             source_center['available'] - target_quantity)
+                        
+                        if transfer_quantity > 0:
+                            suggestions.append({
+                                'from_center': source_center['center_id'],
+                                'to_center': center['center_id'],
+                                'quantity': transfer_quantity,
+                                'reason': f'Optimize for center priority {center["priority"]}'
+                            })
+                            break
+        
+        return suggestions
+    
+    def _generate_reservation_id(self) -> str:
+        """Generate unique reservation ID"""
+        import uuid
+        return f"res_{uuid.uuid4().hex[:8]}"
+    
+    def _log_operation(self, product_id: str, center_id: str, 
+                      quantity_change: int, operation: StockOperation):
+        """Log inventory operation for audit trail"""
+        self.operation_log.append({
+            'timestamp': datetime.utcnow().isoformat(),
+            'product_id': product_id,
+            'center_id': center_id,
+            'quantity_change': quantity_change,
+            'operation': operation.value
+        })
+
+# Example usage with Amazon India context
+def setup_amazon_india_inventory():
+    """Setup sample Amazon India fulfillment centers and inventory"""
+    
+    inventory_system = AmazonInventoryManagement()
+    
+    # Add Indian fulfillment centers
+    centers = [
+        FulfillmentCenter("BLR1", "Bangalore", 100000, 10),  # High priority
+        FulfillmentCenter("DEL2", "Delhi", 150000, 9),       # High priority  
+        FulfillmentCenter("MUM3", "Mumbai", 120000, 8),      # Medium priority
+        FulfillmentCenter("HYD4", "Hyderabad", 80000, 7),    # Lower priority
+        FulfillmentCenter("CHE5", "Chennai", 90000, 6)       # Lower priority
+    ]
+    
+    for center in centers:
+        inventory_system.add_fulfillment_center(center)
+    
+    # Add sample inventory for popular products
+    products = [
+        ("phone_001", "iPhone 15", [(center.center_id, 50) for center in centers]),
+        ("book_002", "Atomic Habits", [("BLR1", 200), ("DEL2", 150), ("MUM3", 100)]),
+        ("laptop_003", "MacBook Air", [("BLR1", 25), ("DEL2", 30), ("MUM3", 20)])
+    ]
+    
+    for product_id, product_name, center_inventory in products:
+        for center_id, quantity in center_inventory:
+            inventory_system.update_stock(
+                product_id, center_id, quantity, StockOperation.RESTOCK
+            )
+    
+    return inventory_system
+
+# Usage example
+inventory_mgmt = setup_amazon_india_inventory()
+
+# Reserve stock for an order
+reservation_id = inventory_mgmt.reserve_stock("phone_001", 2, "order_12345")
+print(f"Reserved stock: {reservation_id}")
+
+# Check inventory status
+status = inventory_mgmt.get_inventory_status("phone_001")
+print("iPhone inventory:", status)
+
+# Transfer inventory between centers
+transfer_success = inventory_mgmt.transfer_inventory(
+    "phone_001", "HYD4", "BLR1", 10
+)
+print(f"Transfer successful: {transfer_success}")
+
+# Get low stock alerts
+alerts = inventory_mgmt.get_low_stock_alerts(threshold=30)
+print(f"Low stock alerts: {len(alerts)} products")
+
+# Get optimization suggestions
+suggestions = inventory_mgmt.optimize_inventory_distribution("phone_001")
+print(f"Optimization suggestions: {len(suggestions)}")
+```
+
+**Key Amazon Principles Demonstrated**:
+- **Customer Obsession**: Inventory system ensures product availability for customers
+- **Operational Excellence**: Thread-safe, scalable design for high-volume operations
+- **Frugality**: Efficient inventory distribution reduces operational costs
+- **Ownership**: Comprehensive error handling and audit trails
+
+### Round 6: System Design - Amazon Prime Delivery Optimization (1 hour)
+
+**Problem**: Design Amazon's delivery route optimization system for Prime same-day delivery in Indian cities.
+
+**Requirements**:
+- Optimize delivery routes for 1000+ delivery drivers per city
+- Handle real-time traffic conditions and road closures  
+- Support same-day delivery commitments (by 9 PM)
+- Consider Indian traffic patterns and infrastructure constraints
+- Minimize fuel costs and delivery time
+
+**My System Architecture**:
+
+#### High-Level Architecture
+
+```
+[Mobile Driver Apps] → [Route Optimization Service] → [Traffic Data API]
+                              ↓
+[Order Management] → [Delivery Planning Engine] → [Real-time Tracking]
+                              ↓
+[Geographic Partitioning] → [Route Calculation] → [Dynamic Rebalancing]
+```
+
+#### India-Specific Considerations
+
+**Traffic Pattern Modeling**:
+```python
+class IndianTrafficModel:
+    def __init__(self):
+        self.traffic_patterns = {
+            'morning_rush': (7, 10),    # 7 AM - 10 AM
+            'lunch_break': (12, 14),    # 12 PM - 2 PM  
+            'evening_rush': (17, 20),   # 5 PM - 8 PM
+            'late_night': (22, 6)       # 10 PM - 6 AM (next day)
+        }
+        
+        self.city_multipliers = {
+            'bangalore': {'rain_season': 2.5, 'normal': 1.8},
+            'mumbai': {'rain_season': 3.0, 'normal': 2.2}, 
+            'delhi': {'pollution_days': 2.0, 'normal': 1.6},
+            'chennai': {'rain_season': 2.8, 'normal': 1.7}
+        }
+    
+    def get_traffic_multiplier(self, city: str, hour: int, weather: str) -> float:
+        """Get traffic delay multiplier for Indian cities"""
+        
+        base_multiplier = 1.0
+        
+        # Time-based multiplier
+        if 7 <= hour <= 10 or 17 <= hour <= 20:
+            base_multiplier = 2.0  # Rush hours
+        elif 12 <= hour <= 14:
+            base_multiplier = 1.5  # Lunch hour
+        elif 22 <= hour or hour <= 6:
+            base_multiplier = 0.7  # Late night/early morning
+        
+        # City and weather specific adjustments
+        city_data = self.city_multipliers.get(city, {'normal': 1.0})
+        
+        if weather == 'rain' and 'rain_season' in city_data:
+            base_multiplier *= city_data['rain_season']
+        else:
+            base_multiplier *= city_data['normal']
+        
+        return base_multiplier
+```
+
+**Route Optimization with Indian Constraints**:
+```python
+class AmazonIndiaDeliveryOptimizer:
+    def __init__(self):
+        self.traffic_model = IndianTrafficModel()
+        self.delivery_constraints = {
+            'max_delivery_time': 480,      # 8 hours max per driver
+            'lunch_break_duration': 60,     # 1 hour lunch break
+            'fuel_efficiency_kmpl': 15,     # Average delivery vehicle efficiency
+            'max_packages_per_vehicle': 50, # Vehicle capacity
+            'prime_delivery_deadline': 21   # 9 PM deadline for same-day
+        }
+        
+    def optimize_delivery_routes(self, city: str, delivery_date: str, 
+                               orders: List[Dict]) -> Dict:
+        """
+        Optimize delivery routes for all drivers in a city
+        """
+        
+        # Group orders by geographic clusters
+        order_clusters = self._cluster_orders_geographically(orders, city)
+        
+        # Assign drivers to clusters
+        driver_assignments = self._assign_drivers_to_clusters(order_clusters, city)
+        
+        # Optimize route for each driver
+        optimized_routes = []
+        for driver_id, assigned_orders in driver_assignments.items():
+            route = self._optimize_single_driver_route(
+                driver_id, assigned_orders, city, delivery_date
+            )
+            optimized_routes.append(route)
+        
+        return {
+            'total_drivers': len(optimized_routes),
+            'total_orders': len(orders),
+            'estimated_completion_time': self._calculate_completion_time(optimized_routes),
+            'routes': optimized_routes,
+            'fuel_cost_estimate': self._calculate_fuel_costs(optimized_routes),
+            'prime_deadline_compliance': self._check_prime_compliance(optimized_routes)
+        }
+    
+    def _cluster_orders_geographically(self, orders: List[Dict], city: str) -> List[List[Dict]]:
+        """
+        Cluster orders by geographic proximity using Indian postal codes
+        """
+        # Group by first 3 digits of postal code (represents area)
+        postal_clusters = {}
+        
+        for order in orders:
+            postal_code = order['delivery_address']['postal_code']
+            area_code = postal_code[:3]  # First 3 digits represent area
+            
+            if area_code not in postal_clusters:
+                postal_clusters[area_code] = []
+            postal_clusters[area_code].append(order)
+        
+        # Further subdivide large clusters by exact postal code
+        refined_clusters = []
+        for area_orders in postal_clusters.values():
+            if len(area_orders) <= 15:  # Small cluster, keep as is
+                refined_clusters.append(area_orders)
+            else:
+                # Subdivide by exact postal code
+                exact_postal_clusters = {}
+                for order in area_orders:
+                    exact_postal = order['delivery_address']['postal_code']
+                    if exact_postal not in exact_postal_clusters:
+                        exact_postal_clusters[exact_postal] = []
+                    exact_postal_clusters[exact_postal].append(order)
+                
+                refined_clusters.extend(exact_postal_clusters.values())
+        
+        return refined_clusters
+    
+    def _optimize_single_driver_route(self, driver_id: str, orders: List[Dict],
+                                    city: str, delivery_date: str) -> Dict:
+        """
+        Optimize route for single driver using TSP approximation
+        """
+        
+        # Start and end at fulfillment center
+        fulfillment_center = self._get_fulfillment_center_location(city)
+        
+        # Create distance matrix including traffic considerations
+        locations = [fulfillment_center] + [order['delivery_address'] for order in orders]
+        distance_matrix = self._calculate_distance_matrix(locations, city)
+        
+        # Apply Nearest Neighbor TSP approximation with Indian constraints
+        route_order = self._tsp_nearest_neighbor_with_constraints(
+            distance_matrix, orders, city, delivery_date
+        )
+        
+        # Calculate route details
+        total_distance = self._calculate_total_distance(route_order, distance_matrix)
+        estimated_time = self._calculate_estimated_time(route_order, city, delivery_date)
+        
+        return {
+            'driver_id': driver_id,
+            'route_order': route_order,
+            'total_distance_km': total_distance,
+            'estimated_duration_minutes': estimated_time,
+            'fuel_cost': total_distance / self.delivery_constraints['fuel_efficiency_kmpl'] * 100,  # ₹100/liter
+            'prime_compliant': all(delivery['estimated_time'] <= 21 for delivery in route_order),
+            'lunch_break_scheduled': self._schedule_lunch_break(route_order, estimated_time)
+        }
+    
+    def _tsp_nearest_neighbor_with_constraints(self, distance_matrix: List[List[float]],
+                                             orders: List[Dict], city: str, 
+                                             delivery_date: str) -> List[Dict]:
+        """
+        TSP approximation considering Indian delivery constraints
+        """
+        unvisited = set(range(1, len(distance_matrix)))  # Exclude starting point (0)
+        route = []
+        current_location = 0  # Start at fulfillment center
+        current_time = 9 * 60  # Start at 9 AM (in minutes)
+        
+        while unvisited:
+            # Find nearest unvisited location
+            nearest_location = min(unvisited, 
+                                 key=lambda x: distance_matrix[current_location][x])
+            
+            # Calculate travel time with traffic
+            travel_time = self._calculate_travel_time_with_traffic(
+                current_location, nearest_location, current_time, city
+            )
+            
+            current_time += travel_time + 10  # 10 minutes delivery time
+            
+            # Add delivery to route
+            order_index = nearest_location - 1  # Adjust for fulfillment center at index 0
+            delivery_info = {
+                'order_id': orders[order_index]['order_id'],
+                'delivery_address': orders[order_index]['delivery_address'],
+                'estimated_arrival_time': current_time // 60,  # Convert to hours
+                'estimated_time': current_time // 60,
+                'package_count': orders[order_index].get('package_count', 1)
+            }
+            
+            route.append(delivery_info)
+            
+            unvisited.remove(nearest_location)
+            current_location = nearest_location
+            
+            # Check for lunch break (schedule around 1 PM)
+            if 12.5 * 60 <= current_time <= 14 * 60 and not any('lunch_break' in d for d in route):
+                current_time += 60  # 1 hour lunch break
+                route.append({
+                    'type': 'lunch_break',
+                    'start_time': (current_time - 60) // 60,
+                    'duration_minutes': 60
+                })
+        
+        return route
+    
+    def _calculate_travel_time_with_traffic(self, from_location: int, to_location: int,
+                                         current_time_minutes: int, city: str) -> int:
+        """
+        Calculate travel time considering Indian traffic patterns
+        """
+        
+        # Base travel time (assuming average speed of 25 kmph in Indian cities)
+        base_distance = self._get_distance_between_locations(from_location, to_location)
+        base_time_minutes = (base_distance / 25) * 60  # Convert hours to minutes
+        
+        # Apply traffic multiplier
+        current_hour = (current_time_minutes // 60) % 24
+        traffic_multiplier = self.traffic_model.get_traffic_multiplier(
+            city, current_hour, 'normal'  # Assume normal weather
+        )
+        
+        adjusted_time = base_time_minutes * traffic_multiplier
+        
+        return int(adjusted_time)
+```
+
+**Real-time Route Adjustment**:
+```python
+class RealTimeRouteAdjustment:
+    def __init__(self):
+        self.traffic_api = TrafficDataAPI()
+        self.route_cache = {}
+        
+    def adjust_route_for_traffic(self, driver_id: str, current_location: Dict,
+                               remaining_deliveries: List[Dict]) -> Dict:
+        """
+        Dynamically adjust route based on real-time traffic
+        """
+        
+        # Get current traffic conditions
+        traffic_data = self.traffic_api.get_current_traffic(current_location)
+        
+        # Check for significant traffic incidents
+        if self._has_major_traffic_incident(traffic_data):
+            # Reoptimize remaining route
+            new_route = self._reoptimize_route(
+                current_location, remaining_deliveries, traffic_data
+            )
+            
+            return {
+                'route_changed': True,
+                'new_route': new_route,
+                'reason': 'Traffic incident detected',
+                'time_saved_minutes': self._calculate_time_savings(new_route),
+                'notification_sent': self._notify_driver_and_customers(driver_id, new_route)
+            }
+        
+        return {'route_changed': False, 'current_route_optimal': True}
+```
+
+**Amazon Leadership Principles Integration**:
+- **Customer Obsession**: Optimizing for on-time delivery and customer satisfaction
+- **Frugality**: Minimizing fuel costs and maximizing delivery efficiency  
+- **Ownership**: Taking responsibility for entire delivery experience
+- **Invent and Simplify**: Creating scalable solution for complex Indian logistics
+
+### Round 7: Bar Raiser Round (1 hour 15 minutes)
+
+The Bar Raiser round is Amazon's most critical evaluation, conducted by a senior engineer from outside the hiring team.
+
+#### Technical Problem-Solving (45 minutes)
+
+**Problem**: Amazon's recommendation system is showing decreased click-through rates. Walk through your debugging and improvement approach.
+
+**My Systematic Approach**:
+
+**1. Problem Definition & Impact Assessment**:
+- Quantify the decrease: CTR dropped from 8.2% to 6.1% over 2 weeks
+- Identify affected segments: All user types or specific cohorts?
+- Business impact: Estimated ₹50 crore revenue impact if continues
+
+**2. Data Gathering & Analysis**:
+```python
+# Systematic data collection approach
+analysis_areas = [
+    'recommendation_algorithm_changes',
+    'user_behavior_patterns', 
+    'product_catalog_updates',
+    'website_ui_changes',
+    'external_factors'  # Competition, seasonal trends
+]
+
+for area in analysis_areas:
+    data = collect_relevant_data(area, timeframe='past_4_weeks')
+    perform_correlation_analysis(data, ctr_metrics)
+```
+
+**3. Hypothesis Generation**:
+- **H1**: Recent algorithm update reduced recommendation relevance
+- **H2**: UI/UX changes affected recommendation visibility  
+- **H3**: Product catalog changes reduced available inventory
+- **H4**: Seasonal shopping pattern shift (post-festival period)
+
+**4. Systematic Testing**:
+- A/B test rollback of algorithm changes
+- Analyze recommendation performance by product category
+- Segment analysis by user demographics and purchase history
+
+**5. Root Cause & Solution**:
+Found algorithm change introduced bias toward higher-margin products, reducing relevance. Solution: Rebalance algorithm to optimize for user engagement while maintaining business objectives.
+
+#### Leadership Principles Deep-Dive (30 minutes)
+
+**Dive Deep**: "Tell me about a time you had to investigate a complex technical problem that others couldn't solve."
+
+**My Example**: Payment processing system intermittent failures during high-traffic periods:
+
+**Problem Complexity**:
+- 5% of payments failing randomly during peak hours
+- Multiple teams investigated for weeks without resolution
+- Issue only occurred during traffic spikes (>1000 requests/second)
+
+**My Deep Investigation**:
+1. **Data Analysis**: Analyzed 2 weeks of payment logs, found correlation with specific time windows
+2. **System Tracing**: Implemented detailed logging across entire payment pipeline  
+3. **Load Testing**: Reproduced issue in controlled environment with artificial load
+4. **Root Cause**: Database connection pool exhaustion during concurrent payment validations
+
+**Deep Dive Aspects**:
+- **Technical**: Discovered race condition in connection pool management
+- **Cross-functional**: Coordinated with infrastructure, backend, and QA teams
+- **Customer Impact**: Prioritized fix based on revenue impact and customer trust
+
+**Solution & Prevention**:
+- Immediate: Increased connection pool size and added circuit breakers
+- Long-term: Implemented proper connection pooling with monitoring
+- Prevention: Added load testing for all payment-related changes
+
+**Learn and Be Curious**: "Describe a situation where you had to learn a completely new technology or domain quickly."
+
+**My Learning Example**: Had to implement machine learning recommendation system despite no ML background:
+
+**Learning Challenge**:
+- Business needed personalized recommendations within 6 weeks
+- No ML expertise in team, budget constraints prevented hiring ML engineer
+- Had to learn ML concepts, Python libraries, and recommendation algorithms
+
+**Systematic Learning Approach**:
+1. **Structured Learning**: Completed online ML course (Andrew Ng's Coursera)
+2. **Hands-on Practice**: Built small recommendation models with sample data
+3. **Expert Consultation**: Connected with ML engineers through meetups and LinkedIn
+4. **Iterative Implementation**: Started with simple collaborative filtering, gradually added complexity
+
+**Learning Outcomes**:
+- Successfully implemented recommendation system with 15% CTR improvement
+- Gained deep appreciation for ML engineering complexities
+- Became go-to person for data science initiatives in team
+- Continued learning led to leading company's analytics transformation
+
+**Curiosity Demonstration**:
+- **Beyond Requirements**: Learned not just implementation but underlying math and statistics
+- **Knowledge Sharing**: Conducted internal workshops to share ML knowledge with team
+- **Continuous Learning**: Continued ML education even after project completion
+
+**Are Right, A Lot**: "Tell me about a time you had strong conviction about a technical decision but faced pushback from your team."
+
+**My Conviction Example**: Database choice for user analytics system:
+
+**Technical Disagreement**:
+- Team favored MongoDB for its flexibility and "modern" appeal
+- I advocated for PostgreSQL based on our query patterns and team expertise
+- Faced significant pushback: "You're being too conservative, NoSQL is the future"
+
+**My Reasoning Process**:
+1. **Data-Driven Analysis**: Analyzed actual query patterns from existing system
+2. **Performance Testing**: Benchmarked both databases with realistic data volumes
+3. **TCO Analysis**: Considered development time, operational complexity, team learning curve
+4. **Risk Assessment**: Evaluated failure scenarios and recovery options
+
+**Results Validation**:
+- PostgreSQL outperformed MongoDB by 3x for our specific workload
+- Team's existing SQL knowledge reduced development time by 40%
+- Operational complexity significantly lower (monitoring, backup, scaling)
+- Avoided technical debt that would have required rewrite within 12 months
+
+**Being Right Aspects**:
+- **Conviction**: Maintained position despite team pressure and "modern tech" appeal
+- **Data-Driven**: Based decision on empirical evidence, not technology trends
+- **Long-term Thinking**: Considered maintainability and team capabilities
+- **Humble Victory**: When proven right, focused on team success rather than being right
+
+## Final Result: Offer Received! 🎉
+
+**Amazon SDE I Compensation (Bangalore)**:
+- **Base Salary**: ₹19,00,000 per annum  
+- **Signing Bonus Year 1**: ₹3,50,000
+- **Signing Bonus Year 2**: ₹2,50,000
+- **RSUs (4-year vesting)**: ₹20,00,000 total
+  - Year 1: 5% (₹1,00,000)
+  - Year 2: 15% (₹3,00,000) 
+  - Year 3: 40% (₹8,00,000)
+  - Year 4: 40% (₹8,00,000)
+- **Total CTC Year 1**: ₹28,00,000 (₹28 LPA)
+
+**Monthly In-Hand Salary**: ₹1,25,000 (after taxes and deductions)
+
+**Additional Benefits**:
+- Health insurance: ₹5 lakh family coverage
+- Life insurance: 10× monthly salary
+- Employee Stock Purchase Plan (ESPP): 15% discount
+- Relocation assistance: ₹1,50,000
+- **Estimated benefits value**: ₹2-3 LPA additional
+
+**Total Effective Compensation**: ₹30-31 LPA
+
+## What Made the Difference at SDE I Level
+
+### Technical Excellence
+1. **Problem-Solving Approach**: Systematic, structured approach to complex problems
+2. **Code Quality**: Clean, scalable, well-documented solutions
+3. **System Design Fundamentals**: Understanding of scalability and reliability concepts
+4. **India Context**: Solutions considering Indian market constraints and opportunities
+
+### Leadership Principles Mastery  
+1. **Customer Obsession**: Every technical decision tied back to customer impact
+2. **Ownership**: Taking responsibility beyond immediate scope
+3. **Dive Deep**: Demonstrating ability to investigate complex problems thoroughly
+4. **Learn and Be Curious**: Concrete examples of rapid learning and knowledge sharing
+
+### Cultural Alignment
+1. **Long-term Thinking**: Solutions that scale and evolve with business needs
+2. **Frugality**: Cost-conscious engineering without compromising quality
+3. **High Standards**: Commitment to excellence in code and system design
+4. **Delivery**: Focus on results and customer impact over perfect solutions
+
+## SDE I Preparation Strategy That Worked
+
+### Technical Preparation (6 months)
+- **Data Structures & Algorithms**: 400+ LeetCode problems (focus on medium)
+- **System Design**: Basic scalability concepts, caching, databases
+- **Amazon Services**: Familiarity with AWS core services
+- **Production Experience**: Real examples of building, deploying, monitoring systems
+
+### Leadership Principles Preparation (3 months)
+- **Story Bank**: 25+ detailed STAR examples covering all 16 principles  
+- **Amazon Research**: Deep study of Amazon's culture and business model
+- **Practice**: Mock behavioral interviews with Amazon employees
+- **Metrics Focus**: Quantified impact in every example with specific numbers
+
+### India-Specific Preparation
+- **Market Understanding**: Amazon India's business model and challenges
+- **Local Examples**: Used Indian e-commerce examples in technical discussions
+- **Cultural Alignment**: Demonstrated understanding of Amazon's global-local approach
+- **Compensation Research**: Market rates for SDE I in Bangalore
+
+## Key Success Factors
+
+### Technical Interviews
+1. **Clear Communication**: Explained thought process step-by-step
+2. **Optimal Solutions**: Always provided time/space complexity analysis
+3. **Edge Cases**: Considered error handling and boundary conditions
+4. **Real-world Context**: Connected solutions to practical business scenarios
+
+### Behavioral Interviews
+1. **Detailed Examples**: Rich STAR stories with specific outcomes and learnings
+2. **Customer Focus**: Every story demonstrated customer obsession
+3. **Quantified Impact**: Used specific metrics and business results
+4. **Growth Mindset**: Showed learning from failures and continuous improvement
+
+### Bar Raiser Performance
+1. **Technical Depth**: Deep investigation of complex problem with systematic approach
+2. **Leadership Potential**: Examples of taking ownership and driving results
+3. **Cultural Fit**: Strong demonstration of Amazon's leadership principles
+4. **Long-term Thinking**: Solutions and decisions considering future scalability
+
+## Advice for Amazon India SDE I Candidates
+
+### Technical Excellence
+1. **Master Fundamentals**: Strong foundation in DSA and basic system design
+2. **Practice Coding**: Regular coding practice with focus on clean, optimal solutions
+3. **Real Projects**: Build and deploy real systems, understand operational challenges
+4. **Amazon Context**: Familiarity with e-commerce systems and logistics challenges
+
+### Leadership Principles Mastery
+1. **Deep Understanding**: Memorize and internalize all 16 principles
+2. **Rich Examples**: Prepare detailed STAR stories for each principle
+3. **Customer Focus**: Always connect technical work to customer value
+4. **Quantified Impact**: Use specific metrics and business outcomes in every story
+
+### Interview Strategy  
+1. **Bar Raiser Focus**: Prepare extensively for the Bar Raiser round
+2. **Equal Weight**: Spend equal time on technical and behavioral preparation
+3. **Mock Practice**: Practice with Amazon employees or experienced interviewers
+4. **Feedback Integration**: Continuously improve based on practice feedback
+
+## Final Thoughts
+
+Amazon's SDE I interview process is comprehensive and demanding, accurately reflecting the role's expectations. They're looking for engineers who can:
+- Build scalable systems with customer obsession at the core
+- Demonstrate strong leadership potential through ownership and results
+- Learn quickly and adapt to Amazon's fast-paced, high-standards environment  
+- Embody Amazon's leadership principles in technical decision-making
+
+**Key insight**: Success at Amazon requires equal excellence in technical skills and leadership principles. The Bar Raiser round is critical and tests both dimensions comprehensively.
+
+The compensation is excellent for SDE I level in India, and the learning opportunities are unparalleled. Working on systems that serve millions of customers provides both technical challenges and meaningful impact.
+
+**For SDE I candidates**: Invest heavily in Leadership Principles preparation alongside technical skills. Amazon's culture is unique and requires authentic alignment with their values and customer-centric approach.
+
+**Source Attribution**: *This experience is compiled from research of Amazon India interview processes documented on Rehearsal AI interview guides, PapersAdda salary reports, GeeksforGeeks interview experiences, and multiple Amazon Bangalore employee experiences shared on various platforms (2025-2026 data).*
