@@ -1,0 +1,326 @@
+---
+title: "Atlassian P50 Senior Software Engineer - Values-Driven Engineering Culture"
+slug: "atlassian-p50-senior-swe-sydney-2026"
+category: "interview-experiences"
+tags: ["atlassian", "p50", "senior", "values-round", "code-design", "sydney", "australia"]
+difficulty: "senior"
+readingTime: 8
+publishedAt: "2026-05-14"
+excerpt: "Detailed Atlassian P50 interview experience covering their unique values assessment, code design challenges, and practical system design with compensation breakdown."
+company: "Atlassian"
+level: "P50 (Senior Software Engineer)"
+year: 2026
+outcome: "Offer Received"
+location: "Sydney, Australia"
+---
+
+# Atlassian P50 Senior Software Engineer - Engineering with Heart
+
+## Background
+
+Atlassian stood out to me for their focus on team collaboration tools and strong engineering culture. After 5 years building developer tools, I was excited to contribute to products used by millions of teams worldwide. This breakdown covers my successful P50 (Senior SWE) interview experience in Sydney, including their unique values-driven process.
+
+## Atlassian's Interview Philosophy
+
+Atlassian evaluates candidates through their **TEAM values**:
+- **T**eam: Collaboration and helping others succeed
+- **E**xcellence: High standards and continuous improvement  
+- **A**ccountability: Owning outcomes and learning from mistakes
+- **M**utual respect: Inclusive and respectful interactions
+
+**Key Insight**: Unlike other tech companies, Atlassian deeply integrates values assessment throughout the technical process, not just in behavioral rounds.
+
+## Timeline & Process Overview
+
+- **Application**: October 2025 (via company website)
+- **Recruiter Screen**: November 2025 (30 min)
+- **Technical Screen via Karat**: December 2025 (60 min)  
+- **Virtual Onsite**: January 2026 (4 rounds, 4 hours)
+- **Final Decision**: Late January 2026
+- **Start Date**: March 2026
+
+**Total Duration**: ~4 months (longer due to holiday season)
+
+**Unique Feature**: Atlassian allows candidates to redo the technical screen if unsatisfied with performance - shows their commitment to fair evaluation.
+
+## Round 1: Recruiter Screen (30 minutes)
+
+Standard initial conversation covering:
+- Background and motivation for joining Atlassian
+- Experience with collaboration tools and team dynamics
+- Salary expectations and visa requirements (I was relocating)
+- Overview of Atlassian's culture and values
+
+**Atlassian Focus**: Significant discussion about remote work experience and cross-functional collaboration - core to their distributed team model.
+
+## Round 2: Technical Screen via Karat (60 minutes)
+
+Atlassian outsources initial technical screening to Karat, focusing on:
+
+### Rapid-Fire Technical Questions (15 minutes)
+- REST API design principles
+- Database indexing strategies
+- Microservices communication patterns
+- Git branching strategies
+- Testing pyramid concepts
+
+### Coding Problem 1 (20 minutes)
+**Question**: Implement a rate limiter using token bucket algorithm
+
+**My Solution**:
+```python
+class TokenBucket:
+    def __init__(self, capacity, refill_rate):
+        self.capacity = capacity
+        self.tokens = capacity
+        self.refill_rate = refill_rate
+        self.last_refill = time.time()
+    
+    def consume(self, tokens=1):
+        self._refill()
+        if self.tokens >= tokens:
+            self.tokens -= tokens
+            return True
+        return False
+    
+    def _refill(self):
+        now = time.time()
+        tokens_to_add = (now - self.last_refill) * self.refill_rate
+        self.tokens = min(self.capacity, self.tokens + tokens_to_add)
+        self.last_refill = now
+```
+
+### Coding Problem 2 (20 minutes)
+**Question**: Design a simple task scheduler that executes tasks at specified intervals
+
+**My Approach**: Used priority queue (heapq) with task objects containing execution time and callback functions.
+
+**Atlassian Focus**: They emphasized code readability, error handling, and how I'd test the solution - very practical engineering mindset.
+
+## Virtual Onsite Loop (4 Rounds)
+
+### Round 3: Coding & Data Structures (60 minutes)
+
+**Problem**: Implement a distributed cache with LRU eviction
+
+**Requirements**:
+- Thread-safe operations
+- O(1) get and put operations
+- Configurable capacity
+- Statistics tracking (hit rate, miss rate)
+
+**My Implementation**:
+- Used HashMap + Doubly Linked List for O(1) operations
+- ReentrantReadWriteLock for thread safety
+- AtomicLong for statistics tracking
+- Comprehensive error handling and edge cases
+
+**Atlassian Evaluation Criteria**:
+- Code quality and readability
+- Thread safety considerations
+- Performance optimization
+- Testing strategy
+- Production-ready error handling
+
+**Key Differentiator**: They asked me to walk through how I'd code review this solution - testing collaborative mindset.
+
+### Round 4: Code Design & Craft (60 minutes)
+
+This was Atlassian's most unique round - focused on real-world coding rather than algorithmic problems.
+
+**Challenge**: Build a webhook delivery system for Jira/Confluence
+
+**Requirements**:
+- Reliable delivery with retries
+- Rate limiting per subscriber
+- Failure handling and dead letter queue
+- Monitoring and observability
+- Scalable architecture
+
+**My Design Process**:
+
+1. **API Design** (15 min)
+   - RESTful endpoints for webhook registration
+   - Event payload structure
+   - Authentication mechanisms
+
+2. **System Architecture** (20 min)
+   - Event queue (Apache Kafka/RabbitMQ)
+   - Worker services for delivery
+   - Database for subscriber management
+   - Monitoring dashboard
+
+3. **Implementation Details** (25 min)
+   - Exponential backoff retry logic
+   - Circuit breaker for failing endpoints
+   - Batch processing for efficiency
+   - Security considerations (HMAC signatures)
+
+**Atlassian Focus**: Heavy emphasis on how this would integrate with existing Atlassian products and real operational concerns.
+
+### Round 5: System Design (60 minutes)
+
+**Problem**: Design a notification system for Atlassian products (Jira, Confluence, Trello)
+
+**Scale Requirements**:
+- 100K+ organizations 
+- 10M+ users globally
+- Multiple notification channels (email, Slack, mobile)
+- Real-time delivery for urgent notifications
+
+**My Approach**:
+
+1. **Requirements Gathering** (10 min)
+   - Functional: Multi-channel delivery, user preferences, notification types
+   - Non-functional: Low latency, high availability, scalability
+
+2. **High-Level Architecture** (20 min)
+   - Event-driven architecture with pub/sub
+   - Notification service with pluggable channels
+   - User preference service
+   - Analytics and monitoring
+
+3. **Deep Dives** (30 min)
+   - **Message Queue Design**: Kafka partitioning strategy
+   - **Channel Abstraction**: Unified interface for email/Slack/push
+   - **User Preferences**: Real-time updates and caching
+   - **Delivery Guarantees**: At-least-once with deduplication
+
+**Atlassian-Specific Considerations**:
+- Integration with existing product APIs
+- Compliance requirements (GDPR, data residency)
+- Multi-tenant architecture
+- Customer-specific notification rules
+
+### Round 6: Values Interview (60 minutes)
+
+Pure behavioral round assessing alignment with Atlassian's TEAM values:
+
+#### Team (Collaboration)
+**Question**: "Tell me about a time you helped a struggling team member"
+
+**My Example**: Mentored a junior developer through a complex feature implementation, pair programming sessions led to successful delivery and their promotion.
+
+#### Excellence (High Standards)
+**Question**: "Describe a situation where you pushed back on lowering quality standards"
+
+**My Example**: Insisted on proper testing for a rushed feature, prevented production bugs that could have cost $100K+ in SLA penalties.
+
+#### Accountability (Ownership)
+**Question**: "Tell me about a mistake you made and how you handled it"
+
+**My Example**: Deployed a configuration change that caused API latency spike, immediately rolled back, conducted post-mortem, implemented monitoring to prevent recurrence.
+
+#### Mutual Respect (Inclusivity)
+**Question**: "How do you ensure all team members feel heard in technical discussions?"
+
+**My Example**: Structured team meetings to give everyone speaking time, created async RFC process for introverted team members to contribute.
+
+**Key Success Factor**: Atlassian wants specific examples showing genuine care for team dynamics and inclusive collaboration.
+
+## Final Result: Offer Received! 🎉
+
+**P50 Senior Software Engineer Compensation (Sydney)**:
+- **Base Salary**: AUD $155,000
+- **Annual Bonus**: 10-15% of base salary (performance-based)
+- **Stock Options**: AUD $95,000 over 4 years (25% annual vesting)
+- **Relocation Package**: AUD $15,000 + visa sponsorship
+- **Total Annual Compensation**: ~AUD $185,000 (~USD $125,000)
+
+**Benefits**:
+- 20 days annual leave + public holidays
+- Flexible work arrangements (hybrid remote/office)
+- $5,000 professional development budget
+- Comprehensive health insurance
+- Free Atlassian products and team lunch budget
+
+## What Made the Difference
+
+### Technical Excellence
+1. **Practical Focus**: Solutions emphasized real-world engineering concerns
+2. **Code Quality**: Clean, readable, production-ready implementations  
+3. **System Thinking**: Understanding how components integrate with existing products
+4. **Testing Mindset**: Always discussed how I'd validate solutions
+
+### Values Alignment
+1. **Collaborative Approach**: Showed genuine interest in helping teammates succeed
+2. **Quality Standards**: Demonstrated commitment to excellence without perfectionism
+3. **Ownership Mindset**: Examples of taking responsibility and learning from failures
+4. **Inclusive Behavior**: Specific strategies for ensuring team psychological safety
+
+### Cultural Fit
+1. **Team-First Mentality**: Prioritized team success over individual recognition
+2. **Customer Focus**: Connected technical decisions to user impact
+3. **Growth Mindset**: Examples of continuous learning and adaptation
+4. **Distributed Work Experience**: Comfortable with remote/hybrid collaboration
+
+## Preparation Strategies
+
+### Technical Preparation
+- **System Design**: Focus on practical, production-ready architectures
+- **Code Quality**: Practice writing clean, testable, maintainable code
+- **Atlassian Products**: Deep familiarity with Jira, Confluence, Trello use cases
+- **Real-World Problems**: Webhook systems, notification services, collaboration tools
+
+### Values Preparation
+- **TEAM Framework**: Prepare 2-3 detailed examples for each value
+- **Collaborative Stories**: Examples showing cross-functional teamwork
+- **Inclusive Leadership**: Specific strategies for building psychological safety
+- **Growth Examples**: How you've learned from failures and helped others grow
+
+### Culture Research
+- **Atlassian Blog**: Understanding their engineering practices and values
+- **Team Playbook**: Their methodologies for team collaboration
+- **Diversity & Inclusion**: Their commitment to inclusive workplace culture
+
+## Unique Aspects of Atlassian Interviews
+
+### Positive Differentiators
+1. **Redo Policy**: Can retake technical screen if unsatisfied
+2. **Values Integration**: Values assessed throughout, not just in behavioral rounds
+3. **Practical Focus**: Real-world engineering problems over abstract algorithms
+4. **Collaborative Tone**: Interviewers genuinely want you to succeed
+
+### Areas of Focus
+1. **Team Dynamics**: How you contribute to positive team culture
+2. **Customer Impact**: Connecting technical work to user value
+3. **Inclusive Practices**: Specific examples of inclusive behavior
+4. **Continuous Improvement**: Growth mindset and learning from failures
+
+## Advice for P50 Candidates
+
+### Technical Tips
+1. **Focus on Code Quality**: Readability and maintainability over clever tricks
+2. **System Integration**: Show understanding of how components work together
+3. **Production Mindset**: Always consider monitoring, error handling, scalability
+4. **Testing Strategy**: Discuss how you'd validate and maintain solutions
+
+### Values Tips
+1. **Specific Examples**: Use detailed STAR format with measurable outcomes
+2. **Team Focus**: Show how you've helped others succeed and grow
+3. **Inclusive Mindset**: Demonstrate commitment to psychological safety
+4. **Customer Centricity**: Connect technical decisions to user impact
+
+### Cultural Tips
+1. **Research Products**: Deep familiarity with Atlassian's tools and use cases
+2. **Distributed Work**: Experience and comfort with remote/hybrid teams
+3. **Collaborative Approach**: Examples of effective cross-functional work
+4. **Growth Orientation**: How you've learned from failures and adapted
+
+## Final Thoughts
+
+Atlassian's interview process genuinely reflects their work culture. They're looking for engineers who:
+- Build high-quality software that serves team collaboration
+- Prioritize team success and inclusive practices
+- Take ownership while learning from mistakes
+- Focus on customer value and real-world impact
+
+**Key insight**: Atlassian values cultural fit as much as technical skills. They want engineers who will contribute positively to team dynamics and help others succeed.
+
+The compensation is competitive for the Sydney market, and the work-life balance is excellent. One year in, the interview accurately predicted the collaborative, values-driven environment.
+
+**For P50 candidates**: Invest heavily in values preparation alongside technical skills. Atlassian wants to hire teammates, not just individual contributors. Show how you've made teams better, not just how you've solved hard technical problems.
+
+The relocation support was comprehensive, and the Sydney tech scene is vibrant. Atlassian provides genuine opportunities for career growth in a supportive, inclusive environment.
+
+If you value team collaboration, inclusive culture, and building products that help teams work better together, Atlassian is an excellent choice. Just be prepared to demonstrate not just what you can build, but how you help others succeed.
