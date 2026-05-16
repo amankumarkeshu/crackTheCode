@@ -1,0 +1,271 @@
+name: Weekly Company-Specific Scraper
+
+on:
+  schedule:
+    # Run every Sunday at 3:00 AM UTC (8:30 AM IST)
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      companies:
+        description: 'Custom company list (comma-separated)'
+        required: false
+        default: ''
+      days:
+        description: 'Days to scrape back'
+        required: false
+        default: '7'
+      maxQuestions:
+        description: 'Max questions per company'
+        required: false
+        default: '12'
+      sources:
+        description: 'Sources to use'
+        required: false
+        default: 'leetcode,geeksforgeeks,glassdoor,interviewbit'
+      force:
+        description: 'Force scraping (ignore cache)'
+        required: false
+        default: 'false'
+      notifyResults:
+        description: 'Send notification with results'
+        required: false
+        default: 'true'
+
+jobs:
+  weekly-company-scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45  # Increased timeout for company-specific scraping
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run company-specific scraper
+      env:
+        CRON_SECRET_TOKEN: ${{ secrets.CRON_SECRET_TOKEN }}
+        VERCEL_URL: ${{ secrets.VERCEL_URL || 'https://your-domain.vercel.app' }}
+        SCRAPER_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SCRAPER_NOTIFY_ON_SUCCESS: ${{ github.event.inputs.notifyResults || 'true' }}
+        SCRAPER_NOTIFY_ON_ERROR: 'true'
+      run: |
+        echo "🏢 Starting weekly company-specific scraping..."
+        
+        # Prepare API request based on trigger type
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "📝 Manual trigger with custom parameters"
+          
+          # Parse custom company list if provided
+          COMPANIES_INPUT="${{ github.event.inputs.companies }}"
+          if [ -n "$COMPANIES_INPUT" ]; then
+            # Convert comma-separated string to JSON array
+            COMPANIES_JSON=$(echo "$COMPANIES_INPUT" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/' | sed 's/^/[/' | sed 's/$/]/')
+          else
+            COMPANIES_JSON='[]'
+          fi
+          
+          API_BODY=$(cat <<EOF
+        {
+          "companies": $COMPANIES_JSON,
+          "days": ${{ github.event.inputs.days || 7 }},
+          "maxQuestionsPerCompany": ${{ github.event.inputs.maxQuestions || 12 }},
+          "sources": "${{ github.event.inputs.sources || 'leetcode,geeksforgeeks,glassdoor,interviewbit' }}".split(','),
+          "force": ${{ github.event.inputs.force || false }}
+        }
+        EOF
+          )
+          
+          API_METHOD="POST"
+        else
+          echo "📅 Scheduled run with default company list"
+          API_BODY='{}'
+          API_METHOD="GET"
+        fi
+        
+        echo "🔧 API Method: $API_METHOD"
+        echo "📋 Request body: $API_BODY"
+        
+        # Make API request to company scraper
+        if [ "$API_METHOD" = "POST" ]; then
+          RESPONSE=$(curl -s -w "HTTP_STATUS:%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET_TOKEN}" \
+            -d "$API_BODY" \
+            "${VERCEL_URL}/api/cron/weekly-company-scraper")
+        else
+          RESPONSE=$(curl -s -w "HTTP_STATUS:%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET_TOKEN}" \
+            "${VERCEL_URL}/api/cron/weekly-company-scraper")
+        fi
+        
+        # Parse response
+        HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTP_STATUS://')
+        RESPONSE_BODY=$(echo $RESPONSE | sed -e 's/HTTP_STATUS:.*//')
+        
+        echo "📊 HTTP Status: $HTTP_STATUS"
+        echo "📋 Response: $RESPONSE_BODY"
+        
+        # Check if request was successful
+        if [ $HTTP_STATUS -ne 200 ]; then
+          echo "❌ Company scraper API request failed with status $HTTP_STATUS"
+          echo "$RESPONSE_BODY" | jq '.' || echo "$RESPONSE_BODY"
+          exit 1
+        fi
+        
+        # Parse and display results
+        echo "$RESPONSE_BODY" | jq '.'
+        
+        # Extract key metrics
+        TOTAL_COMPANIES=$(echo "$RESPONSE_BODY" | jq -r '.data.totalCompanies // .data.companies // 0')
+        SUCCESSFUL_SCRAPES=$(echo "$RESPONSE_BODY" | jq -r '.data.successfulScrapes // .data.successful // 0')
+        TOTAL_QUESTIONS=$(echo "$RESPONSE_BODY" | jq -r '.data.totalQuestionsAdded // .data.totalQuestions // 0')
+        DURATION=$(echo "$RESPONSE_BODY" | jq -r '.data.duration // "unknown"')
+        
+        echo "📊 Summary:"
+        echo "  Companies: $TOTAL_COMPANIES"
+        echo "  Successful: $SUCCESSFUL_SCRAPES"  
+        echo "  Questions Added: $TOTAL_QUESTIONS"
+        echo "  Duration: $DURATION seconds"
+        
+        # Set outputs for next step
+        echo "TOTAL_QUESTIONS=$TOTAL_QUESTIONS" >> $GITHUB_ENV
+        echo "SUCCESSFUL_SCRAPES=$SUCCESSFUL_SCRAPES" >> $GITHUB_ENV
+        echo "TOTAL_COMPANIES=$TOTAL_COMPANIES" >> $GITHUB_ENV
+    
+    - name: Get company coverage report
+      if: success()
+      env:
+        VERCEL_URL: ${{ secrets.VERCEL_URL || 'https://your-domain.vercel.app' }}
+      run: |
+        echo "📈 Fetching company coverage report..."
+        
+        COVERAGE_RESPONSE=$(curl -s "${VERCEL_URL}/api/scraper/companies?action=coverage")
+        
+        if [ $? -eq 0 ]; then
+          echo "$COVERAGE_RESPONSE" | jq '.'
+          
+          # Extract companies needing attention
+          NEEDS_ATTENTION=$(echo "$COVERAGE_RESPONSE" | jq -r '.data.needsAttention[].company' | head -5 | tr '\n' ',' | sed 's/,$//')
+          echo "🚨 Companies needing attention: $NEEDS_ATTENTION"
+          echo "NEEDS_ATTENTION=$NEEDS_ATTENTION" >> $GITHUB_ENV
+        else
+          echo "⚠️  Could not fetch coverage report"
+        fi
+    
+    - name: Commit and push changes
+      if: success() && env.TOTAL_QUESTIONS != '0'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action - Weekly Company Scraper"
+        
+        # Check if there are changes to commit
+        if git diff --quiet data/interview-questions.ts; then
+          echo "ℹ️  No changes to commit"
+        else
+          git add data/interview-questions.ts
+          git add .cache/ || true
+          
+          # Create detailed commit message
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          
+          COMMIT_MSG="Weekly company scraping update - $TIMESTAMP
+
+🏢 Company-specific scraping results:
+- Total companies: ${{ env.TOTAL_COMPANIES }}
+- Successful scrapes: ${{ env.SUCCESSFUL_SCRAPES }}
+- Questions added: ${{ env.TOTAL_QUESTIONS }}
+- Trigger: ${{ github.event_name }}
+
+🎯 Top 15 important companies:
+Google, Amazon, Microsoft, Meta, Apple, Netflix, Uber, Airbnb, 
+Tesla, Salesforce, Oracle, Flipkart, Swiggy, Zomato, PayTM
+
+Updated data/interview-questions.ts with latest company-specific questions."
+          
+          git commit -m "$COMMIT_MSG"
+          git push
+          
+          echo "✅ Changes committed and pushed"
+          echo "📝 Commit message: $COMMIT_MSG"
+        fi
+    
+    - name: Create summary comment
+      if: github.event_name == 'workflow_dispatch' && success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const totalCompanies = process.env.TOTAL_COMPANIES;
+          const successfulScrapes = process.env.SUCCESSFUL_SCRAPES;
+          const totalQuestions = process.env.TOTAL_QUESTIONS;
+          const needsAttention = process.env.NEEDS_ATTENTION || 'None';
+          
+          const summary = `## 🏢 Weekly Company Scraper Results
+          
+          ### 📊 Summary
+          - **Total Companies**: ${totalCompanies}
+          - **Successful Scrapes**: ${successfulScrapes}
+          - **Questions Added**: ${totalQuestions}
+          - **Trigger**: Manual (workflow_dispatch)
+          
+          ### 🎯 Companies Processed
+          The scraper targeted the top 15 most important companies:
+          
+          **High Priority**: Google, Amazon, Microsoft, Meta, Apple
+          **Medium Priority**: Netflix, Uber, Airbnb, Tesla, Salesforce
+          **Indian Companies**: Flipkart, Swiggy, Zomato, PayTM
+          **Other Important**: Oracle
+          
+          ### 🚨 Companies Needing Attention
+          ${needsAttention !== 'None' ? needsAttention.split(',').map(c => `- ${c.trim()}`).join('\n') : 'All companies have adequate coverage'}
+          
+          ### 📈 Next Steps
+          - The scraper runs automatically every Sunday at 3:00 AM UTC
+          - Check \`/api/scraper/companies?action=stats\` for detailed analytics
+          - Questions are automatically committed to \`data/interview-questions.ts\`
+          
+          *Generated by Weekly Company Scraper workflow*`;
+          
+          console.log(summary);
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Weekly company scraping failed!"
+        
+        # Send webhook notification if configured
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"🚨 Weekly company scraping failed in ${{ github.repository }}\\n\\nWorkflow: ${{ github.workflow }}\\nRun: ${{ github.run_id }}\\n\\nCheck the logs for details.\"}" \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+        
+        # Create issue on failure (optional)
+        echo "Creating issue for failed scraping..."
+    
+    - name: Cleanup and final status
+      if: always()
+      run: |
+        echo "🧹 Cleaning up temporary files..."
+        rm -rf .cache/ || true
+        
+        echo "📋 Final Status Summary:"
+        echo "  Workflow: ${{ github.workflow }}"
+        echo "  Trigger: ${{ github.event_name }}"
+        echo "  Status: ${{ job.status }}"
+        echo "  Companies: ${{ env.TOTAL_COMPANIES }}"
+        echo "  Questions: ${{ env.TOTAL_QUESTIONS }}"
+        echo "  Duration: $(date -u)"
+        
+        echo "✅ Weekly company scraping workflow completed"
