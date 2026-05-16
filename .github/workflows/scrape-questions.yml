@@ -1,0 +1,155 @@
+name: Scrape Interview Questions
+
+on:
+  schedule:
+    # Run every day at 2:30 AM UTC (8:00 AM IST)
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of days to scrape'
+        required: false
+        default: '7'
+      company:
+        description: 'Specific company (optional)'
+        required: false
+        default: ''
+      type:
+        description: 'Question type (dsa, system-design, lld)'
+        required: false
+        default: ''
+      difficulty:
+        description: 'Difficulty (easy, medium, hard)'
+        required: false
+        default: ''
+      sources:
+        description: 'Comma-separated sources'
+        required: false
+        default: 'leetcode,geeksforgeeks,glassdoor,interviewbit'
+      force:
+        description: 'Force scraping (ignore cache)'
+        required: false
+        default: 'false'
+
+jobs:
+  scrape-questions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run scraper via API
+      env:
+        CRON_SECRET_TOKEN: ${{ secrets.CRON_SECRET_TOKEN }}
+        VERCEL_URL: ${{ secrets.VERCEL_URL || 'http://localhost:3000' }}
+      run: |
+        # Prepare API request body
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          API_BODY=$(cat <<EOF
+        {
+          "days": ${{ github.event.inputs.days || 7 }},
+          "company": "${{ github.event.inputs.company || '' }}",
+          "type": "${{ github.event.inputs.type || '' }}",
+          "difficulty": "${{ github.event.inputs.difficulty || '' }}",
+          "sources": "${{ github.event.inputs.sources || 'leetcode,geeksforgeeks,glassdoor,interviewbit' }}".split(','),
+          "force": ${{ github.event.inputs.force || false }}
+        }
+        EOF
+        )
+        else
+          # Scheduled run with default parameters
+          API_BODY='{"days": 7, "sources": ["leetcode", "geeksforgeeks", "glassdoor", "interviewbit"], "force": false}'
+        fi
+        
+        # Make API request
+        RESPONSE=$(curl -s -w "HTTP_STATUS:%{http_code}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${CRON_SECRET_TOKEN}" \
+          -d "${API_BODY}" \
+          "${VERCEL_URL}/api/cron/scrape-questions")
+        
+        HTTP_STATUS=$(echo $RESPONSE | tr -d '\n' | sed -e 's/.*HTTP_STATUS://')
+        RESPONSE_BODY=$(echo $RESPONSE | sed -e 's/HTTP_STATUS:.*//')
+        
+        echo "HTTP Status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        
+        if [ $HTTP_STATUS -ne 200 ]; then
+          echo "❌ API request failed with status $HTTP_STATUS"
+          echo "$RESPONSE_BODY" | jq '.' || echo "$RESPONSE_BODY"
+          exit 1
+        fi
+        
+        # Parse response
+        echo "$RESPONSE_BODY" | jq '.'
+        
+        # Check if questions were added
+        QUESTIONS_ADDED=$(echo "$RESPONSE_BODY" | jq -r '.data.questionsAdded // 0')
+        echo "Questions added: $QUESTIONS_ADDED"
+        
+        if [ "$QUESTIONS_ADDED" -gt 0 ]; then
+          echo "✅ Successfully scraped $QUESTIONS_ADDED questions"
+        else
+          echo "ℹ️  No new questions added (cache may be fresh)"
+        fi
+
+    - name: Commit and push changes
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Check if there are changes to commit
+        if git diff --quiet data/interview-questions.ts; then
+          echo "No changes to commit"
+        else
+          git add data/interview-questions.ts
+          git add .cache/ || true  # Cache might not exist
+          
+          # Create commit message with timestamp
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          COMMIT_MSG="Auto-update interview questions - $TIMESTAMP
+
+          🤖 Automated scraping results:
+          - Scraping completed at: $TIMESTAMP
+          - Triggered by: ${{ github.event_name }}
+          - Sources: ${{ github.event.inputs.sources || 'leetcode,geeksforgeeks,glassdoor,interviewbit' }}
+          
+          Updated data/interview-questions.ts with latest questions."
+          
+          git commit -m "$COMMIT_MSG"
+          git push
+          
+          echo "✅ Changes committed and pushed"
+        fi
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Scraping job failed!"
+        # You can add webhook notifications here
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🚨 Interview questions scraping failed in repository ${{ github.repository }}"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+
+    - name: Cleanup
+      if: always()
+      run: |
+        # Clean up any temporary files
+        rm -rf .cache/ || true
+        echo "🧹 Cleanup completed"
