@@ -43,10 +43,16 @@ export class InterviewQuestionScraper {
     this.scrapers.set('glassdoor', new GlassdoorScraper());
     this.scrapers.set('interviewbit', new InterviewBitScraper());
     
-    // File paths
+    // File paths - handle serverless environment
     const projectRoot = process.cwd();
-    this.cacheFile = join(projectRoot, '.cache', 'scraper-cache.json');
-    this.metadataFile = join(projectRoot, '.cache', 'scraper-metadata.json');
+    
+    // In serverless environments, use /tmp for cache
+    const cacheDir = process.env.NETLIFY || process.env.VERCEL 
+      ? '/tmp' 
+      : join(projectRoot, '.cache');
+    
+    this.cacheFile = join(cacheDir, 'scraper-cache.json');
+    this.metadataFile = join(cacheDir, 'scraper-metadata.json');
     this.dataFile = join(projectRoot, 'data', 'interview-questions.ts');
     
     // Ensure cache directory exists
@@ -54,9 +60,17 @@ export class InterviewQuestionScraper {
   }
   
   private ensureCacheDirectory(): void {
-    const cacheDir = join(process.cwd(), '.cache');
-    if (!existsSync(cacheDir)) {
-      require('fs').mkdirSync(cacheDir, { recursive: true });
+    try {
+      const cacheDir = process.env.NETLIFY || process.env.VERCEL 
+        ? '/tmp' 
+        : join(process.cwd(), '.cache');
+      
+      if (!existsSync(cacheDir)) {
+        require('fs').mkdirSync(cacheDir, { recursive: true });
+      }
+    } catch (error) {
+      console.warn('Could not create cache directory:', error);
+      // Don't fail the entire operation if cache creation fails
     }
   }
   
@@ -318,8 +332,11 @@ export class InterviewQuestionScraper {
       writeFileSync(this.metadataFile, JSON.stringify(metadata, null, 2), 'utf-8');
       
     } catch (error) {
-      console.error('Error updating cache:', error);
-      throw error;
+      console.warn('Warning: Could not update cache in serverless environment:', error.message);
+      // Don't throw error in serverless environments where cache might not be writable
+      if (!process.env.NETLIFY && !process.env.VERCEL) {
+        throw error;
+      }
     }
   }
   

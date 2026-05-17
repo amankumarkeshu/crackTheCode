@@ -53,7 +53,7 @@ export default function ScraperAdminPage() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/scraper/status');
+      const response = await fetch('/api/scraper/status-working');
       const data = await response.json();
       
       if (data.success) {
@@ -71,7 +71,7 @@ export default function ScraperAdminPage() {
     setLastResult(null);
 
     try {
-      const response = await fetch('/api/scraper/questions', {
+      const response = await fetch('/api/scraper/questions-working', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,7 +101,7 @@ export default function ScraperAdminPage() {
 
   const handleClearCache = async () => {
     try {
-      const response = await fetch('/api/scraper/status', {
+      const response = await fetch('/api/scraper/status-working', {
         method: 'DELETE',
       });
 
