@@ -12,13 +12,31 @@ export async function GET(request: NextRequest) {
       maxQuestions: 15
     });
     
+    // Try to update the GitHub repository
+    let updateResult = { success: false, message: 'GitHub update not attempted' };
+    
+    if (questions.length > 0) {
+      try {
+        const { GitHubQuestionsUpdater } = await import('@/lib/scraper/github-updater');
+        const updater = new GitHubQuestionsUpdater();
+        updateResult = await updater.addQuestionsToFile(questions);
+      } catch (error) {
+        console.warn('GitHub update failed:', error);
+        updateResult = {
+          success: false,
+          message: `GitHub update failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       message: `Auto-scraping completed. Found ${questions.length} new questions.`,
       data: {
         questionsAdded: questions.length,
         lastUpdated: new Date().toISOString(),
-        questions: questions.slice(0, 5) // Show first 5 as preview
+        questions: questions.slice(0, 5), // Show first 5 as preview
+        githubUpdate: updateResult
       }
     });
     
@@ -52,6 +70,23 @@ export async function POST(request: NextRequest) {
       maxQuestions
     });
     
+    // Try to update the GitHub repository
+    let updateResult = { success: false, message: 'GitHub update not attempted' };
+    
+    if (scrapedQuestions.length > 0) {
+      try {
+        const { GitHubQuestionsUpdater } = await import('@/lib/scraper/github-updater');
+        const updater = new GitHubQuestionsUpdater();
+        updateResult = await updater.addQuestionsToFile(scrapedQuestions);
+      } catch (error) {
+        console.warn('GitHub update failed:', error);
+        updateResult = {
+          success: false,
+          message: `GitHub update failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       message: `Successfully scraped ${scrapedQuestions.length} questions`,
@@ -59,7 +94,8 @@ export async function POST(request: NextRequest) {
         questionsAdded: scrapedQuestions.length,
         lastUpdated: new Date().toISOString(),
         filters: { days, company, type, difficulty, sources },
-        questions: scrapedQuestions.slice(0, 10) // Show first 10 as preview
+        questions: scrapedQuestions.slice(0, 10), // Show first 10 as preview
+        githubUpdate: updateResult
       }
     });
     
