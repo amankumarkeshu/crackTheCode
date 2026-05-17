@@ -32,7 +32,7 @@ export default function CategoryPage({ params }: PageProps) {
   return (
     <div className="container py-16 md:py-20">
       <div className="mx-auto max-w-3xl">
-        <Badge variant="muted">
+        <Badge variant="secondary">
           <Link href="/blog" className="hover:text-foreground">Blog</Link>
         </Badge>
         <div className="mt-4 flex items-center gap-3">

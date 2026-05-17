@@ -86,7 +86,7 @@ export default function VaultPage() {
       <section className="relative overflow-hidden gradient-mesh">
         <div className="container py-20 md:py-24">
           <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="accent" className="inline-flex items-center gap-1.5">
+            <Badge variant="default" className="inline-flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5" />
               Updated for 2026 · Early-access pricing
             </Badge>

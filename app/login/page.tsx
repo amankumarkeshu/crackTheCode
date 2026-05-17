@@ -83,9 +83,9 @@ function LoginContent() {
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <Badge variant="muted">No password needed</Badge>
-          <Badge variant="muted">Secure OAuth 2.0</Badge>
-          <Badge variant="muted">90+ SD questions</Badge>
+          <Badge variant="secondary">No password needed</Badge>
+          <Badge variant="secondary">Secure OAuth 2.0</Badge>
+          <Badge variant="secondary">90+ SD questions</Badge>
         </div>
       </div>
     </div>

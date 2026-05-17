@@ -65,11 +65,11 @@ export function PostCard({ post }: { post: Post }) {
       <div className="flex flex-wrap items-center gap-2">
         {category && <Badge variant="default">{category.title}</Badge>}
         {["junior", "mid", "senior"].includes(fm.difficulty) && (
-          <Badge variant="muted" className="capitalize">
+          <Badge variant="secondary" className="capitalize">
             {fm.difficulty}
           </Badge>
         )}
-        {fm.isPremium && <Badge variant="accent">Vault</Badge>}
+        {fm.isPremium && <Badge variant="default">Vault</Badge>}
         {fm.company && <Badge variant="outline">{fm.company}</Badge>}
       </div>
 

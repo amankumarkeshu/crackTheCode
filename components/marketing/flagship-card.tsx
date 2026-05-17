@@ -28,7 +28,7 @@ export function FlagshipCard() {
           <div className="md:col-span-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="default">System Design Question Bank</Badge>
-              <Badge variant="muted">Updated for 2026</Badge>
+              <Badge variant="secondary">Updated for 2026</Badge>
               <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                 <Star className="h-3.5 w-3.5 fill-current text-accent" />
                 <span>Coming soon · join waitlist</span>

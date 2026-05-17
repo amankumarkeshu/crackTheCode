@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { interviewQuestions } from '@/data/interview-questions';
-import { IMPORTANT_COMPANIES, COMPANY_CONFIGS } from '@/app/api/cron/weekly-company-scraper/route';
+import { IMPORTANT_COMPANIES, COMPANY_CONFIGS, getCompanyPriority, getCompanyConfig } from '@/lib/scraper/company-config';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -266,35 +268,4 @@ function getRecentQuestionsByCompany(days: number) {
       companyBreakdown: sortedCompanies
     }
   });
-}
-
-function getCompanyPriority(company: string): 'high' | 'medium' | 'low' {
-  // Find which config category the company belongs to
-  for (const [category, config] of Object.entries(COMPANY_CONFIGS)) {
-    if (config.companies.includes(company)) {
-      switch (category) {
-        case 'high_priority':
-          return 'high';
-        case 'medium_priority':
-        case 'indian_companies':
-          return 'medium';
-        default:
-          return 'low';
-      }
-    }
-  }
-  return 'low';
-}
-
-function getCompanyConfig(company: string) {
-  for (const [category, config] of Object.entries(COMPANY_CONFIGS)) {
-    if (config.companies.includes(company)) {
-      return {
-        category,
-        maxQuestions: config.maxQuestions,
-        sources: config.sources
-      };
-    }
-  }
-  return null;
 }

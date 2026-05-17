@@ -22,7 +22,7 @@ export default function InterviewQuestionsPage() {
   return (
     <div className="container max-w-5xl py-10 md:py-14">
       <div className="mb-8">
-        <Badge variant="muted">Question Bank</Badge>
+        <Badge variant="secondary">Question Bank</Badge>
         <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
           Interview Questions
         </h1>

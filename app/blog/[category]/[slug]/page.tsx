@@ -90,7 +90,7 @@ export default function PostPage({ params }: PageProps) {
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{cat.title}</Badge>
               {showDifficulty && (
-                <Badge variant="muted" className="capitalize">
+                <Badge variant="secondary" className="capitalize">
                   {post.frontmatter.difficulty}
                 </Badge>
               )}
@@ -100,7 +100,7 @@ export default function PostPage({ params }: PageProps) {
                 </Badge>
               ))}
               {post.frontmatter.company && (
-                <Badge variant="accent">{post.frontmatter.company}</Badge>
+                <Badge variant="default">{post.frontmatter.company}</Badge>
               )}
             </div>
 

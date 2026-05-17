@@ -11,13 +11,23 @@
  */
 
 const readline = require('readline');
+const path = require('path');
 
-// Import companies configuration
-const IMPORTANT_COMPANIES = [
-  'Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix',
-  'Uber', 'Airbnb', 'Tesla', 'Salesforce', 'Oracle',
-  'Flipkart', 'Swiggy', 'Zomato', 'PayTM'
-];
+// Import companies configuration (we'll load it dynamically)
+let IMPORTANT_COMPANIES;
+try {
+  // Try to load from the TypeScript config (will be compiled to JS)
+  const configPath = path.join(__dirname, '../lib/scraper/company-config.js');
+  const config = require(configPath);
+  IMPORTANT_COMPANIES = config.IMPORTANT_COMPANIES;
+} catch (error) {
+  // Fallback to hardcoded list
+  IMPORTANT_COMPANIES = [
+    'Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix',
+    'Uber', 'Airbnb', 'Tesla', 'Salesforce', 'Oracle',
+    'Flipkart', 'Swiggy', 'Zomato', 'PayTM'
+  ];
+}
 
 const COMPANY_CATEGORIES = {
   'big-tech': ['Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix'],

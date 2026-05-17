@@ -18,7 +18,7 @@ export default function BlogIndexPage() {
   return (
     <div className="container py-16 md:py-20">
       <div className="mx-auto max-w-3xl text-center">
-        <Badge variant="muted">Blog</Badge>
+        <Badge variant="secondary">Blog</Badge>
         <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight md:text-5xl">
           Long-form, no-fluff articles for senior engineers.
         </h1>

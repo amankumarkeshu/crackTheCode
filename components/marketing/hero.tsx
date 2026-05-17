@@ -8,7 +8,7 @@ export function Hero() {
     <section className="relative overflow-hidden gradient-mesh">
       <div className="container py-20 md:py-28">
         <div className="mx-auto max-w-3xl text-center">
-          <Badge variant="accent" className="mb-6 inline-flex items-center gap-1.5">
+          <Badge variant="default" className="mb-6 inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
             New: System Design Vault, joining the waitlist
           </Badge>

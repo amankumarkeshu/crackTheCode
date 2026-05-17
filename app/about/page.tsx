@@ -12,7 +12,7 @@ export default function AboutPage() {
   return (
     <div className="container py-16 md:py-24">
       <div className="mx-auto max-w-3xl">
-        <Badge variant="muted">About</Badge>
+        <Badge variant="secondary">About</Badge>
         <h1 className="mt-4 text-4xl font-bold tracking-tight md:text-5xl">
           Hey, I&apos;m {siteConfig.author.name}.
         </h1>

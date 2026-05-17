@@ -8,14 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { IMPORTANT_COMPANIES, getCompanyPriority } from '@/lib/scraper/company-config';
 
-// Company configuration
-const IMPORTANT_COMPANIES = [
-  'Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix',
-  'Uber', 'Airbnb', 'Tesla', 'Salesforce', 'Oracle',
-  'Flipkart', 'Swiggy', 'Zomato', 'PayTM'
-];
-
+// Company categories for the UI
 const COMPANY_CATEGORIES = {
   'all': IMPORTANT_COMPANIES,
   'big-tech': ['Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix'],
@@ -100,7 +95,7 @@ export default function CompaniesScraper() {
     try {
       const companies = selectedCategory === 'custom' 
         ? customCompanies 
-        : COMPANY_CATEGORIES[selectedCategory];
+        : COMPANY_CATEGORIES[selectedCategory as keyof typeof COMPANY_CATEGORIES];
 
       const requestBody = {
         companies,
@@ -145,7 +140,7 @@ export default function CompaniesScraper() {
     if (selectedCategory === 'custom') {
       return customCompanies;
     }
-    return COMPANY_CATEGORIES[selectedCategory] || [];
+    return COMPANY_CATEGORIES[selectedCategory as keyof typeof COMPANY_CATEGORIES] || [];
   };
 
   const getCoverageColor = (coverage: string) => {
@@ -386,7 +381,7 @@ export default function CompaniesScraper() {
               <Checkbox
                 id="force"
                 checked={forceMode}
-                onCheckedChange={setForceMode}
+                onCheckedChange={(checked) => setForceMode(!!checked)}
               />
               <Label htmlFor="force">Force Mode (ignore cache)</Label>
             </div>
@@ -529,7 +524,7 @@ export default function CompaniesScraper() {
                 <div key={item.company} className="flex items-center justify-between p-3 border border-orange-200 rounded-lg">
                   <div>
                     <span className="font-medium">{item.company}</span>
-                    <Badge className={getPriorityColor(item.priority)} size="sm" className="ml-2">
+                    <Badge className={`${getPriorityColor(item.priority)} ml-2 text-xs`}>
                       {item.priority}
                     </Badge>
                   </div>

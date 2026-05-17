@@ -37,12 +37,11 @@ export class InterviewQuestionScraper {
   private readonly CACHE_DURATION_HOURS = 6; // Cache for 6 hours
   
   constructor() {
-    this.scrapers = new Map([
-      ['leetcode', new LeetCodeScraper()],
-      ['geeksforgeeks', new GeeksforGeeksScraper()],
-      ['glassdoor', new GlassdoorScraper()],
-      ['interviewbit', new InterviewBitScraper()]
-    ]);
+    this.scrapers = new Map();
+    this.scrapers.set('leetcode', new LeetCodeScraper());
+    this.scrapers.set('geeksforgeeks', new GeeksforGeeksScraper());
+    this.scrapers.set('glassdoor', new GlassdoorScraper());
+    this.scrapers.set('interviewbit', new InterviewBitScraper());
     
     // File paths
     const projectRoot = process.cwd();
