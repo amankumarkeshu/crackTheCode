@@ -332,7 +332,8 @@ export class InterviewQuestionScraper {
       writeFileSync(this.metadataFile, JSON.stringify(metadata, null, 2), 'utf-8');
       
     } catch (error) {
-      console.warn('Warning: Could not update cache in serverless environment:', error.message);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('Warning: Could not update cache in serverless environment:', message);
       // Don't throw error in serverless environments where cache might not be writable
       if (!process.env.NETLIFY && !process.env.VERCEL) {
         throw error;
