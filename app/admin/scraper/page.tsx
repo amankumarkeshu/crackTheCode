@@ -40,8 +40,8 @@ export default function ScraperAdminPage() {
   const [config, setConfig] = useState<ScrapingConfig>({
     days: 7,
     company: '',
-    type: '',
-    difficulty: '',
+    type: 'all',
+    difficulty: 'all',
     sources: ['leetcode', 'geeksforgeeks', 'glassdoor', 'interviewbit'],
     maxQuestions: 50
   });
@@ -76,7 +76,11 @@ export default function ScraperAdminPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          ...config,
+          type: config.type === 'all' ? undefined : config.type,
+          difficulty: config.difficulty === 'all' ? undefined : config.difficulty
+        }),
       });
 
       const result = await response.json();
@@ -336,7 +340,7 @@ export default function ScraperAdminPage() {
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All types</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
                   <SelectItem value="dsa">DSA</SelectItem>
                   <SelectItem value="system-design">System Design</SelectItem>
                   <SelectItem value="lld">Low Level Design</SelectItem>
@@ -354,7 +358,7 @@ export default function ScraperAdminPage() {
                   <SelectValue placeholder="All difficulties" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All difficulties</SelectItem>
+                  <SelectItem value="all">All difficulties</SelectItem>
                   <SelectItem value="easy">Easy</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="hard">Hard</SelectItem>
