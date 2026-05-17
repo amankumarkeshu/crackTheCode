@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
         cacheDir: process.env.NETLIFY || process.env.VERCEL ? '/tmp' : join(process.cwd(), '.cache'),
         dataFileExists: existsSync(join(process.cwd(), 'data', 'interview-questions.ts'))
       },
-      permissions: {},
-      scraper: {}
+      permissions: {} as any,
+      scraper: {} as any
     };
 
     // Test cache directory creation
