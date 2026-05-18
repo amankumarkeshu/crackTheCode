@@ -9,7 +9,7 @@ import {
 } from "@/lib/content";
 import { getCategory, type CategorySlug } from "@/lib/categories";
 import { Badge } from "@/components/ui/badge";
-import { MDXContent } from "@/components/mdx/mdx-content";
+import { MDXContentWithPaywall } from "@/components/mdx/mdx-content-with-paywall";
 import { PostCard } from "@/components/post-card";
 import { PostInteractions } from "@/components/post-interactions";
 import { CommentsSection } from "@/components/comments-section";
@@ -142,7 +142,12 @@ export default function PostPage({ params }: PageProps) {
           <InArticleAd slot={process.env.NEXT_PUBLIC_ADSENSE_IN_ARTICLE_SLOT ?? ""} />
         </div>
 
-        <MDXContent source={post.content} />
+        <MDXContentWithPaywall 
+          source={post.content} 
+          category={post.frontmatter.category}
+          title={post.frontmatter.title}
+          readingTime={post.frontmatter.readingTime}
+        />
 
         {/* Bottom interaction strip */}
         <div className="mx-auto mt-10 max-w-3xl flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/30 px-6 py-4">
