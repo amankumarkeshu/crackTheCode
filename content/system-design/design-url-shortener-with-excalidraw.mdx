@@ -1,0 +1,427 @@
+---
+title: "Design a URL Shortener like bit.ly - Complete System Design"
+slug: "design-url-shortener-with-excalidraw"
+category: "system-design"
+tags: ["url-shortener", "system-design", "scalability", "databases", "caching"]
+difficulty: "senior"
+readingTime: 15
+publishedAt: "2026-05-18"
+excerpt: "Complete system design for a URL shortener service handling 100M URLs daily. Covers architecture, database design, caching strategies, and analytics with interactive diagrams."
+draft: false
+isPremium: false
+---
+
+# Design a URL Shortener Service (Google/Amazon L5 Question)
+
+**Interview Context:** This is a classic system design question asked at Google L5, Amazon L5, and Microsoft L63 interviews. The interviewer typically starts with basic requirements and progressively adds complexity.
+
+<Callout type="info" title="Real Interview Experience">
+"This exact question was asked in my Google L5 interview (Bangalore, March 2026). The key was demonstrating understanding of distributed systems, caching strategies, and handling scale gracefully." - Software Engineer
+</Callout>
+
+## 1. Problem Statement & Requirements
+
+### Functional Requirements
+- **Shorten URLs**: Convert long URLs to short URLs (e.g., `https://example.com/very/long/url` → `https://short.ly/abc123`)
+- **Redirect**: When user visits short URL, redirect to original URL
+- **Custom URLs**: Allow users to create custom short URLs
+- **Analytics**: Track click counts, geographic data, referrer information
+- **Expiration**: Support URL expiration dates
+
+### Non-Functional Requirements
+- **Scale**: 100M URLs shortened per day, 10:1 read/write ratio
+- **Latency**: Redirect latency < 100ms at 95th percentile
+- **Availability**: 99.9% uptime
+- **Durability**: URLs should not be lost
+
+## 2. Capacity Planning
+
+### Traffic Estimates
+- **Write QPS**: 100M URLs/day ≈ 1,200 writes/second
+- **Read QPS**: 1B redirects/day ≈ 12,000 reads/second
+- **Peak Traffic**: 2-3x average = 3,600 writes/sec, 36,000 reads/sec
+
+### Storage Estimates
+- **URL Storage**: Assuming 2KB per URL record → 200GB/day
+- **5-year retention**: 365TB total storage needed
+- **Cache Requirements**: 80/20 rule → cache 20% of hot URLs
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-capacity.svg"
+  caption="Capacity planning breakdown for URL shortener service"
+  size="lg"
+/>
+
+## 3. High-Level Architecture
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-architecture.svg"
+  caption="High-level architecture supporting 100M daily URL shortenings"
+  size="full"
+/>
+
+### Core Components
+
+1. **Load Balancer**: Distributes traffic across application servers
+2. **Application Servers**: Handle shortening and redirect logic
+3. **Cache Layer**: Redis cluster for hot URLs (sub-ms latency)
+4. **Database**: Distributed database for URL mappings
+5. **Analytics Service**: Async processing of click events
+6. **CDN**: Global distribution for faster redirects
+
+## 4. Database Design
+
+### Schema Design
+
+```sql
+-- URL Mappings Table
+CREATE TABLE urls (
+    short_code VARCHAR(7) PRIMARY KEY,
+    long_url TEXT NOT NULL,
+    user_id BIGINT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP,
+    click_count BIGINT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Analytics Events Table  
+CREATE TABLE analytics (
+    id BIGINT PRIMARY KEY,
+    short_code VARCHAR(7),
+    timestamp TIMESTAMP,
+    ip_address INET,
+    user_agent TEXT,
+    referrer TEXT,
+    country VARCHAR(2),
+    city VARCHAR(50)
+);
+
+-- Users Table
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    plan_type VARCHAR(20) DEFAULT 'free'
+);
+```
+
+### Database Sharding Strategy
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-sharding.svg"
+  caption="Database sharding strategy using consistent hashing on short_code"
+/>
+
+**Sharding Key**: `short_code` (ensures related data stays together)
+**Sharding Function**: `shard = hash(short_code) % num_shards`
+
+Benefits:
+- ✅ Even distribution of data
+- ✅ Single-shard queries for redirects
+- ✅ Easy to add new shards
+
+## 5. URL Encoding Algorithm
+
+### Base62 Encoding Approach
+
+```python
+class URLShortener:
+    BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    
+    def encode_id(self, id: int) -> str:
+        """Convert numeric ID to base62 string"""
+        if id == 0:
+            return self.BASE62[0]
+        
+        result = ""
+        while id > 0:
+            result = self.BASE62[id % 62] + result
+            id //= 62
+        return result
+    
+    def generate_short_code(self, long_url: str, user_id: int = None) -> str:
+        # Generate unique ID using distributed ID generator
+        unique_id = self.get_next_id()
+        return self.encode_id(unique_id)
+```
+
+### Alternative Approaches
+
+<Excalidraw 
+  src="/diagrams/system-design/url-encoding-strategies.svg"
+  caption="Comparison of URL encoding strategies: Counter vs Hash vs UUID"
+  size="lg"
+/>
+
+**Why Base62 Counter?**
+- ✅ Guaranteed unique short codes
+- ✅ Predictable length (7 chars = 62^7 = 3.5 trillion URLs)
+- ✅ No collision handling needed
+- ❌ Sequential patterns (can be mitigated with scrambling)
+
+## 6. Caching Strategy
+
+### Multi-Level Caching
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-caching.svg"
+  caption="Multi-level caching architecture with CDN, Redis, and application-level cache"
+/>
+
+### Cache Implementation
+
+```python
+class URLCache:
+    def __init__(self):
+        self.redis_client = redis.Redis(host='redis-cluster')
+        self.local_cache = {}
+        
+    async def get_url(self, short_code: str) -> Optional[str]:
+        # L1: Application cache (fastest)
+        if short_code in self.local_cache:
+            return self.local_cache[short_code]
+        
+        # L2: Redis cache (fast)
+        url = await self.redis_client.get(f"url:{short_code}")
+        if url:
+            self.local_cache[short_code] = url
+            return url
+            
+        # L3: Database (slowest)
+        url = await self.db.get_url_by_code(short_code)
+        if url:
+            # Cache with TTL
+            await self.redis_client.setex(f"url:{short_code}", 3600, url)
+            self.local_cache[short_code] = url
+        
+        return url
+```
+
+### Cache Eviction Strategy
+- **LRU** for application-level cache
+- **TTL-based** for Redis (1 hour for hot URLs)
+- **Write-through** caching for new URLs
+
+## 7. API Design
+
+### REST Endpoints
+
+```yaml
+# Shorten URL
+POST /api/v1/shorten
+Request:
+  {
+    "long_url": "https://example.com/very/long/url",
+    "custom_code": "my-link",  # optional
+    "expires_at": "2026-12-31T23:59:59Z"  # optional
+  }
+Response:
+  {
+    "short_url": "https://short.ly/abc123",
+    "short_code": "abc123",
+    "expires_at": "2026-12-31T23:59:59Z"
+  }
+
+# Redirect (handled by web server)
+GET /{short_code}
+Response: 301/302 Redirect to long_url
+
+# Analytics
+GET /api/v1/analytics/{short_code}
+Response:
+  {
+    "total_clicks": 1547,
+    "daily_clicks": [...],
+    "top_countries": [...],
+    "top_referrers": [...]
+  }
+```
+
+## 8. Analytics & Monitoring
+
+### Real-time Analytics Architecture
+
+<Excalidraw 
+  url="https://excalidraw.com/#json=8095358245,B3F5D8E9A8B1C3D5E2F7G9H0I1J4K7L9"
+  caption="🔍 Interactive analytics pipeline - explore each component"
+  height={600}
+/>
+
+### Analytics Implementation
+
+```python
+class AnalyticsCollector:
+    async def track_click(self, short_code: str, request_info: dict):
+        # Async event to avoid blocking redirect
+        event = {
+            'short_code': short_code,
+            'timestamp': datetime.utcnow(),
+            'ip_address': request_info['ip'],
+            'user_agent': request_info['user_agent'],
+            'referrer': request_info.get('referrer'),
+            'country': self.get_country(request_info['ip'])
+        }
+        
+        # Send to message queue for batch processing
+        await self.message_queue.send('analytics_events', event)
+        
+        # Update cache counters immediately
+        await self.redis.incr(f"clicks:{short_code}")
+```
+
+## 9. Advanced Features
+
+### Custom Domain Support
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-custom-domains.svg"
+  caption="Custom domain routing with DNS and SSL certificate management"
+/>
+
+### Rate Limiting
+
+```python
+class RateLimiter:
+    async def is_allowed(self, user_id: str, endpoint: str) -> bool:
+        key = f"rate_limit:{endpoint}:{user_id}"
+        current = await self.redis.get(key) or 0
+        
+        limits = {
+            'free_user': {'shorten': 100, 'window': 3600},  # 100/hour
+            'pro_user': {'shorten': 10000, 'window': 3600}   # 10K/hour
+        }
+        
+        user_limit = limits[self.get_user_plan(user_id)]
+        
+        if int(current) >= user_limit['shorten']:
+            return False
+            
+        # Increment counter with expiration
+        await self.redis.incr(key)
+        await self.redis.expire(key, user_limit['window'])
+        return True
+```
+
+## 10. Scalability Considerations
+
+### Horizontal Scaling Strategy
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-scaling.svg"
+  caption="Horizontal scaling approach with auto-scaling groups and load balancing"
+  size="full"
+/>
+
+### Database Scaling
+1. **Read Replicas**: Handle analytics queries
+2. **Sharding**: Distribute URL mappings across multiple databases
+3. **Archive Strategy**: Move old URLs to cold storage
+
+### Caching at Scale
+1. **Redis Cluster**: Distributed caching with consistent hashing
+2. **CDN Integration**: Cache popular redirects globally
+3. **Edge Caching**: Store hot URLs at edge locations
+
+## 11. Monitoring & Alerts
+
+### Key Metrics to Track
+
+```yaml
+SLI/SLO Definitions:
+  - Redirect Latency: 95th percentile < 100ms
+  - Availability: 99.9% uptime (8.76 hours downtime/year)
+  - Error Rate: < 0.1% of requests fail
+  - Cache Hit Rate: > 85% for Redis, > 70% for CDN
+
+Alerts:
+  - High Error Rate: > 0.5% errors in 5-minute window
+  - High Latency: 95th percentile > 200ms for 3 minutes
+  - Low Cache Hit Rate: < 80% for 10 minutes
+  - Database Lag: Read replica lag > 1 second
+```
+
+### Monitoring Dashboard
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-monitoring.svg"
+  caption="Comprehensive monitoring dashboard with key metrics and alerts"
+/>
+
+## 12. Security Considerations
+
+### Security Measures
+
+1. **Input Validation**
+   - Validate URLs against malicious patterns
+   - Rate limiting to prevent abuse
+   - CAPTCHA for suspicious traffic
+
+2. **Spam Prevention**
+   - Blacklist known malicious domains
+   - Machine learning models for spam detection
+   - User reputation scoring
+
+3. **Data Protection**
+   - Encrypt sensitive data at rest
+   - Use HTTPS for all communications
+   - Regular security audits
+
+```python
+class SecurityValidator:
+    BLOCKED_DOMAINS = ['malicious-site.com', 'spam-domain.net']
+    
+    def validate_url(self, url: str) -> bool:
+        # Check URL format
+        if not self.is_valid_url(url):
+            return False
+            
+        # Check against blacklist
+        domain = self.extract_domain(url)
+        if domain in self.BLOCKED_DOMAINS:
+            return False
+            
+        # Check with security service
+        return self.security_service.is_safe(url)
+```
+
+## 13. Interview Discussion Points
+
+### Follow-up Questions & Answers
+
+**Q: How would you handle a celebrity tweeting your short link?**
+- **A**: Auto-scaling based on traffic patterns, CDN caching, circuit breakers to protect backend
+
+**Q: What if database goes down?**
+- **A**: Database clustering, read replicas, graceful degradation with cache-only mode
+
+**Q: How to prevent malicious URL shortening?**
+- **A**: URL validation, reputation scoring, rate limiting, content scanning
+
+**Q: How to scale to 1 trillion URLs?**
+- **A**: More database shards, hierarchical sharding, cold storage for old URLs
+
+### Optimization Trade-offs
+
+<Excalidraw 
+  src="/diagrams/system-design/url-shortener-tradeoffs.svg"
+  caption="System design trade-offs: Consistency vs Availability vs Partition tolerance"
+/>
+
+## Summary
+
+This URL shortener design demonstrates:
+- ✅ **Scalability**: Handles 100M+ URLs/day with horizontal scaling
+- ✅ **Performance**: Sub-100ms redirects with multi-level caching  
+- ✅ **Reliability**: 99.9% availability with redundancy
+- ✅ **Analytics**: Real-time click tracking and reporting
+- ✅ **Security**: Comprehensive protection against abuse
+
+The architecture balances simplicity with scalability, making it production-ready for a service like bit.ly or tinyurl.
+
+<Callout type="success" title="Interview Tips">
+- Start with basic requirements and add complexity gradually
+- Discuss trade-offs openly (CAP theorem considerations)
+- Show understanding of real-world constraints (cost, latency, consistency)
+- Demonstrate knowledge of modern distributed systems patterns
+</Callout>
