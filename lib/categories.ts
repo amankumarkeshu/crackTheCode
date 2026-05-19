@@ -21,45 +21,45 @@ export const categories: Category[] = [
   {
     slug: "system-design",
     title: "System Design",
-    short: "Design large-scale distributed systems like a staff engineer.",
+    short: "Learn to design scalable distributed systems with proper architecture.",
     description:
-      "Deep-dives into how to design Twitter, WhatsApp, Uber, payment systems and more, with real capacity numbers, trade-offs, and what interviewers actually want to hear.",
+      "Comprehensive guides on designing systems like Twitter, WhatsApp, Uber, and payment platforms, with capacity planning, trade-offs, and interview-focused solutions.",
     icon: Network,
     accent: "from-indigo-500/20 to-indigo-500/0",
   },
   {
     slug: "lld",
     title: "Low-Level Design",
-    short: "Object-oriented design problems with clean code & class diagrams.",
+    short: "Master object-oriented design with practical examples and clean architecture.",
     description:
-      "Parking Lot, Splitwise, BookMyShow, Rate Limiter and more, modelled with SOLID principles, design patterns, and production-ready code in Java/Python.",
+      "Common design problems like Parking Lot, Splitwise, BookMyShow, and Rate Limiter, solved using SOLID principles, design patterns, and clean code practices.",
     icon: Boxes,
     accent: "from-fuchsia-500/20 to-fuchsia-500/0",
   },
   {
     slug: "dsa",
     title: "DSA Patterns",
-    short: "Pattern-first DSA prep, recognize, template, then solve.",
+    short: "Learn algorithm patterns that solve most interview coding problems.",
     description:
-      "Forget grinding 500 problems. Learn the 20 patterns that cover 90% of interview questions: sliding window, monotonic stack, binary search on answer, DP on trees, and more.",
+      "Efficient preparation through pattern recognition. Master 20 core patterns including sliding window, monotonic stack, binary search, dynamic programming, and graph algorithms that cover most interview scenarios.",
     icon: Binary,
     accent: "from-emerald-500/20 to-emerald-500/0",
   },
   {
     slug: "interview-experiences",
     title: "Interview Experiences",
-    short: "First-person debriefs from real big-tech loops.",
+    short: "Real interview experiences and lessons from top technology companies.",
     description:
-      "Round-by-round breakdowns from Google, Meta, Amazon and more, what was asked, what worked, what didn't, and the tactical lessons you can apply tomorrow.",
+      "Detailed accounts of technical interviews at Google, Meta, Amazon, and other leading companies. Learn from real examples of questions asked, successful strategies, and common pitfalls.",
     icon: MessagesSquare,
     accent: "from-amber-500/20 to-amber-500/0",
   },
   {
     slug: "concepts",
     title: "Concepts",
-    short: "Foundational ideas every senior engineer should own.",
+    short: "Core computer science concepts for advanced engineering roles.",
     description:
-      "Consensus, distributed transactions, event sourcing, observability, networking primitives, short, dense explainers you can revisit before any interview.",
+      "Essential topics including consensus algorithms, distributed transactions, event sourcing, observability, and networking fundamentals. Concise explanations perfect for interview preparation and knowledge reinforcement.",
     icon: Lightbulb,
     accent: "from-sky-500/20 to-sky-500/0",
   },

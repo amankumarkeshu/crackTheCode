@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { InFeedAd } from "@/components/ad-unit";
 
 export const metadata: Metadata = {
-  title: "Blog",
+  title: "Learning Resources",
   description:
-    "All articles across System Design, LLD, DSA, Interview Experiences and core Concepts.",
+    "Comprehensive learning materials covering System Design, Low-Level Design, Data Structures & Algorithms, and Interview Experiences.",
 };
 
 export default function BlogIndexPage() {
@@ -17,14 +17,34 @@ export default function BlogIndexPage() {
 
   return (
     <div className="container py-16 md:py-20">
-      <div className="mx-auto max-w-3xl text-center">
-        <Badge variant="secondary">Blog</Badge>
+      <div className="mx-auto max-w-4xl text-center">
+        <Badge variant="secondary">Learning Resources</Badge>
         <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight md:text-5xl">
-          Long-form, no-fluff articles for senior engineers.
+          Structured Learning for Technical Interviews
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Pick a topic to dive in, or scroll for everything in chronological order.
+          Choose your learning path below, or browse all resources to find exactly what you need.
         </p>
+      </div>
+
+      <div className="mx-auto max-w-4xl mt-8 mb-12">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Link href="/how-to-use" className="rounded-lg border border-border bg-card p-6 block hover:border-primary/50 transition-colors">
+            <h3 className="font-semibold mb-2">📚 How to Use This Platform</h3>
+            <p className="text-sm text-muted-foreground mb-4">Start here if you're new. Learn how to structure your preparation and make the most of available resources.</p>
+            <p className="text-xs text-primary font-medium">→ Recommended first step</p>
+          </Link>
+          <Link href="/how-to-use#learning-paths" className="rounded-lg border border-border bg-card p-6 block hover:border-primary/50 transition-colors">
+            <h3 className="font-semibold mb-2">🎯 Learning Paths</h3>
+            <p className="text-sm text-muted-foreground mb-4">Follow curated sequences of topics designed to build knowledge progressively from fundamentals to advanced concepts.</p>
+            <p className="text-xs text-primary font-medium">→ Structured approach</p>
+          </Link>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h3 className="font-semibold mb-2">🔍 Topic Browser</h3>
+            <p className="text-sm text-muted-foreground mb-4">Browse by category below to focus on specific areas like System Design, LLD, or Algorithm patterns.</p>
+            <p className="text-xs text-primary font-medium">→ Browse categories below</p>
+          </div>
+        </div>
       </div>
 
       <div className="mt-10 flex flex-wrap justify-center gap-2">
@@ -48,7 +68,7 @@ export default function BlogIndexPage() {
       <div className="mt-12">
         {posts.length === 0 ? (
           <p className="text-center text-muted-foreground">
-            No posts yet. The first batch is coming this week.
+            Learning materials are being prepared. Check back soon for comprehensive content.
           </p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">

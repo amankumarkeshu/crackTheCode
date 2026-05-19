@@ -10,7 +10,7 @@ export function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <Badge variant="default" className="mb-6 inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            New: System Design Vault, joining the waitlist
+            System Design Vault - Comprehensive Learning Platform
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight md:text-6xl">
             Hey, I&apos;m {siteConfig.author.name.split(" ")[0]}.
@@ -19,25 +19,25 @@ export function Hero() {
             {siteConfig.author.title}
           </p>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-foreground/80 md:text-lg">
-            I write deep, no-fluff guides on{" "}
+            Learn{" "}
             <span className="font-semibold text-foreground">System Design</span>,{" "}
             <span className="font-semibold text-foreground">Low-Level Design</span>,{" "}
-            <span className="font-semibold text-foreground">DSA patterns</span> and real{" "}
-            <span className="font-semibold text-foreground">interview experiences</span>{" "}
-            from big-tech loops, the stuff I wish I&apos;d had when I was prepping.
+            <span className="font-semibold text-foreground">Algorithm patterns</span>, and{" "}
+            <span className="font-semibold text-foreground">interview strategies</span>{" "}
+            through structured courses and real-world examples from experienced engineers.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <LinkButton href="/blog" size="lg">
-              Read the blog
+            <LinkButton href="/how-to-use" size="lg">
+              Start Learning
               <ArrowRight className="h-4 w-4" />
             </LinkButton>
             <LinkButton
-              href="/courses/system-design-vault"
+              href="/blog"
               variant="outline"
               size="lg"
             >
-              Join the Vault waitlist
+              Browse Resources
             </LinkButton>
           </div>
         </div>

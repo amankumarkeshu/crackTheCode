@@ -1,6 +1,6 @@
-# amankumarkeshu.in
+# CrackTheLoop
 
-Personal site, blog, and (eventually) paid System Design Vault for [CrackTheCode](https://amankumarkeshu.in).
+Personal site, blog, and (eventually) paid System Design Vault for [CrackTheLoop](https://cracktheloop.netlify.app).
 
 Built with **Next.js 14 (App Router)**, **MDX**, **Tailwind CSS** and TypeScript.
 
@@ -27,7 +27,7 @@ If you're behind a corporate proxy (Nutanix Artifactory etc.) and the platform-s
 ## Project structure
 
 ```
-amankumarkeshu/
+cracktheloop/
 ├─ app/                            # Next.js App Router
 │  ├─ (marketing) →                # implicit, served from app/page.tsx etc.
 │  ├─ page.tsx                     # landing

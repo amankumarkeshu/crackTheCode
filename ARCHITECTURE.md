@@ -1,4 +1,4 @@
-# CrackTheCode Architecture Documentation
+# CrackTheLoop Architecture Documentation
 
 ## Table of Contents
 1. [Project Overview](#project-overview)
@@ -15,7 +15,7 @@
 
 ## Project Overview
 
-**CrackTheCode** (also known as CrackTheLoop) is a Next.js-based blog and educational platform focused on helping engineers crack big-tech interviews. It covers System Design, Low-Level Design (LLD), Data Structures & Algorithms (DSA), interview experiences, and foundational concepts.
+**CrackTheLoop** is a Next.js-based blog and educational platform focused on helping engineers crack big-tech interviews. It covers System Design, Low-Level Design (LLD), Data Structures & Algorithms (DSA), interview experiences, and foundational concepts.
 
 ### Key Features
 - **Content Categories**: System Design, LLD, DSA, Interview Experiences, Concepts
@@ -605,4 +605,4 @@ export async function generateStaticParams() {
 
 ---
 
-This architecture documentation provides a comprehensive guide to understanding and modifying the CrackTheCode platform. For specific implementation questions, refer to the individual component files and their inline documentation.
+This architecture documentation provides a comprehensive guide to understanding and modifying the CrackTheLoop platform. For specific implementation questions, refer to the individual component files and their inline documentation.

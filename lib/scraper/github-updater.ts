@@ -3,7 +3,7 @@ import { InterviewQuestion } from '@/data/interview-questions';
 export class GitHubQuestionsUpdater {
   private readonly GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   private readonly REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'amankumarkeshu';
-  private readonly REPO_NAME = process.env.GITHUB_REPO_NAME || 'crackTheCode';
+  private readonly REPO_NAME = process.env.GITHUB_REPO_NAME || 'cracktheloop';
   
   public async addQuestionsToFile(newQuestions: InterviewQuestion[]): Promise<{success: boolean, message: string}> {
     if (!this.GITHUB_TOKEN) {

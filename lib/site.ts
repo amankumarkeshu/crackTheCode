@@ -4,8 +4,8 @@ export const siteConfig = {
   domain: "cracktheloop.in",
   url: "https://cracktheloop.in",
   description:
-    "Crack your big-tech interview loop, system design, LLD, DSA and real interview deep-dives from a senior big-tech engineer. Free articles + the System Design Vault.",
-  tagline: "Crack Your Big-Tech Interview Loop",
+    "Master system design, low-level design, and algorithms with structured learning paths from a senior engineer with experience at top tech companies. Access comprehensive guides and practical interview preparation.",
+  tagline: "Master Tech Interviews with Structured Learning",
   email: "hello@cracktheloop.in",
   social: {
     twitter: "https://twitter.com/amankumarkeshu",
@@ -17,7 +17,7 @@ export const siteConfig = {
   author: {
     name: "Aman Kumar Keshu",
     title: "Senior Software Engineer · Big Tech",
-    bio: "Senior software engineer with years of experience designing and shipping large-scale distributed systems at big-tech companies. I help engineers crack senior and staff-level interviews at Google, Meta, Amazon, Atlassian, and beyond.",
+    bio: "Senior software engineer with proven experience building distributed systems at leading technology companies. I provide structured guidance for engineers preparing for senior and staff-level technical interviews.",
     interviewedAt: [
       "Google",
       "Meta",
@@ -33,14 +33,13 @@ export const siteConfig = {
     ],
   },
   nav: [
-    { title: "Blog", href: "/blog" },
+    { title: "How to Use", href: "/how-to-use" },
+    { title: "Learning Resources", href: "/blog" },
     { title: "System Design", href: "/blog/system-design" },
     { title: "LLD", href: "/blog/lld" },
     { title: "DSA", href: "/blog/dsa" },
     { title: "Interview Stories", href: "/blog/interview-experiences" },
-    { title: "Interview Questions", href: "/interview-questions" },
-    { title: "Leaderboard", href: "/leaderboard" },
-    { title: "Mentorship", href: "/mentorship" },
+    { title: "Courses", href: "/courses/system-design-vault" },
     { title: "About", href: "/about" },
   ],
 };

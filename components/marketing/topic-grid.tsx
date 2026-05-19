@@ -8,11 +8,11 @@ export function TopicGrid() {
     <section className="container py-16 md:py-24">
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="text-balance text-3xl font-bold tracking-tight md:text-4xl">
-          What you&apos;ll find here
+          Learning Categories
         </h2>
         <p className="mt-3 text-muted-foreground">
-          Five sections, all free, all written for engineers preparing for senior and staff-level
-          interviews.
+          Comprehensive learning resources organized by topic, designed for engineers at all experience levels
+          preparing for technical interviews.
         </p>
       </div>
 

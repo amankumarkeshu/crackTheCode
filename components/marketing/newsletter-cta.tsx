@@ -8,11 +8,11 @@ export function NewsletterCTA() {
           <Mail className="h-5 w-5" />
         </div>
         <h2 className="mt-5 text-2xl font-bold tracking-tight md:text-3xl">
-          One deep-dive in your inbox each week.
+          Weekly Learning Updates
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          No fluff, no spam, no LinkedIn-influencer takes. Just one carefully written piece on
-          system design, LLD or DSA every Sunday.
+          Get the latest learning materials, interview insights, and platform updates delivered weekly.
+          Quality content focused on your technical growth.
         </p>
 
         <form
@@ -36,7 +36,7 @@ export function NewsletterCTA() {
         </form>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Free. Unsubscribe anytime. Hooked up to your real email provider in Phase 2.
+          Free weekly updates. Unsubscribe anytime. Your email stays private.
         </p>
       </div>
     </section>

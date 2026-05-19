@@ -15,9 +15,9 @@ const TOPICS = [
 ];
 
 const PROMISES = [
-  "9 Core Distributed System Domains → 90+ deep-dives covering everything from Data Modeling to Observability.",
-  "The Staff-Level Spectrum → Go beyond \"Boxes and Arrows\" to master Real-World Trade-offs, Decision Making, and Component Analysis.",
-  "Senior+ Mental Models → Frameworks I use myself in real big-tech design rounds.",
+  "9 Core System Domains → 90+ comprehensive questions covering Data Modeling, Caching, Reliability, and Observability.",
+  "Advanced Engineering Concepts → Learn practical trade-offs, decision-making frameworks, and component analysis.",
+  "Interview-Ready Knowledge → Proven strategies and mental models used in senior-level technical interviews.",
 ];
 
 export function FlagshipCard() {
@@ -36,13 +36,13 @@ export function FlagshipCard() {
             </div>
 
             <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight md:text-4xl">
-              The Ultimate System Design Vault: 90+ questions to sharpen your engineering mind.
+              System Design Vault: 90+ Questions for Technical Interview Mastery
             </h2>
 
             <p className="mt-4 max-w-2xl text-muted-foreground">
-              A comprehensive curriculum of 90+ foundational questions designed for Senior, Staff,
-              and Principal Engineer interviews, with worked answers, trade-offs, and the
-              follow-ups interviewers actually ask.
+              A structured curriculum of 90+ system design questions tailored for Senior, Staff,
+              and Principal Engineer roles. Each question includes detailed solutions, architectural
+              trade-offs, and common follow-up scenarios from actual interviews.
             </p>
 
             <ul className="mt-6 space-y-3">
@@ -56,10 +56,10 @@ export function FlagshipCard() {
 
             <div className="mt-8 flex flex-wrap gap-3">
               <LinkButton href="/courses/system-design-vault" size="lg">
-                Join the waitlist
+                Access Course
               </LinkButton>
               <LinkButton href="/blog/system-design" variant="outline" size="lg">
-                Browse free articles
+                View Sample Content
               </LinkButton>
             </div>
           </div>

@@ -19,23 +19,23 @@ export default function HomePage() {
       <TopicGrid />
 
       <section className="container py-16 md:py-24">
-        <div className="mb-10 flex items-end justify-between gap-4">
+          <div className="mb-10 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-balance text-3xl font-bold tracking-tight md:text-4xl">
-              Latest writing
+              Latest Learning Materials
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Fresh articles across system design, LLD, DSA and interview experiences.
+              New content across system design, low-level design, algorithms, and interview preparation.
             </p>
           </div>
           <LinkButton href="/blog" variant="outline" size="sm">
-            All posts
+            All Resources
             <ArrowRight className="h-4 w-4" />
           </LinkButton>
         </div>
 
         {latestPosts.length === 0 ? (
-          <p className="text-muted-foreground">No posts yet, check back soon.</p>
+          <p className="text-muted-foreground">Learning materials coming soon. Check back for comprehensive content.</p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {latestPosts.map((post) => (
