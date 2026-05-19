@@ -16,10 +16,10 @@ export const siteConfig = {
   },
   author: {
     name: "Aman Kumar Keshu",
-    title: "Senior Software Engineer · Big Tech",
-    bio: "Senior software engineer with proven experience building distributed systems at leading technology companies. I provide structured guidance for engineers preparing for senior and staff-level technical interviews.",
+    title: " Software Engineer · Big Tech",
+    bio: "A software engineer with proven experience building distributed systems at leading technology companies. I provide structured guidance for engineers preparing for senior and staff-level technical interviews.",
     interviewedAt: [
-      "Google",
+      "Linkedin",
       "Meta",
       "Amazon",
       "Atlassian",

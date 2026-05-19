@@ -41,7 +41,7 @@ const HLD_FREE = [
   {
     title: "Distributed Cache",
     desc: "Redis cluster, consistency, eviction policies.",
-    href: "/blog/system-design/distributed-cache",
+    href: "/blog/system-design/design-distributed-cache",
     sample: ["Write-through vs write-back vs write-around?", "How to prevent cache stampede?"],
   },
   {
@@ -53,7 +53,7 @@ const HLD_FREE = [
   {
     title: "Rate Limiter",
     desc: "Token bucket, sliding window, distributed limits.",
-    href: "/blog/system-design/rate-limiter",
+    href: "/blog/system-design/design-rate-limiter",
     sample: ["Token bucket vs sliding window algorithms?", "How to implement distributed rate limiting?"],
   },
 ];
