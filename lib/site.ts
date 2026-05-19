@@ -20,16 +20,14 @@ export const siteConfig = {
     bio: "A software engineer with proven experience building distributed systems at leading technology companies. I provide structured guidance for engineers preparing for senior and staff-level technical interviews.",
     interviewedAt: [
       "Linkedin",
-      "Meta",
+      "Uber",
       "Amazon",
       "Atlassian",
       "Microsoft",
       "Salesforce",
       "Walmart",
       "Adobe",
-      "Uber",
       "Oracle",
-      "LinkedIn",
     ],
   },
   nav: [
