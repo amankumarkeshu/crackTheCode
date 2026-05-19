@@ -37,6 +37,7 @@ export const siteConfig = {
     { title: "LLD", href: "/blog/lld" },
     { title: "DSA", href: "/blog/dsa" },
     { title: "Interview Stories", href: "/blog/interview-experiences" },
+    { title: "Interview Questions", href: "/interview-questions" },
     { title: "Courses", href: "/courses/system-design-vault" },
     { title: "About", href: "/about" },
   ],

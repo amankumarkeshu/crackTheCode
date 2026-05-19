@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ChevronRight, BookOpen, Code, Database, MessageSquare, GraduationCap, HelpCircle, Layers } from "lucide-react";
+import { ChevronRight, BookOpen, Code, Database, MessageSquare, GraduationCap, HelpCircle, Layers, FileText } from "lucide-react";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,9 @@ const navIcons = {
   "LLD": Layers,
   "DSA": Code,
   "Interview Stories": MessageSquare,
+  "Interview Questions": FileText,
   "Courses": GraduationCap,
+  "About": HelpCircle,
 } as const;
 
 export function LeftNav() {
