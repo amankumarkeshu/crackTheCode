@@ -15,25 +15,18 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        {/* Mobile logo - visible on small screens */}
+        <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
             {siteConfig.shortName}
           </span>
           <span className="hidden sm:inline">{siteConfig.name}</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
-          {siteConfig.nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              {item.title}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop: empty space for left nav, Mobile: title */}
+        <div className="hidden md:flex flex-1"></div>
 
+        {/* Right side - actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <LinkButton
@@ -44,6 +37,8 @@ export function SiteHeader() {
             Get the Vault
           </LinkButton>
           <AuthNav />
+          
+          {/* Mobile menu button */}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -55,6 +50,7 @@ export function SiteHeader() {
         </div>
       </div>
 
+      {/* Mobile navigation */}
       <div
         className={cn(
           "md:hidden border-t border-border bg-background",
