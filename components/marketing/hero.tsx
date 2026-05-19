@@ -8,13 +8,16 @@ export function Hero() {
     <section className="relative overflow-hidden gradient-mesh">
       <div className="container py-20 md:py-28">
         <div className="mx-auto max-w-3xl text-center">
+          <h1 className="text-balance text-5xl font-bold tracking-tight md:text-8xl mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            CrackTheLoop
+          </h1>
           <Badge variant="default" className="mb-6 inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
             Professional Interview Preparation Platform
           </Badge>
-          <h1 className="text-balance text-4xl font-bold tracking-tight md:text-6xl">
+          <h2 className="text-balance text-xl font-medium tracking-tight md:text-3xl text-muted-foreground">
             Master Technical Interviews with Structured Learning
-          </h1>
+          </h2>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-foreground/80 md:text-lg">
             Learn{" "}
             <span className="font-semibold text-foreground">System Design</span>,{" "}
