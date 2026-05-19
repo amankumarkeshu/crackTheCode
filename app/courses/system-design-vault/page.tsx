@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Check, Star, Sparkles, Lock, Unlock, BadgeCheck, Boxes, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -98,7 +99,7 @@ export default function VaultPage() {
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <LinkButton href="#pricing" size="lg" className="text-lg px-8">
-                i'm ready to purchase
+                i&apos;m ready to purchase
               </LinkButton>
               <LinkButton href="#preview" variant="outline" size="lg" className="text-lg px-8">
                 start free
@@ -117,10 +118,10 @@ export default function VaultPage() {
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl mb-8">why cracktheloop</h2>
           <div className="space-y-6 text-muted-foreground leading-relaxed">
             <p>
-              AI can write code. what it can't do is understand how the whole system fits together -- how services connect, where failures cascade, why one tradeoff matters more than another. that's systems thinking, and it's the skill that compounds fastest right now.
+              AI can write code. what it can&apos;t do is understand how the whole system fits together -- how services connect, where failures cascade, why one tradeoff matters more than another. that&apos;s systems thinking, and it&apos;s the skill that compounds fastest right now.
             </p>
             <p>
-              the engineers who thrive with AI aren't the ones writing more code. they're the ones who know what to ask for and can review what comes back with the judgment that only comes from fundamentals.
+              the engineers who thrive with AI aren&apos;t the ones writing more code. they&apos;re the ones who know what to ask for and can review what comes back with the judgment that only comes from fundamentals.
             </p>
             <p>
               cracktheloop is a comprehensive curriculum for that kind of engineer. every course is first-principles, long-form, and dense on purpose. no bootcamp filler, no summaries of summaries.
@@ -288,9 +289,8 @@ export default function VaultPage() {
             + {LLD_LOCKED.length - 6} more problems available with full access
           </p>
         </div>
-      </section>
 
-        <div className="mx-auto max-w-2xl text-center mt-16 pt-16 border-t border-border">
+        <div className="container mx-auto max-w-2xl text-center mt-16 pt-16 border-t border-border">
           <h3 className="text-2xl font-bold tracking-tight mb-4">
             system design domains
           </h3>
@@ -299,7 +299,7 @@ export default function VaultPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mx-auto max-w-4xl">
+        <div className="container mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mx-auto max-w-4xl">
           {HLD_FREE.map((t) => (
             <div key={t.title} className="rounded-xl border border-indigo-300/40 bg-card p-5">
               <div className="flex items-center justify-between">
@@ -330,7 +330,7 @@ export default function VaultPage() {
           ))}
         </div>
 
-        <div className="mt-12 flex justify-center">
+        <div className="container mt-12 flex justify-center">
           <LinkButton href="#pricing" size="lg">
             access all domains
           </LinkButton>
@@ -346,7 +346,7 @@ export default function VaultPage() {
           <div className="grid gap-8 md:grid-cols-2">
             <div className="rounded-2xl border border-border bg-card p-8">
               <blockquote className="text-muted-foreground mb-6">
-                "I've been working as a backend engineer for a while, and most of my system design understanding came from scattered blogs and docs. CrackTheLoop helped bring that into a much clearer structure. The approach worked really well for me."
+                &ldquo;I&apos;ve been working as a backend engineer for a while, and most of my system design understanding came from scattered blogs and docs. CrackTheLoop helped bring that into a much clearer structure. The approach worked really well for me.&rdquo;
               </blockquote>
               <div>
                 <p className="font-semibold">priya sharma</p>
@@ -356,7 +356,7 @@ export default function VaultPage() {
             
             <div className="rounded-2xl border border-border bg-card p-8">
               <blockquote className="text-muted-foreground mb-6">
-                "I'm a frontend engineer who'd been faking my way through system design conversations for years. This course is the first thing that actually closed the gap. Now I can sit in design reviews and actually follow what's happening."
+                &ldquo;I&apos;m a frontend engineer who&apos;d been faking my way through system design conversations for years. This course is the first thing that actually closed the gap. Now I can sit in design reviews and actually follow what&apos;s happening.&rdquo;
               </blockquote>
               <div>
                 <p className="font-semibold">arjun patel</p>

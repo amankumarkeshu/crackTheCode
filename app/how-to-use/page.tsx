@@ -214,7 +214,7 @@ export default function HowToUsePage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>• Try to solve problems before reading solutions</li>
                 <li>• Draw diagrams and system architectures</li>
-                <li>• Ask yourself "why" and "what if" questions</li>
+                <li>• Ask yourself &ldquo;why&rdquo; and &ldquo;what if&rdquo; questions</li>
                 <li>• Connect new concepts to your existing knowledge</li>
               </ul>
             </div>

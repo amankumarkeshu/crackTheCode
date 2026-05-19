@@ -31,7 +31,7 @@ export default function BlogIndexPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Link href="/how-to-use" className="rounded-lg border border-border bg-card p-6 block hover:border-primary/50 transition-colors">
             <h3 className="font-semibold mb-2">📚 How to Use This Platform</h3>
-            <p className="text-sm text-muted-foreground mb-4">Start here if you're new. Learn how to structure your preparation and make the most of available resources.</p>
+            <p className="text-sm text-muted-foreground mb-4">Start here if you&apos;re new. Learn how to structure your preparation and make the most of available resources.</p>
             <p className="text-xs text-primary font-medium">→ Recommended first step</p>
           </Link>
           <Link href="/how-to-use#learning-paths" className="rounded-lg border border-border bg-card p-6 block hover:border-primary/50 transition-colors">

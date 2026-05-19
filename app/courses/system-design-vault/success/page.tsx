@@ -56,14 +56,14 @@ export default function PaymentSuccessPage({
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             {isFoundingMember ? (
               <>
-                <li>• you'll receive an email with your access links and whatsapp details shortly.</li>
+                <li>• you&apos;ll receive an email with your access links and whatsapp details shortly.</li>
                 <li>• full course content is live now, with new courses added regularly.</li>
                 <li>• early access and voting rights for future courses are included.</li>
                 <li>• lifetime access means no renewals or upsells, ever.</li>
               </>
             ) : (
               <>
-                <li>• you'll receive an email with your access link shortly.</li>
+                <li>• you&apos;ll receive an email with your access link shortly.</li>
                 <li>• full content will be live when the vault launches (updated for 2026).</li>
                 <li>• all future updates and new questions are included at no extra cost.</li>
               </>
