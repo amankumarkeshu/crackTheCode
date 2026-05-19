@@ -38,17 +38,19 @@ interface RazorpayInstance {
 interface RazorpayButtonProps {
   className?: string;
   size?: "default" | "sm" | "lg";
-  product?: "lld" | "hld" | "bundle";
+  product?: "lld" | "hld" | "bundle" | "founding-member";
   label?: string;
+  children?: React.ReactNode;
 }
 
 const PRODUCT_CONFIG = {
   lld: { amount: 149900, description: "LLD Vault, 20 Problems · Lifetime Access", label: "Buy LLD Vault, ₹1,499", successPath: "/courses/system-design-vault/success?product=lld" },
   hld: { amount: 149900, description: "System Design Vault, 90+ Questions · Lifetime Access", label: "Buy HLD Vault, ₹1,499", successPath: "/courses/system-design-vault/success?product=hld" },
   bundle: { amount: 199900, description: "Full Vault Bundle (LLD + HLD) · Lifetime Access", label: "Buy Full Bundle, ₹1,999", successPath: "/courses/system-design-vault/success?product=bundle" },
+  "founding-member": { amount: 99900, description: "Founding Member Pass · Complete Interview Mastery · Lifetime Access", label: "become a founding member · ₹999", successPath: "/courses/system-design-vault/success?product=founding-member" },
 };
 
-export function RazorpayButton({ className, size = "lg", product = "bundle", label }: RazorpayButtonProps) {
+export function RazorpayButton({ className, size = "lg", product = "bundle", label, children }: RazorpayButtonProps) {
   const [loading, setLoading] = useState(false);
   const cfg = PRODUCT_CONFIG[product];
 
@@ -104,7 +106,7 @@ export function RazorpayButton({ className, size = "lg", product = "bundle", lab
               Processing…
             </>
           ) : (
-            label ?? cfg.label
+            children ?? label ?? cfg.label
           )}
         </Button>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">

@@ -55,11 +55,11 @@ export function FlagshipCard() {
             </ul>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <LinkButton href="/courses/system-design-vault" size="lg">
-                Access Course
+              <LinkButton href="/courses/system-design-vault#pricing" size="lg">
+                join founding members
               </LinkButton>
-              <LinkButton href="/blog/system-design" variant="outline" size="lg">
-                View Sample Content
+              <LinkButton href="/courses/system-design-vault#preview" variant="outline" size="lg">
+                try free samples
               </LinkButton>
             </div>
           </div>
