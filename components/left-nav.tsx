@@ -29,24 +29,29 @@ export function LeftNav() {
   return (
     <div 
       className={cn(
-        "fixed left-0 top-0 z-50 h-full bg-background/95 backdrop-blur-sm border-r border-border transition-all duration-300 ease-in-out hidden md:block",
+        "fixed left-0 top-0 z-50 h-full bg-background/95 backdrop-blur-sm border-r border-border transition-all duration-300 ease-in-out hidden md:block shadow-sm",
         isHovered ? "w-64" : "w-16"
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Logo/Brand */}
+      {/* Logo/Brand - Always visible */}
       <div className="flex items-center h-16 px-4 border-b border-border">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
+        <Link href="/" className="flex items-center gap-3 w-full">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold flex-none">
             {siteConfig.shortName}
           </div>
-          <span className={cn(
-            "font-semibold text-foreground transition-opacity duration-300",
-            isHovered ? "opacity-100" : "opacity-0"
+          <div className={cn(
+            "font-bold text-foreground transition-all duration-300 overflow-hidden",
+            isHovered ? "opacity-100 w-auto" : "opacity-0 w-0"
           )}>
-            {siteConfig.name}
-          </span>
+            <div className="whitespace-nowrap text-lg">
+              {siteConfig.name}
+            </div>
+            <div className="text-xs text-muted-foreground font-normal">
+              {siteConfig.tagline}
+            </div>
+          </div>
         </Link>
       </div>
 
@@ -96,8 +101,10 @@ export function LeftNav() {
 
       {/* Collapsed state indicator */}
       {!isHovered && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-1">
           <div className="w-8 h-1 bg-primary/30 rounded-full"></div>
+          <div className="w-6 h-0.5 bg-primary/20 rounded-full"></div>
+          <div className="w-4 h-0.5 bg-primary/10 rounded-full"></div>
         </div>
       )}
     </div>

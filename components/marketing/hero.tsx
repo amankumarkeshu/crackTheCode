@@ -10,14 +10,11 @@ export function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <Badge variant="default" className="mb-6 inline-flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
-            System Design Vault - Comprehensive Learning Platform
+            Professional Interview Preparation Platform
           </Badge>
           <h1 className="text-balance text-4xl font-bold tracking-tight md:text-6xl">
-            Hey, I&apos;m {siteConfig.author.name.split(" ")[0]}.
+            Master Technical Interviews with Structured Learning
           </h1>
-          <p className="mt-3 text-lg text-muted-foreground md:text-xl">
-            {siteConfig.author.title}
-          </p>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-foreground/80 md:text-lg">
             Learn{" "}
             <span className="font-semibold text-foreground">System Design</span>,{" "}
