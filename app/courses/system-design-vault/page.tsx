@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 };
 
 const LLD_FREE = [
-  { title: "Library Management System", desc: "State machine, SOLID, waitlist design." },
-  { title: "Elevator System", desc: "LOOK algorithm, dispatcher strategy." },
-  { title: "Snake and Ladder", desc: "BoardElement abstraction, OCP in action." },
-  { title: "LRU Cache", desc: "HashMap + doubly linked list, thread safety." },
-  { title: "Logger Framework", desc: "Chain of responsibility, pluggable appenders." },
+  { title: "Library Management System", desc: "State machine, SOLID, waitlist design.", href: "/blog/lld/design-library-management-system" },
+  { title: "Elevator System", desc: "LOOK algorithm, dispatcher strategy.", href: "/blog/lld/design-elevator-system" },
+  { title: "Snake and Ladder", desc: "BoardElement abstraction, OCP in action.", href: "/blog/lld/design-snake-and-ladder" },
+  { title: "LRU Cache", desc: "HashMap + doubly linked list, thread safety.", href: "/blog/lld/design-lru-cache" },
+  { title: "Logger Framework", desc: "Chain of responsibility, pluggable appenders.", href: "/blog/lld/design-logger-framework" },
 ];
 
 const LLD_LOCKED = [
@@ -39,19 +39,22 @@ const LLD_LOCKED = [
 
 const HLD_FREE = [
   {
-    title: "Core Systems",
-    desc: "Load balancing, replication, sharding, queues.",
-    sample: ["How does consistent hashing work?", "Leader-follower vs leaderless replication trade-offs?"],
-  },
-  {
-    title: "Data Modeling",
-    desc: "Picking databases, schema design, indexing.",
-    sample: ["Wide-column vs relational for time-series?", "Social graph schema for feed + friend lookups?"],
-  },
-  {
-    title: "Caching",
-    desc: "Strategies, invalidation, consistency, multi-tier.",
+    title: "Distributed Cache",
+    desc: "Redis cluster, consistency, eviction policies.",
+    href: "/blog/system-design/distributed-cache",
     sample: ["Write-through vs write-back vs write-around?", "How to prevent cache stampede?"],
+  },
+  {
+    title: "URL Shortener", 
+    desc: "Bitly clone with analytics and rate limiting.",
+    href: "/blog/system-design/design-url-shortener-with-excalidraw",
+    sample: ["How to generate unique short URLs?", "Database sharding strategies for high scale?"],
+  },
+  {
+    title: "Rate Limiter",
+    desc: "Token bucket, sliding window, distributed limits.",
+    href: "/blog/system-design/rate-limiter",
+    sample: ["Token bucket vs sliding window algorithms?", "How to implement distributed rate limiting?"],
   },
 ];
 
@@ -268,13 +271,14 @@ export default function VaultPage() {
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mx-auto max-w-4xl">
           {LLD_FREE.map((t) => (
-            <div key={t.title} className="rounded-xl border border-fuchsia-300/40 bg-card p-5 flex items-start gap-3">
-              <Unlock className="h-4 w-4 mt-0.5 flex-none text-green-500" />
-              <div>
-                <p className="font-semibold text-sm">{t.title}</p>
+            <Link key={t.title} href={t.href} className="rounded-xl border border-fuchsia-300/40 bg-card p-5 flex items-start gap-3 hover:border-fuchsia-400/60 hover:shadow-sm transition-all duration-200 group">
+              <Unlock className="h-4 w-4 mt-0.5 flex-none text-green-500 group-hover:text-green-600" />
+              <div className="flex-1">
+                <p className="font-semibold text-sm group-hover:text-fuchsia-600 transition-colors">{t.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{t.desc}</p>
+                <p className="mt-2 text-xs text-green-600 font-medium">Click to read →</p>
               </div>
-            </div>
+            </Link>
           ))}
           {LLD_LOCKED.slice(0, 6).map((t) => (
             <div key={t.title} className="rounded-xl border border-border bg-card/50 p-5 flex items-start gap-3 opacity-60">
@@ -301,10 +305,10 @@ export default function VaultPage() {
 
         <div className="container mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mx-auto max-w-4xl">
           {HLD_FREE.map((t) => (
-            <div key={t.title} className="rounded-xl border border-indigo-300/40 bg-card p-5">
+            <Link key={t.title} href={t.href} className="rounded-xl border border-indigo-300/40 bg-card p-5 hover:border-indigo-400/60 hover:shadow-sm transition-all duration-200 group block">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">{t.title}</h3>
-                <Unlock className="h-4 w-4 text-green-500" />
+                <h3 className="font-semibold text-sm group-hover:text-indigo-600 transition-colors">{t.title}</h3>
+                <Unlock className="h-4 w-4 text-green-500 group-hover:text-green-600" />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{t.desc}</p>
               <ul className="mt-3 space-y-1">
@@ -314,7 +318,8 @@ export default function VaultPage() {
                   </li>
                 ))}
               </ul>
-            </div>
+              <p className="mt-3 text-xs text-green-600 font-medium">Click to read →</p>
+            </Link>
           ))}
           {HLD_LOCKED.map((t) => (
             <div key={t.title} className="rounded-xl border border-border bg-card/50 p-5 relative overflow-hidden">
@@ -330,10 +335,40 @@ export default function VaultPage() {
           ))}
         </div>
 
-        <div className="container mt-12 flex justify-center">
-          <LinkButton href="#pricing" size="lg">
-            access all domains
-          </LinkButton>
+        <div className="container mt-12">
+          <div className="text-center mb-8">
+            <h3 className="text-xl font-bold tracking-tight mb-4">
+              algorithm patterns
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              sample algorithm pattern guide. full access unlocks 20+ patterns.
+            </p>
+          </div>
+          
+          <div className="max-w-md mx-auto mb-8">
+            <Link href="/blog/dsa/sliding-window-pattern" className="rounded-xl border border-emerald-300/40 bg-card p-5 hover:border-emerald-400/60 hover:shadow-sm transition-all duration-200 group block">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm group-hover:text-emerald-600 transition-colors">Sliding Window Pattern</h3>
+                <Unlock className="h-4 w-4 text-green-500 group-hover:text-green-600" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Fixed and variable window techniques for array problems.</p>
+              <ul className="mt-3 space-y-1">
+                <li className="rounded bg-secondary/50 px-3 py-2 text-xs leading-relaxed">
+                  &ldquo;When to use sliding window vs two pointers?&rdquo;
+                </li>
+                <li className="rounded bg-secondary/50 px-3 py-2 text-xs leading-relaxed">
+                  &ldquo;How to handle variable window size problems?&rdquo;
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-green-600 font-medium">Click to read →</p>
+            </Link>
+          </div>
+          
+          <div className="flex justify-center">
+            <LinkButton href="#pricing" size="lg">
+              access all domains
+            </LinkButton>
+          </div>
         </div>
       </section>
 
